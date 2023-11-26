@@ -16,7 +16,7 @@ To run the code, you need to install the following libraries
 
 
 ## Prepare ROS catkin_ws
-- [] Download this repository within "catkin_ws/src" directory in your system. In the following examples, we assume the catkin workspace is installed in your home directory, i.e., you catkin workspace is "~/catkin_ws".
+- [ ] Download this repository within "catkin_ws/src" directory in your system. In the following examples, we assume the catkin workspace is installed in your home directory, i.e., you catkin workspace is "~/catkin_ws".
 
 You can use the following command
 ```bash
@@ -42,7 +42,7 @@ To run the Agility simulator, run the following command
 
 This will start a webpage at localhost:8080. Open this link with your browser. You can read the detailed Digit documentation or simulate Digit robot in this webpage.
 
-To enable controller via low-level-api operation mode, check the following link http://localhost:8080/doc/software/lowlevelapi.html
+Currently, the Digit is connected to locomotion controller from Agility by default. To enable this controller via low-level-api operation mode, check the following link http://localhost:8080/doc/software/lowlevelapi.html
 
 ## Run the controller
 ```bash
