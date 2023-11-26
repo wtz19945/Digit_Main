@@ -11,8 +11,8 @@ GCC  : https://tuxamito.com/wiki/index.php/Installing_newer_GCC_versions_in_Ubun
 ## Library Requirements
 To run the code, you need to install the following libraries 
 
-- [] ROS                     : Install ROS melodic (Ubuntu 18.04) or ROS noetic (Ubuntu 20.04) in your system.
-- [] OSQP-Eigen Github       : https://github.com/robotology/osqp-eigen
+- [ ] ROS                     : Install ROS melodic (Ubuntu 18.04) or ROS noetic (Ubuntu 20.04) in your system.
+- [ ] OSQP-Eigen Github       : https://github.com/robotology/osqp-eigen
 
 
 ## Prepare ROS catkin_ws
@@ -51,5 +51,5 @@ roslaunch Digit_ROS digit_launch.launch
 Now you should see the solver info, ros outputs, and etc in the terminal.
 
 ## Debug
-- [] If you install OSQP with the conda method, you might need to add the following command export PATH="/home/username/miniconda/bin:$PATH" to ~/.bashrc. Remember to chagne the path to your actual conbda path.
-- [] You need to change the path to the osc_robot_config.toml files in standing_controllerV2.cpp so that the toml can be correctly parsed.
+- [ ] If you install OSQP with the conda method, you might need to add the following command export PATH="/home/username/miniconda/bin:$PATH" to ~/.bashrc. Remember to chagne the path to your actual conbda path.
+- [ ] You need to change the path to the osc_robot_config.toml files in standing_controllerV2.cpp so that the toml can be correctly parsed.
