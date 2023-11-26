@@ -56,7 +56,7 @@ Now you should see the solver info, ros outputs, and etc in the terminal.
 
 ## Notice
 - [ ] This repo is actively updated. Hardware implementation and walking controller will be released next.
-- [ ] If you install OSQP with the conda method, you might need to add the following command 
+- [ ] If you install OSQP with the conda method, you might need to run the following command or add it to ~/.bashrc
 ``` bash 
 export PATH="/home/username/miniconda/bin:$PATH" to ~/.bashrc. # Remember to chagne the path to your actual conbda path.
 ```
