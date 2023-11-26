@@ -1,0 +1,44 @@
+###
+# Author:       Tianze Wang
+# Email:        tw19j@fsu.edu
+# Modified:     10/29/2023
+# Copyright:    Optimal Robotics Lab@ Florida State University
+###
+
+title = "Robot Configuration"
+
+[robot]
+name = "digit"
+
+[PD-Gains]
+com_P_gain_x = 15.0
+com_P_gain_y = 15.0
+com_P_gain_z = 50.0
+com_P_gain_rz = 50.0
+com_P_gain_ry = 50.0
+com_P_gain_rx = 50.0
+com_D_gain_x = 5.0
+com_D_gain_y = 5.0
+com_D_gain_z = 5.0
+com_D_gain_rz = 2.0
+com_D_gain_ry = 2.0
+com_D_gain_rx = 2.0
+foot_P_x = 225
+foot_P_y = 225
+foot_P_z = 225
+foot_D_x = 2
+foot_D_y = 2
+foot_D_z = 2
+
+arm_P = 450.0
+
+[QP-Params]
+st_foot_W = 1050.0
+sw_foot_W = 1050.0
+com_W = 150.0
+force_max = 400.0
+mu = 0.6
+
+[Filter]
+wd_sz = 10
+

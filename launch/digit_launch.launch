@@ -1,0 +1,3 @@
+<launch>
+  <node name="digit_ros" pkg="Digit_Ros" type="standing_controlV2" output="screen"/>
+</launch>

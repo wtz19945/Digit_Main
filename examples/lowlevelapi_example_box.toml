@@ -1,0 +1,6 @@
+# Add robot to world
+[[model-list]]
+model = "robot"
+pose = {rpyxyz = [0, 0, -2.57, 0, 0, 1]}
+
+# Add table in front of the robot and rotate so the AprilTags are facing the robot.

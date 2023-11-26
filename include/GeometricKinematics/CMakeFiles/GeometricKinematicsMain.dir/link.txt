@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/GeometricKinematicsMain.dir/examples/main.cpp.o CMakeFiles/GeometricKinematicsMain.dir/KinGeo_terminate.cpp.o -o GeometricKinematicsMain  libgeometric_kinematics_lib.a 
