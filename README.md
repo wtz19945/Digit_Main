@@ -37,8 +37,11 @@ source devel/setup.bash
 
 ## Start Simulator
 To run the Agility simulator, run the following command
-- chmod +x ar-control
-- ./ar-control ./examples/lowlevelapi_example.toml
+``` bash
+cd ~/catkin_ws/src/Digit_Ros
+chmod +x ar-control # you only need this command for the first time
+./ar-control ./examples/lowlevelapi_example.toml
+```
 
 This will start a webpage at localhost:8080. Open this link with your browser. You can read the detailed Digit documentation or simulate Digit robot in this webpage.
 
