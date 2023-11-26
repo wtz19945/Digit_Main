@@ -58,6 +58,6 @@ Now you should see the solver info, ros outputs, and etc in the terminal.
 - [ ] This repo is actively updated. Hardware implementation and walking controller will be released next.
 - [ ] If you install OSQP with the conda method, you might need to run the following command or add it to ~/.bashrc
 ``` bash 
-export PATH="/home/username/miniconda/bin:$PATH" to ~/.bashrc. # Remember to chagne the path to your actual conbda path.
+export PATH="/home/username/miniconda/bin:$PATH". # Remember to chagne the path to your actual conbda path.
 ```
-- [ ] You need to change the path to the osc_robot_config.toml files in standing_controllerV2.cpp so that the toml can be correctly parsed.
+- [ ] You need to change the path to the osc_robot_config.toml files inside standing_controllerV2.cpp so that the toml can be correctly parsed.
