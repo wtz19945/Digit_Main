@@ -49,10 +49,15 @@ Currently, the Digit is connected to locomotion controller from Agility by defau
 
 ## Run the controller
 ```bash
+cd ~/catkin_ws
 roslaunch Digit_ROS digit_launch.launch 
 ```
 Now you should see the solver info, ros outputs, and etc in the terminal.
 
-## Debug
-- [ ] If you install OSQP with the conda method, you might need to add the following command export PATH="/home/username/miniconda/bin:$PATH" to ~/.bashrc. Remember to chagne the path to your actual conbda path.
+## Notice
+- [ ] This repo is actively updated. Hardware implementation and walking controller will be released next.
+- [ ] If you install OSQP with the conda method, you might need to add the following command 
+``` bash 
+export PATH="/home/username/miniconda/bin:$PATH" to ~/.bashrc. # Remember to chagne the path to your actual conbda path.
+```
 - [ ] You need to change the path to the osc_robot_config.toml files in standing_controllerV2.cpp so that the toml can be correctly parsed.
