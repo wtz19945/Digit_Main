@@ -27,6 +27,8 @@
 #include "ros/ros.h"
 #include <std_msgs/Int8.h>
 #include "Digit_Ros/digit_state.h"
+#include "input_listener.hpp"
+
 //#include "toml.hpp"
 
 // TODO: Move to head file
@@ -281,15 +283,18 @@ int main(int argc, char* argv[])
   MovingAverageFilter pel_vel_x; 
   MovingAverageFilter pel_vel_y;
 
-  // Initialize
+  // Initialize ROS related 
   ros::init(argc, argv, "sample_node");
   ros::NodeHandle n;
   ros::Rate control_loop_rate(1000);
   ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("digit_state", 10);
   int count = 0;
-
+  double key_time_tracker;
+  int key_mode = -1;
+  InputListener input_listener(&key_mode);
+  double z_off = 0;
+  double z_off_track = 0;
   while (ros::ok()) {
-    
     // count running time
     auto elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_control_start);
     //cout << "run time of the robot is: " << observation.time - digit_time_start << endl;
@@ -450,6 +455,17 @@ int main(int argc, char* argv[])
     right_toe_vel_ref(2) = 0.2 * 3.14/200*cos(3.14*soft_start/200+3.14);
     right_toe_acc_ref(2) = -0.2 * 3.14/200*3.14/200*sin(3.14*soft_start/200+3.14);
     
+    // Compute Desired CoM Traj
+    if(key_mode == 0){
+      z_off = z_off_track + 0.1 * (observation.time - key_time_tracker);
+    }
+    else if(key_mode == 1){
+      z_off = z_off_track - 0.1 * (observation.time - key_time_tracker);
+    }
+    else{
+      key_time_tracker = observation.time;
+      z_off_track = z_off;
+    }
     //left_toe_pos_ref(2) = -0.7;
     //right_toe_pos_ref(2) = -0.7;
 
@@ -523,7 +539,7 @@ int main(int argc, char* argv[])
     pel_jaco.block(0,0,6,6) = MatrixXd::Identity(6,6);
     des_acc_pel << -KP_pel(0) * (pel_pos(0) - 0.0) - KD_pel(0) * (pel_vel(0) - 0),
                    -KP_pel(1) * (pel_pos(1) - 0.0) - KD_pel(1) * (pel_vel(1) - 0),
-                   -KP_pel(2) * (pel_pos(2) - 1.0) - KD_pel(2) * (pel_vel(2) - 0),
+                   -KP_pel(2) * (pel_pos(2) - 1.0 - z_off) - KD_pel(2) * (pel_vel(2) - 0),
                    -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
                    -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
                    -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
@@ -541,8 +557,8 @@ int main(int argc, char* argv[])
                         B, Spring_Jaco, left_toe_jaco_fa, 
                         left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
                         left_toe_rot_jaco_fa, right_toe_rot_jaco_fa);
-
-      osc.setUpQP(false); // change this to true if you want to check OSQP solver output for debug
+      bool check_solver = false; // change this to false if you want to check OSQP solver output for debug
+      osc.setUpQP(check_solver); 
     }
     else{
       osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G);
@@ -709,7 +725,7 @@ int main(int argc, char* argv[])
     state_pub.publish(msg);
     ros::spinOnce();
     control_loop_rate.sleep();
-    cout << "Desired yaw angle is: " << msg.yaw << endl;
+    //cout << "Desired yaw angle is: " << msg.yaw << endl;
     count++;
     // Check if llapi has become disconnected
     if (!llapi_connected()) {

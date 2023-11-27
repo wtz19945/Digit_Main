@@ -43,6 +43,11 @@ catkin_package(
   CATKIN_DEPENDS message_runtime
 )
 
+catkin_install_python(PROGRAMS scripts/keyinput.py
+  scripts/websockets_node.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
 # include all the directories used for compile
 set(Home_Dir ${CMAKE_CURRENT_SOURCE_DIR}) 
 
@@ -78,7 +83,7 @@ set(Digit_Source
 	src/kin_right_arm.cpp)
 	
 
-set(standing_SOURCESV2 standing_controlV2.cpp
+set(standing_SOURCESV2 standing_controlV2.cpp src/input_listener.cpp
 ${Digit_Source})
 
 # the followings are the costum libraries used for your controller

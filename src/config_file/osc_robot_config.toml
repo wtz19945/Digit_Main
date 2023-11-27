@@ -11,11 +11,11 @@ title = "Robot Configuration"
 name = "digit"
 
 [PD-Gains]
-com_P_gain_x = 15.0
-com_P_gain_y = 15.0
+com_P_gain_x = 35.0
+com_P_gain_y = 35.0
 com_P_gain_z = 50.0
 com_P_gain_rz = 50.0
-com_P_gain_ry = 50.0
+com_P_gain_ry = 150.0
 com_P_gain_rx = 50.0
 com_D_gain_x = 5.0
 com_D_gain_y = 5.0
