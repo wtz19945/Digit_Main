@@ -24,6 +24,8 @@ cd ~/catkin_ws
 mkdir src
 cd src
 git clone <git-address-to-thisrepo>.git
+
+sudo pip3 install ws4py
 ```
 
 ## Compile the code

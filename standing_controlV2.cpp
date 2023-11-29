@@ -204,7 +204,7 @@ int main(int argc, char* argv[])
   double mu = config->get_qualified_as<double>("QP-Params.mu").value_or(0);
 
   int wd_sz = config->get_qualified_as<double>("Filter.wd_sz").value_or(0);
-
+  int init_count = config->get_qualified_as<double>("Start.init_count").value_or(0);
   // Weight Matrix and Gain Vector
   MatrixXd Weight_ToeF = Wff*MatrixXd::Identity(6,6);
   VectorXd KP_ToeF = VectorXd::Zero(6,1);
@@ -222,28 +222,6 @@ int main(int argc, char* argv[])
   KP_pel << cpx,cpy,cpz,cprz,cpry,cprx;
   KD_pel << cdx,cdy,cdz,cdrz,cdry,cdrx;
 
-  // QP Bounds
-  VectorXd ddq_limit = VectorXd::Zero(20,1); // state acceleration 
-  VectorXd u_limit = VectorXd::Zero(12,1);   // torque limits
-  VectorXd tor_limit = VectorXd::Zero(4,1);  // generalized force
-  VectorXd f_limit_max = VectorXd::Zero(12,1);   // contact force
-  VectorXd f_limit_min = VectorXd::Zero(12,1);   // contact force
-  VectorXd f_cons_min = VectorXd::Zero(16,1);    // friction constraint limit
-  VectorXd qt = VectorXd::Zero(14,1);
-
-  for(int i=0;i<20;i++){
-    ddq_limit(i) = OsqpEigen::INFTY;
-  }
-  for(int i=0;i<16;i++){
-    f_cons_min(i) = -OsqpEigen::INFTY;
-  }
-  for(int i=0;i<14;i++){
-    qt(i) = OsqpEigen::INFTY;
-  }
-
-  u_limit  << 116.682, 70.1765, 206.928,220.928,35.9759,35.9759,116.682, 70.1765, 206.928,220.928,35.9759,35.9759;
-  tor_limit<< OsqpEigen::INFTY,  OsqpEigen::INFTY,  OsqpEigen::INFTY,  OsqpEigen::INFTY;
-
   // Incorporate damping command into OSC
   double damping_dt = 0.00;
   VectorXd damping(20),D_term(20);;
@@ -251,19 +229,7 @@ int main(int argc, char* argv[])
               66.849, 26.1129, 38.05, 38.05, 0 , 15.5532, 15.5532;
   MatrixXd Dmat = damping.asDiagonal();
   D_term = 0.0 * Dmat * wb_dq.block(0,0,20,1);
-
-  //
-  int Vars_Num = 20 + 12 + 4 + 12 + 14;
-  int Cons_Num = 20 + 4 + Vars_Num + 16 + 14;
-  MatrixXd constraint_full = MatrixXd::Zero(Cons_Num,Vars_Num);
-  MatrixXd hessian_full = MatrixXd::Zero(Vars_Num,Vars_Num);
-  Eigen::SparseMatrix<double> linearMatrix;
-  linearMatrix.resize(Cons_Num,Vars_Num);
-  std::vector<Eigen::Triplet<double>> coefficients;            // list of non-zeros coefficients 
   VectorXd counter = VectorXd::Zero(4,1);
-
-  auto time_control_start = std::chrono::system_clock::now();
-  double digit_time_start = observation.time;
 
   // initialize desired orientation
   double yaw_des = 0;
@@ -294,6 +260,11 @@ int main(int argc, char* argv[])
   InputListener input_listener(&key_mode);
   double z_off = 0;
   double z_off_track = 0;
+
+  // computation time tracker
+  auto time_control_start = std::chrono::system_clock::now();
+  double digit_time_start = observation.time;
+  
   while (ros::ok()) {
     // count running time
     auto elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_control_start);
@@ -341,15 +312,11 @@ int main(int argc, char* argv[])
     MatrixXd rotZ = MatrixXd::Zero(3,3);
     rotZ << cos(yaw_des),-sin(yaw_des),0,sin(yaw_des),cos(yaw_des),0,0,0,1;
 
-    pel_vel(0) = pel_vel_x.getData(pel_vel(0));
-    pel_vel(1) = pel_vel_y.getData(pel_vel(1));
+    //pel_vel(0) = pel_vel_x.getData(pel_vel(0));
+    //pel_vel(1) = pel_vel_y.getData(pel_vel(1));
 
-    pel_pos = rotZ.transpose() * pel_pos;
-    // pel_vel = rotZ.transpose() * pel_vel;
-    // Controller does not work when velocity transformation is included. Why???
-    // pel_vel = rotZ.transpose() * pel_vel; 
     // Wrap yaw orientation so the desired yaw is always 0
-    if(elapsed_time.count() < 10000){
+    if(elapsed_time.count() < init_count){
         yaw_des = theta(2);
         pel_x = pel_pos(0);
         pel_y = pel_pos(1);
@@ -357,8 +324,13 @@ int main(int argc, char* argv[])
 
     pel_pos(0) -= pel_x;
     pel_pos(1) -= pel_y;
+        
     theta(2) -= yaw_des;
-    
+
+    // Using estimation from Agility. It seems only the position est is tranfermed into world frame. Double-checl with Agility or other Digit user
+    pel_pos = rotZ.transpose() * pel_pos; 
+    // pel_vel = rotZ.transpose() * pel_vel;
+
     if(theta(2) > M_PI){
         theta(2) -= 2 * M_PI; 
     }
@@ -368,8 +340,6 @@ int main(int argc, char* argv[])
     else{
       //;
     }
-    //cout << "current theta: " << yaw_des << endl;
-    //cout << theta << endl;
 
     // get state vector
     wb_q  << pel_pos, theta(2), theta(1), theta(0), q(joint::left_hip_roll),q(joint::left_hip_yaw),q(joint::left_hip_pitch),q(joint::left_knee)
@@ -457,15 +427,16 @@ int main(int argc, char* argv[])
     
     // Compute Desired CoM Traj
     if(key_mode == 0){
-      z_off = z_off_track + 0.1 * (observation.time - key_time_tracker);
+      z_off = min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.0);
     }
     else if(key_mode == 1){
-      z_off = z_off_track - 0.1 * (observation.time - key_time_tracker);
+      z_off = max(z_off_track - 0.1 * (observation.time - key_time_tracker),-0.3);
     }
     else{
       key_time_tracker = observation.time;
       z_off_track = z_off;
     }
+
     //left_toe_pos_ref(2) = -0.7;
     //right_toe_pos_ref(2) = -0.7;
 
@@ -543,7 +514,6 @@ int main(int argc, char* argv[])
                    -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
                    -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
                    -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
-
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
     
@@ -700,6 +670,7 @@ int main(int argc, char* argv[])
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];
           command.motors[i].velocity = 0;
           command.motors[i].damping = 1 * limits->damping_limit[i];
+          cout << "safety triggered" << endl;
       }
       else{
         if(i>=12){
@@ -721,7 +692,6 @@ int main(int argc, char* argv[])
 
     Digit_Ros::digit_state msg;
     msg.yaw = yaw_des;
-
     state_pub.publish(msg);
     ros::spinOnce();
     control_loop_rate.sleep();
