@@ -15,7 +15,7 @@ com_P_gain_x = 35.0
 com_P_gain_y = 35.0
 com_P_gain_z = 50.0
 com_P_gain_rz = 50.0
-com_P_gain_ry = 100.0
+com_P_gain_ry = 150.0
 com_P_gain_rx = 50.0
 com_D_gain_x = 5.0
 com_D_gain_y = 5.0
@@ -40,8 +40,8 @@ force_max = 400.0
 mu = 0.6
 
 [Filter]
-wd_sz = 10
+wd_sz = 500      # number of the consecutive safety violation to trigger safe controller. Control frequency is 1kHz, so 0.5s safe window
 
 [Start]
-init_count = 10000 #
-
+init_count = 0.01 # Time to record robot's initial configuration
+soft_count = 0.1  # Time to soft start motor torques

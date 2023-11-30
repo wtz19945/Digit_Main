@@ -130,6 +130,7 @@ using namespace std::chrono;
 int main(int argc, char* argv[])
 {
   
+
   OsqpEigen::Solver solver;
   int QP_initialized = 0;
 
@@ -204,7 +205,9 @@ int main(int argc, char* argv[])
   double mu = config->get_qualified_as<double>("QP-Params.mu").value_or(0);
 
   int wd_sz = config->get_qualified_as<double>("Filter.wd_sz").value_or(0);
-  int init_count = config->get_qualified_as<double>("Start.init_count").value_or(0);
+  double init_count = config->get_qualified_as<double>("Start.init_count").value_or(0);
+  double soft_count = config->get_qualified_as<double>("Start.soft_count").value_or(0);
+
   // Weight Matrix and Gain Vector
   MatrixXd Weight_ToeF = Wff*MatrixXd::Identity(6,6);
   VectorXd KP_ToeF = VectorXd::Zero(6,1);
@@ -260,11 +263,13 @@ int main(int argc, char* argv[])
   InputListener input_listener(&key_mode);
   double z_off = 0;
   double z_off_track = 0;
-
+  bool run_sim = true;
+  n.getParam("sim_mode",run_sim);
   // computation time tracker
   auto time_control_start = std::chrono::system_clock::now();
   double digit_time_start = observation.time;
   
+  VectorXd pos_avg = VectorXd::Zero(3,1);
   while (ros::ok()) {
     // count running time
     auto elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_control_start);
@@ -316,7 +321,7 @@ int main(int argc, char* argv[])
     //pel_vel(1) = pel_vel_y.getData(pel_vel(1));
 
     // Wrap yaw orientation so the desired yaw is always 0
-    if(elapsed_time.count() < init_count){
+    if((observation.time - digit_time_start) < init_count){
         yaw_des = theta(2);
         pel_x = pel_pos(0);
         pel_y = pel_pos(1);
@@ -404,6 +409,15 @@ int main(int argc, char* argv[])
     right_toe_jaco_fa << right_toe_jaco.block(0,0,3,6) , MatrixXd::Zero(3,7), right_toe_jaco.block(0,13,3,7);
     right_toe_back_jaco_fa << right_toe_back_jaco.block(0,0,3,6) , MatrixXd::Zero(3,7), right_toe_back_jaco.block(0,13,3,7);
 
+    // Might need this to make sure the desired pelvis is in the center of two foot.
+    if((observation.time - digit_time_start)  < init_count){
+        pos_avg = (left_toe_pos + right_toe_pos + left_toe_back_pos + right_toe_back_pos) / 4;
+    }
+    else{
+        pel_pos(0) -= pos_avg(0) + 0.03; 
+        pel_pos(1) -= pos_avg(1);
+    }
+    
     // End effector velocity
     VectorXd  left_toe_vel = left_toe_jaco * wb_dq;
     VectorXd  right_toe_vel = right_toe_jaco * wb_dq;
@@ -425,7 +439,7 @@ int main(int argc, char* argv[])
     right_toe_vel_ref(2) = 0.2 * 3.14/200*cos(3.14*soft_start/200+3.14);
     right_toe_acc_ref(2) = -0.2 * 3.14/200*3.14/200*sin(3.14*soft_start/200+3.14);
     
-    // Compute Desired CoM Traj
+    // Compute Desired CoM Traj// Testing use
     if(key_mode == 0){
       z_off = min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.0);
     }
@@ -680,13 +694,19 @@ int main(int argc, char* argv[])
             command.motors[i].damping = 0.75 * limits->damping_limit[i];
         }
         else{
+          torque *= min((observation.time - digit_time_start)/soft_count,1.0);
           command.motors[i].torque = torque(i);
           command.motors[i].velocity = 0;
           command.motors[i].damping = 0.75 * limits->damping_limit[i];
         }
       }
     }
-    command.fallback_opmode = Locomotion; // Useful for simulation
+    if(run_sim){
+        command.fallback_opmode = Locomotion; // Useful for simulation
+    }
+    else{
+        command.fallback_opmode = Damping;
+    }
     command.apply_command = true;
     llapi_send_command(&command);
 

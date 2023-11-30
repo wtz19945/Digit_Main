@@ -27,6 +27,7 @@ class Digit_safety{
     VectorXd jv_lim; // joint velocity limit
     bool safety_trigger;
     int unsafe_count;
+    int unsafe_limit;
 };
 
 #endif //SAFETY_MANAGER_H_

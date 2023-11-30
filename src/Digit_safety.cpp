@@ -18,6 +18,7 @@ Digit_safety::Digit_safety(int wd_sz, int j_sz){
              ,deg2rad(60),deg2rad(60),deg2rad(60),deg2rad(60),deg2rad(60),deg2rad(60),deg2rad(60);    // right leg velocity bound
     
     unsafe_count = 0;
+    unsafe_limit = wd_sz;
 }
 
 bool Digit_safety::checkSafety(){
@@ -46,7 +47,7 @@ void Digit_safety::updateSafety(VectorXd cur_q, VectorXd cur_dq){
             unsafe_count = 0;
         }
 
-        if(unsafe_count > 5){
+        if(unsafe_count > unsafe_limit){
             safety_trigger = true;
         }
     }
