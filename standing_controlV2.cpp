@@ -156,8 +156,21 @@ int main(int argc, char* argv[])
   dtheta = VectorXd::Zero(3,1);
 
   double soft_start = 1;
+
+  // initialize ros
+  ros::init(argc, argv, "sample_node");
+  ros::NodeHandle n;
+  bool run_sim = true;
+  n.getParam("sim_mode",run_sim);
+
   // The publisher address should be changed to the ip address of the robot
-  const char* publisher_address = "127.0.0.1";
+  const char* publisher_address = "";  
+  if (run_sim){
+    publisher_address = "127.0.0.1";   // simulator address
+  }else
+  { 
+    publisher_address = "10.10.1.1";   // hardware address
+  }
   llapi_init(publisher_address);
 
   // Define inputs and outputs (updated each iteration)
@@ -252,9 +265,7 @@ int main(int argc, char* argv[])
   MovingAverageFilter pel_vel_x; 
   MovingAverageFilter pel_vel_y;
 
-  // Initialize ROS related 
-  ros::init(argc, argv, "sample_node");
-  ros::NodeHandle n;
+  // Set ROS params
   ros::Rate control_loop_rate(1000);
   ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("digit_state", 10);
   int count = 0;
@@ -263,8 +274,7 @@ int main(int argc, char* argv[])
   InputListener input_listener(&key_mode);
   double z_off = 0;
   double z_off_track = 0;
-  bool run_sim = true;
-  n.getParam("sim_mode",run_sim);
+
   // computation time tracker
   auto time_control_start = std::chrono::system_clock::now();
   double digit_time_start = observation.time;
