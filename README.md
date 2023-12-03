@@ -32,7 +32,7 @@ sudo pip3 install ws4py
 ```bash
 cd ~/catkin_ws
 source /opt/ros/noetic/setup.bash
-catkin_make
+catkin_make    # For the first time, you might need to run catkin_make -DPYTHON_EXECUTABLE=/usr/bin/python3
 source devel/setup.bash
 ```
 
