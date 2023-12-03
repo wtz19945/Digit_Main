@@ -30,7 +30,7 @@ foot_D_x = 2
 foot_D_y = 2
 foot_D_z = 2
 
-arm_P = 450.0
+arm_P = 150.0
 
 [QP-Params]
 st_foot_W = 1050.0

@@ -172,7 +172,7 @@ int main(int argc, char* argv[])
   const llapi_limits_t* limits = llapi_get_limits();
   
   // Load Gains from TOML file
-  std::shared_ptr<cpptoml::table> config = cpptoml::parse_file("/home/tianze/catkin_ws/src/Digit_Ros/src/config_file/osc_robot_config.toml");
+  std::shared_ptr<cpptoml::table> config = cpptoml::parse_file("/home/orl/catkin_ws/src/Digit_ROS/src/config_file/osc_robot_config.toml");
 
   double cpx = config->get_qualified_as<double>("PD-Gains.com_P_gain_x").value_or(0);
   double cpy = config->get_qualified_as<double>("PD-Gains.com_P_gain_y").value_or(0);
@@ -678,7 +678,7 @@ int main(int argc, char* argv[])
   // safety check
   safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
   elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-  //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
+  cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
     for (int i = 0; i < NUM_MOTORS; ++i) {
       if(safe_check.checkSafety()){
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];
