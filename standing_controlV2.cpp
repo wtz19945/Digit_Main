@@ -449,6 +449,8 @@ int main(int argc, char* argv[])
     right_toe_vel_ref(2) = 0.2 * 3.14/200*cos(3.14*soft_start/200+3.14);
     right_toe_acc_ref(2) = -0.2 * 3.14/200*3.14/200*sin(3.14*soft_start/200+3.14);
     
+    // Desired Body position
+    VectorXd pel_pos_des = VectorXd::Zero(3,1);
     // Compute Desired CoM Traj// Testing use
     if(key_mode == 0){
       z_off = min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.0);
@@ -459,6 +461,13 @@ int main(int argc, char* argv[])
     else{
       key_time_tracker = observation.time;
       z_off_track = z_off;
+    }
+    pel_pos_des << 0,0,1 + z_off;
+    //pel_pos_des(2) = 0.6;
+
+    // saturate position command
+    if(abs(pel_pos(2) - pel_pos_des(2)) > 0.05){
+        pel_pos_des(2) = pel_pos(2) + (pel_pos_des(2) - pel_pos(2)) / abs(pel_pos(2) - pel_pos_des(2)) * 0.05;
     }
 
     //left_toe_pos_ref(2) = -0.7;
@@ -534,7 +543,7 @@ int main(int argc, char* argv[])
     pel_jaco.block(0,0,6,6) = MatrixXd::Identity(6,6);
     des_acc_pel << -KP_pel(0) * (pel_pos(0) - 0.0) - KD_pel(0) * (pel_vel(0) - 0),
                    -KP_pel(1) * (pel_pos(1) - 0.0) - KD_pel(1) * (pel_vel(1) - 0),
-                   -KP_pel(2) * (pel_pos(2) - 1.0 - z_off) - KD_pel(2) * (pel_vel(2) - 0),
+                   -KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - KD_pel(2) * (pel_vel(2) - 0),
                    -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
                    -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
                    -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
