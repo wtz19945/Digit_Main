@@ -463,11 +463,10 @@ int main(int argc, char* argv[])
       z_off_track = z_off;
     }
     pel_pos_des << 0,0,1 + z_off;
-    //pel_pos_des(2) = 0.6;
 
     // saturate position command
-    if(abs(pel_pos(2) - pel_pos_des(2)) > 0.05){
-        pel_pos_des(2) = pel_pos(2) + (pel_pos_des(2) - pel_pos(2)) / abs(pel_pos(2) - pel_pos_des(2)) * 0.05;
+    if(abs(pel_pos(2) - pel_pos_des(2)) > 0.04){
+        pel_pos_des(2) = pel_pos(2) + (pel_pos_des(2) - pel_pos(2)) / abs(pel_pos(2) - pel_pos_des(2)) * 0.04;
     }
 
     //left_toe_pos_ref(2) = -0.7;
@@ -697,7 +696,10 @@ int main(int argc, char* argv[])
   // safety check
   safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
   elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-  cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
+  cout << "current height is:" << endl;
+  cout << pel_pos_des(2) << endl;
+  cout << pel_pos(2) << endl;
+  //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
     for (int i = 0; i < NUM_MOTORS; ++i) {
       if(safe_check.checkSafety()){
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];
@@ -714,7 +716,7 @@ int main(int argc, char* argv[])
         }
         else{
           torque *= min((observation.time - digit_time_start)/soft_count,1.0);
-          command.motors[i].torque = torque(i);
+          command.motors[i].torque = 1 * torque(i);
           command.motors[i].velocity = 0;
           command.motors[i].damping = 0.75 * limits->damping_limit[i];
         }
