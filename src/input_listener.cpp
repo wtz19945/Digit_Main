@@ -37,6 +37,10 @@ void InputListener::keyInputCallback(const std_msgs::Int32::ConstPtr& msg) {
         *key_mode = 3;
         std::cout << "moving right: " << std::endl;
         break;
+    case TkKeys::space:
+        *key_mode = 4;
+        std::cout << "start conducting: " << std::endl;
+        break;
     default:
         *key_mode = -1;
         break;

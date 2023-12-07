@@ -269,7 +269,7 @@ int main(int argc, char* argv[])
   ros::Rate control_loop_rate(1000);
   ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("digit_state", 10);
   int count = 0;
-  double key_time_tracker;
+  double key_time_tracker, key_time_tracker_c;
   int key_mode = -1;
   InputListener input_listener(&key_mode);
   double z_off = 0;
@@ -605,9 +605,8 @@ int main(int argc, char* argv[])
     }
 
     
-/*
+
     // arm control, trial implementation. Incorporate to analytical_expressions class in the future
-    
     VectorXd ql = VectorXd::Zero(10,1);
     VectorXd p_lh = VectorXd::Zero(3,1);
     MatrixXd J_lh = MatrixXd::Zero(3,10);
@@ -620,19 +619,27 @@ int main(int argc, char* argv[])
     VectorXd p_rh_ref = VectorXd::Zero(3,1);
     VectorXd p_rh_err = VectorXd::Zero(3,1);
 
-    int period = 2000;
-    soft_start++;
-    if(soft_start>period){
-      soft_start = 0;
-    }
-
-    if(soft_start<period/2){
-      p_lh_ref << 0.2, 0.2 - .1 * cos(soft_start/period*2*3.14),1.2 - .2 * sin(soft_start/period*2*3.14);
-      p_rh_ref << 0.2,-0.2 + .1 * cos(soft_start/period*2*3.14),1.2 - .2 * sin(soft_start/period*2*3.14);
+    double cur_time = (observation.time - digit_time_start);
+    double time_triggered = 0;
+    double period = 1;
+    if(key_mode == 4){
+      if((observation.time - digit_time_start - key_time_tracker_c) > 1)
+        cur_time -= key_time_tracker_c + floor((cur_time - key_time_tracker_c)/period)* period;
+      else
+        cur_time = 0;
     }
     else{
-      p_lh_ref << 0.2, 0.2 - .1 * cos(soft_start/period*2*3.14),1.2 + .2 * sin(soft_start/period*2*3.14);
-      p_rh_ref << 0.2,-0.2 + .1 * cos(soft_start/period*2*3.14),1.2 + .2 * sin(soft_start/period*2*3.14);
+      cur_time = 0;
+      key_time_tracker_c = (observation.time - digit_time_start);
+    }
+
+    if(cur_time<period/2){
+      p_lh_ref << 0.2, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.3 - .3 * sin(cur_time/period*2*3.14);
+      p_rh_ref << 0.2,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.3 - .3 * sin(cur_time/period*2*3.14);
+    }
+    else{
+      p_lh_ref << 0.2, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.3 + .3 * sin(cur_time/period*2*3.14);
+      p_rh_ref << 0.2,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.3 + .3 * sin(cur_time/period*2*3.14);
     }
 
     // initial q
@@ -651,7 +658,7 @@ int main(int argc, char* argv[])
     double error;
     error = (p_lh - p_lh_ref).norm();
     double iter = 0;
-    while(error >0.01 && iter<5){
+    while(error >0.01 && iter<2){
       // solve for new joint
       ql += J_lh.colPivHouseholderQr().solve(p_lh_ref - p_lh);
       // Clip joints
@@ -674,7 +681,7 @@ int main(int argc, char* argv[])
     // right arm IK
     error = (p_rh - p_rh_ref).norm();
     iter = 0;
-    while(error >0.01 && iter<5){
+    while(error >0.01 && iter<2){
       qr += J_rh.colPivHouseholderQr().solve(p_rh_ref - p_rh);
       // Clip joints
       //qr(6) = max(min(qr(6),deg2rad(75)),deg2rad(-75));
@@ -692,7 +699,7 @@ int main(int argc, char* argv[])
     target_position[17] = qr(7);
     target_position[18] = qr(8);
     target_position[19] = qr(9); 
-*/
+
   // safety check
   safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
   elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
