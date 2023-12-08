@@ -60,9 +60,9 @@ Now you should see the solver info, ros outputs, and etc in the terminal.
 Disclaimer: this repository is in development and not liable for any damage caused to the hardware experiment.
 
 For hardware test, 
-- [] Start Digit with Agility controller and make it stand up.
-- [] Connect Digit and controller PC with an Ethernet cable.
-- [] Run `roslaunch Digit_ROS hardware_launch.launch`. This will launch the controller and switch to the low-level-api.
+- 1 Start Digit with Agility controller and make it stand up.
+- 2 Connect Digit and controller PC with an Ethernet cable.
+- 3 Run `roslaunch Digit_ROS hardware_launch.launch`. This will launch the controller and switch to the low-level-api.
 
 To visualize Digit, use the gamepad or check the following IP address "10.10.1.1"
 
