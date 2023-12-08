@@ -87,6 +87,9 @@ set(Digit_Source
 set(standing_SOURCESV2 standing_controlV2.cpp src/input_listener.cpp
 ${Digit_Source})
 
+set(digit_main_source src/digit_main.cpp src/input_listener.cpp
+${Digit_Source})
+
 # the followings are the costum libraries used for your controller
 add_library(digit_safety_lib STATIC src/Digit_safety.cpp)
 target_include_directories(digit_safety_lib 
@@ -105,7 +108,13 @@ target_include_directories(filter_lib
     ${Home_Dir}/include)
 
 # the following will be executable to control Digit
+# a simple standing controller implementation
 add_executable(standing_controlV2 ${standing_SOURCESV2})
 target_link_libraries(standing_controlV2 OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib ${catkin_LIBRARIES})
 add_dependencies(standing_controlV2 Digit_Ros_generate_messages_cpp)
+
+# walking controller
+add_executable(digit_main ${digit_main_source})
+target_link_libraries(digit_main OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib ${catkin_LIBRARIES})
+add_dependencies(digit_main Digit_Ros_generate_messages_cpp)
 
