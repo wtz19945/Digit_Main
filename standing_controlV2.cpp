@@ -25,6 +25,7 @@
 
 // ros part
 #include "ros/ros.h"
+#include <ros/package.h>
 #include <std_msgs/Int8.h>
 #include "Digit_Ros/digit_state.h"
 #include "input_listener.hpp"
@@ -185,7 +186,17 @@ int main(int argc, char* argv[])
   const llapi_limits_t* limits = llapi_get_limits();
   
   // Load Gains from TOML file
-  std::shared_ptr<cpptoml::table> config = cpptoml::parse_file("/home/orl/catkin_ws/src/Digit_ROS/src/config_file/osc_robot_config.toml");
+  std::string package_path; 
+  try {
+    package_path = ros::package::getPath("Digit_Ros");
+    if (package_path.empty()) {
+      throw 1;
+    }
+  } catch(...) {
+    std::cerr << "package not found\n";
+    return 0;
+  }
+  std::shared_ptr<cpptoml::table> config = cpptoml::parse_file(package_path + "/src/config_file/osc_robot_config.toml");
 
   double cpx = config->get_qualified_as<double>("PD-Gains.com_P_gain_x").value_or(0);
   double cpy = config->get_qualified_as<double>("PD-Gains.com_P_gain_y").value_or(0);
@@ -269,7 +280,7 @@ int main(int argc, char* argv[])
   ros::Rate control_loop_rate(1000);
   ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("digit_state", 10);
   int count = 0;
-  double key_time_tracker, key_time_tracker_c;
+  double key_time_tracker, key_time_tracker_c, conduct_time_prev = 0; // time log helper for key input, might remove in the future
   int key_mode = -1;
   InputListener input_listener(&key_mode);
   double z_off = 0;
@@ -620,16 +631,27 @@ int main(int argc, char* argv[])
     VectorXd p_rh_err = VectorXd::Zero(3,1);
 
     double cur_time = (observation.time - digit_time_start);
-    double time_triggered = 0;
     double period = 1;
     if(key_mode == 4){
       if((observation.time - digit_time_start - key_time_tracker_c) > 1)
-        cur_time -= key_time_tracker_c + floor((cur_time - key_time_tracker_c)/period)* period;
+        cur_time -= key_time_tracker_c + floor((cur_time - key_time_tracker_c)/period) * period;
       else
         cur_time = 0;
+
+      conduct_time_prev = cur_time;
     }
     else{
-      cur_time = 0;
+      if(conduct_time_prev < cur_time<period/2 && conduct_time_prev > 0.1){
+        cur_time = 0.95 * conduct_time_prev;
+        conduct_time_prev = cur_time;
+      }
+      else if(conduct_time_prev > cur_time<period/2 && conduct_time_prev < period - 0.1){
+        cur_time = 1.05 * conduct_time_prev;
+        conduct_time_prev = cur_time;
+      }
+      else{
+        cur_time = 0;
+      }
       key_time_tracker_c = (observation.time - digit_time_start);
     }
 

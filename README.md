@@ -56,10 +56,19 @@ roslaunch Digit_ROS digit_launch.launch
 ```
 Now you should see the solver info, ros outputs, and etc in the terminal.
 
+## Hardware Test
+Disclaimer: this repository is in development and not liable for any damage caused to the hardware experiment.
+
+For hardware test, 
+- [] Start Digit with Agility controller and make it stand up.
+- [] Connect Digit and controller PC with an Ethernet cable.
+- [] Run `roslaunch Digit_ROS hardware_launch.launch`. This will launch the controller and switch to the low-level-api.
+
+To visualize Digit, use the gamepad or check the following IP address "10.10.1.1"
+
 ## Notice
 - [ ] This repo is actively updated. Hardware implementation and walking controller will be released next.
 - [ ] If you install OSQP with the conda method, you might need to run the following command or add it to ~/.bashrc
 ``` bash 
 export PATH="/home/username/miniconda/bin:$PATH". # Remember to chagne the path to your actual conbda path.
 ```
-- [ ] You need to change the path to the osc_robot_config.toml files inside standing_controllerV2.cpp so that the toml can be correctly parsed.

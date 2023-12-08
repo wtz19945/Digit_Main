@@ -18,6 +18,7 @@ project(Digit_Ros)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
+  roslib
   rospy
   std_msgs
   sensor_msgs
