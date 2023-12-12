@@ -45,3 +45,8 @@ wd_sz = 500      # number of the consecutive safety violation to trigger safe co
 [Start]
 init_count = 0.1 # Time to record robot's initial configuration
 soft_count = 0.1  # Time to soft start motor torques
+
+[Arm-IK]
+z_int = 0.4  # initial height for the arm
+z_mag = 0.3  # range of arm motion height
+z_prd = 1    # period of arm motion

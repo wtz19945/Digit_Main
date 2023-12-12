@@ -232,6 +232,10 @@ int main(int argc, char* argv[])
   double init_count = config->get_qualified_as<double>("Start.init_count").value_or(0);
   double soft_count = config->get_qualified_as<double>("Start.soft_count").value_or(0);
 
+  double arm_z_int = config->get_qualified_as<double>("Arm-IK.z_int").value_or(0);
+  double arm_z_mag = config->get_qualified_as<double>("Arm-IK.z_mag").value_or(0);
+  double arm_z_prd = config->get_qualified_as<double>("Arm-IK.z_prd").value_or(0);
+
   // Weight Matrix and Gain Vector
   MatrixXd Weight_ToeF = Wff*MatrixXd::Identity(6,6);
   VectorXd KP_ToeF = VectorXd::Zero(6,1);
@@ -627,7 +631,7 @@ int main(int argc, char* argv[])
     VectorXd p_rh_err = VectorXd::Zero(3,1);
 
     double cur_time = (observation.time - digit_time_start);
-    double period = 1;
+    double period = arm_z_prd;
     if(key_mode == 4){
       if((observation.time - digit_time_start - key_time_tracker_c) > 1)
         cur_time -= key_time_tracker_c + floor((cur_time - key_time_tracker_c)/period) * period;
@@ -652,12 +656,12 @@ int main(int argc, char* argv[])
     }
 
     if(cur_time< (period/2)){
-      p_lh_ref << 0.2, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.4 - .3 * sin(cur_time/period*2*3.14);
-      p_rh_ref << 0.2,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.4 - .3 * sin(cur_time/period*2*3.14);
+      p_lh_ref << 0.2, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag * sin(cur_time/period*2*3.14);
+      p_rh_ref << 0.2,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag* sin(cur_time/period*2*3.14);
     }
     else{
-      p_lh_ref << 0.2, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.4 + .3 * sin(cur_time/period*2*3.14);
-      p_rh_ref << 0.2,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.4 + .3 * sin(cur_time/period*2*3.14);
+      p_lh_ref << 0.2, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
+      p_rh_ref << 0.2,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
     }
 
     // initialize q with current pose
@@ -743,19 +747,21 @@ int main(int argc, char* argv[])
     }
     // safety check
     safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
+
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     cout << "current height is:" << endl;
     cout << pel_pos_des(2) << endl;
     cout << pel_pos(2) << endl;
     //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
     for (int i = 0; i < NUM_MOTORS; ++i) {
-      if(safe_check.checkSafety()){
+      if(safe_check.checkSafety()){ // safety check
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];
           command.motors[i].velocity = 0;
           command.motors[i].damping = 1 * limits->damping_limit[i];
           cout << "safety triggered" << endl;
       }
       else{
+        // wrap up torque
         if(i>=12){
           command.motors[i].torque =
             min((observation.time - digit_time_start)/soft_count,1.0) * arm_P * (target_position[i] - observation.motor.position[i]);
