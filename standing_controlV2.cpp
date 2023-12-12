@@ -656,12 +656,12 @@ int main(int argc, char* argv[])
     }
 
     if(cur_time< (period/2)){
-      p_lh_ref << 0.2, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag * sin(cur_time/period*2*3.14);
-      p_rh_ref << 0.2,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag* sin(cur_time/period*2*3.14);
+      p_lh_ref << 0.4, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag * sin(cur_time/period*2*3.14);
+      p_rh_ref << 0.4,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag* sin(cur_time/period*2*3.14);
     }
     else{
-      p_lh_ref << 0.2, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
-      p_rh_ref << 0.2,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
+      p_lh_ref << 0.4, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
+      p_rh_ref << 0.4,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
     }
 
     // initialize q with current pose
