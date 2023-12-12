@@ -258,10 +258,11 @@ int main(int argc, char* argv[])
   D_term = 0.0 * Dmat * wb_dq.block(0,0,20,1);
   VectorXd counter = VectorXd::Zero(4,1);
 
-  // initialize desired orientation
+  // record initial base status
   double yaw_des = 0;
   double pel_x = 0;
   double pel_y = 0;
+  double pel_z = 0;
   double vel_x = 0;
   double vel_y = 0;
   double vel_z = 0;
@@ -346,6 +347,7 @@ int main(int argc, char* argv[])
         yaw_des = theta(2);
         pel_x = pel_pos(0);
         pel_y = pel_pos(1);
+        pel_z = pel_pos(2);
     }
 
     pel_pos(0) -= pel_x;
@@ -464,7 +466,7 @@ int main(int argc, char* argv[])
     VectorXd pel_pos_des = VectorXd::Zero(3,1);
     // Compute Desired CoM Traj// Testing use
     if(key_mode == 0){
-      z_off = min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.0);
+      z_off = min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.3);
     }
     else if(key_mode == 1){
       z_off = max(z_off_track - 0.1 * (observation.time - key_time_tracker),-0.3);
@@ -473,7 +475,7 @@ int main(int argc, char* argv[])
       key_time_tracker = observation.time;
       z_off_track = z_off;
     }
-    pel_pos_des << 0,0,1 + z_off;
+    pel_pos_des << 0,0,pel_z + z_off;
 
     // saturate position command
     if(abs(pel_pos(2) - pel_pos_des(2)) > 0.04){
