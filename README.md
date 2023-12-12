@@ -31,7 +31,7 @@ sudo pip3 install ws4py
 ## Compile the code
 ```bash
 cd ~/catkin_ws
-source /opt/ros/noetic/setup.bash
+source /opt/ros/noetic/setup.bash  # change noetic to melodic if you use Ubuntu 18.04
 catkin_make    # For the first time, you might need to run catkin_make -DPYTHON_EXECUTABLE=/usr/bin/python3
 source devel/setup.bash
 ```
@@ -47,9 +47,8 @@ chmod +x ar-control # you only need this command for the first time
 
 This will start a webpage at localhost:8080. Open this link with your browser. You can read the detailed Digit documentation or simulate Digit robot in this webpage.
 
-Currently, the Digit is connected to locomotion controller from Agility by default. To enable this controller via low-level-api operation mode, check the following link http://localhost:8080/doc/software/lowlevelapi.html
-
 ## Run the controller
+Run the following command in another terminal,
 ```bash
 cd ~/catkin_ws
 roslaunch Digit_ROS digit_launch.launch 
@@ -57,17 +56,17 @@ roslaunch Digit_ROS digit_launch.launch
 Now you should see the solver info, ros outputs, and etc in the terminal.
 
 ## Hardware Test
-Disclaimer: this repository is in development and not liable for any damage caused to the hardware experiment.
+Disclaimer: this repository is in development and not liable for any damage caused by the hardware experiment.
 
 For hardware test, 
-- 1 Start Digit with Agility controller and make it stand up.
+- 1 Start Digit with Agility controller and make it stand up or start it hanging from the gantry.
 - 2 Connect Digit and controller PC with an Ethernet cable.
-- 3 Run `roslaunch Digit_ROS hardware_launch.launch`. This will launch the controller and switch to the low-level-api.
+- 3 Run `roslaunch Digit_ROS hardware_launch.launch` instead. This will launch the controller and switch to the low-level-api on hardware.
 
 To visualize Digit, use the gamepad or check the following IP address "10.10.1.1"
 
 ## Notice
-- [ ] This repo is actively updated. Hardware implementation and walking controller will be released next.
+- [ ] This repo is actively updated. Walking controller will be released next.
 - [ ] If you install OSQP with the conda method, you might need to run the following command or add it to ~/.bashrc
 ``` bash 
 export PATH="/home/username/miniconda/bin:$PATH". # Remember to chagne the path to your actual conbda path.
