@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="run_sim_global" value="True" />
+  <include file="$(find Digit_Ros)/launch/websockets_launch.launch">
+	<arg name="run_sim" value="$(arg run_sim_global)" /> 
+  </include>
+
+  <include file="$(find Digit_Ros)/launch/control_main_launch.launch">
+	<arg name="run_sim" value="$(arg run_sim_global)" /> 
+  </include>
+	
+
+  <node name="keyboard_control" pkg="Digit_Ros" type="keyinput.py"  output="screen"></node>
+</launch>

@@ -300,6 +300,9 @@ int main(int argc, char* argv[])
   double digit_time_start = observation.time;
   
   VectorXd pos_avg = VectorXd::Zero(3,1);
+  VectorXd contact = VectorXd::Zero(2,1);
+  contact << 1,1;
+
   while (ros::ok()) {
     // count running time
     auto elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_control_start);
@@ -575,7 +578,7 @@ int main(int argc, char* argv[])
     //cout << "set up sparse constraint: " << elapsed_time.count() << endl;
     if(QP_initialized == 0){
       QP_initialized = 1;
-      osc.setupQPVector(des_acc_pel, des_acc, des_acc_toe, G);
+      osc.setupQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);
       osc.setupQPMatrix(Weight_pel, Weight_ToeF, Weight_ToeB, M, 
                         B, Spring_Jaco, left_toe_jaco_fa, 
                         left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
@@ -584,11 +587,11 @@ int main(int argc, char* argv[])
       osc.setUpQP(check_solver); 
     }
     else{
-      osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G);
+      osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);
       osc.updateQPMatrix(Weight_pel, Weight_ToeF, Weight_ToeB, M, 
                         B, Spring_Jaco, left_toe_jaco_fa, 
                         left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
-                        left_toe_rot_jaco_fa, right_toe_rot_jaco_fa);
+                        left_toe_rot_jaco_fa, right_toe_rot_jaco_fa, contact);
       osc.updateQP();
     }
 

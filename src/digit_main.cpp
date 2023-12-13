@@ -7,13 +7,16 @@
 #include <chrono>
 #include <stdlib.h>
 #include <unistd.h>
-#include "OsqpEigen/OsqpEigen.h"
-#include <Eigen/Dense>
-#include <Eigen/Core>
 #include <iostream>
 #include <iomanip>
 #include <cmath>
 
+// OSQP and Eigen
+#include "OsqpEigen/OsqpEigen.h"
+#include <Eigen/Dense>
+#include <Eigen/Core>
+
+// Custom Code
 #include "../lowlevelapi.h"
 #include "analytical_expressions.hpp"
 #include "kin_left_arm.hpp"
@@ -119,6 +122,7 @@ MatrixXd get_Spring_Jaco();
 VectorXd ToEulerAngle(VectorXd q);
 MatrixXd get_fric_constraint(double mu);
 MatrixXd get_pr2m_jaco(VectorXd a, VectorXd b, double x, double y);
+VectorXd get_quintic_params(VectorXd x0, VectorXd xT, double T);
 
 #define NUM_FROST_STATE 28
 #define NUM_Dyn_STATE 20
@@ -232,6 +236,14 @@ int main(int argc, char* argv[])
   double init_count = config->get_qualified_as<double>("Start.init_count").value_or(0);
   double soft_count = config->get_qualified_as<double>("Start.soft_count").value_or(0);
 
+  double arm_z_int = config->get_qualified_as<double>("Arm-IK.z_int").value_or(0);
+  double arm_z_mag = config->get_qualified_as<double>("Arm-IK.z_mag").value_or(0);
+  double arm_z_prd = config->get_qualified_as<double>("Arm-IK.z_prd").value_or(0);
+
+  double step_time = config->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
+  double zh = config->get_qualified_as<double>("Walk-Params.step_height").value_or(0);
+  double dzend = config->get_qualified_as<double>("Walk-Params.end_vel").value_or(0);
+  double ddzend = config->get_qualified_as<double>("Walk-Params.end_acc").value_or(0);
   // Weight Matrix and Gain Vector
   MatrixXd Weight_ToeF = Wff*MatrixXd::Identity(6,6);
   VectorXd KP_ToeF = VectorXd::Zero(6,1);
@@ -258,19 +270,19 @@ int main(int argc, char* argv[])
   D_term = 0.0 * Dmat * wb_dq.block(0,0,20,1);
   VectorXd counter = VectorXd::Zero(4,1);
 
-  // initialize desired orientation
+  // record initial base status
   double yaw_des = 0;
   double pel_x = 0;
   double pel_y = 0;
+  double pel_z = 0;
   double vel_x = 0;
   double vel_y = 0;
   double vel_z = 0;
+  double z_off = 0;
+  double z_off_track = 0;
 
   // initialize safety checker
   Digit_safety safe_check(wd_sz,NUM_LEG_STATE);
-
-  // initialize OSC solver
-  OSC_Control osc(config);
 
   // initialize Filter
   MovingAverageFilter pel_vel_x; 
@@ -283,21 +295,62 @@ int main(int argc, char* argv[])
   double key_time_tracker, key_time_tracker_c, conduct_time_prev = 0; // time log helper for key input, might remove in the future
   int key_mode = -1;
   InputListener input_listener(&key_mode);
-  double z_off = 0;
-  double z_off_track = 0;
+
+  // arm IK warm start
+  VectorXd ql_last = VectorXd::Zero(10,1);
+  VectorXd qr_last = VectorXd::Zero(10,1);
 
   // computation time tracker
   auto time_control_start = std::chrono::system_clock::now();
   double digit_time_start = observation.time;
   
+  // trajectory time tracker
+  double traj_time = 0;
   VectorXd pos_avg = VectorXd::Zero(3,1);
+
+  // OSC and Walking Parameters
+  OSC_Control osc(config);
+  VectorXd fzint(3) ; fzint << 0,0,0;
+  VectorXd fzmid(3) ; fzmid << zh,0,0;
+  VectorXd fzend(3) ; fzend << 0,dzend,ddzend;
+  VectorXd a = get_quintic_params(fzint,fzmid,step_time/2);
+  VectorXd b = get_quintic_params(fzmid,fzend,step_time/2);
+  VectorXd tvec = VectorXd::Zero(6,1);
+  VectorXd dtvec = VectorXd::Zero(6,1);
+  VectorXd ddtvec = VectorXd::Zero(6,1);
+  VectorXd contact = VectorXd::Zero(2,1);
+  contact << 1,1;
   while (ros::ok()) {
     // count running time
     auto elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_control_start);
     //cout << "run time of the robot is: " << observation.time - digit_time_start << endl;
-    //cout << "run time of the controller is: " << elapsed_time.count() << endl;
+    //cout << "run time of the controller is: " << elapsed_time.count() / 1e6 << endl;
     auto time_program_start = std::chrono::system_clock::now();
 
+    // global time
+    double global_time = elapsed_time.count() / 1e6;
+    traj_time = global_time - floor(global_time / step_time) * step_time;
+    cout << "trajectory time is: " << traj_time << endl;
+
+    if(traj_time < step_time/2){
+      double n = traj_time;
+      tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
+      dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
+      ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
+      // cout << "ref z is : "  << a.dot(tvec) << endl;
+      // cout << "ref dz is : " <<  a.dot(dtvec) << endl;
+      // cout << "ref ddz is : "<< a.dot(ddtvec) << endl;
+    }
+    else{
+      double n = traj_time - step_time/2;
+      tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
+      dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
+      ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
+      // cout << "ref z is : " << b.dot(tvec) << endl;
+      // cout << "ref dz is : "<< b.dot(dtvec) << endl;
+      // cout << "ref ddz is : "<< b.dot(ddtvec) << endl;
+    }
+    
     // Update observation
     int return_val = llapi_get_observation(&observation);
     if (return_val < 1) {
@@ -329,7 +382,7 @@ int main(int argc, char* argv[])
     pel_quaternion(2) = observation.base.orientation.y;
     pel_quaternion(3) = observation.base.orientation.z;
     
-    theta = ToEulerAngle(pel_quaternion); // in roll, pitch, yaw order
+    theta = ToEulerAngle(pel_quaternion); // transform quaternion in euler roll, pitch, yaw order
     VectorXd theta_copy = theta;
     MatrixXd OmegaToDtheta = MatrixXd::Zero(3,3);
     OmegaToDtheta << 0 , -sin(theta(2)), cos(theta(2)) * cos(theta(1)), 0, cos(theta(2)), cos(theta(1)) * sin(theta(2)), 1, 0, -sin(theta(1));
@@ -341,11 +394,12 @@ int main(int argc, char* argv[])
     //pel_vel(0) = pel_vel_x.getData(pel_vel(0));
     //pel_vel(1) = pel_vel_y.getData(pel_vel(1));
 
-    // Wrap yaw orientation so the desired yaw is always 0
+    // Wrap yaw orientation and positions so the desired states are always 0
     if((observation.time - digit_time_start) < init_count){
         yaw_des = theta(2);
         pel_x = pel_pos(0);
         pel_y = pel_pos(1);
+        pel_z = pel_pos(2);
     }
 
     pel_pos(0) -= pel_x;
@@ -418,7 +472,6 @@ int main(int argc, char* argv[])
 
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin is: " << elapsed_time.count() << endl;
-
     // Get fixed arm version
     MatrixXd left_toe_jaco_fa = MatrixXd::Zero(3,20); // fa: fixed arm
     MatrixXd left_toe_back_jaco_fa = MatrixXd::Zero(3,20);
@@ -464,7 +517,7 @@ int main(int argc, char* argv[])
     VectorXd pel_pos_des = VectorXd::Zero(3,1);
     // Compute Desired CoM Traj// Testing use
     if(key_mode == 0){
-      z_off = min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.0);
+      z_off = min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.3);
     }
     else if(key_mode == 1){
       z_off = max(z_off_track - 0.1 * (observation.time - key_time_tracker),-0.3);
@@ -473,7 +526,7 @@ int main(int argc, char* argv[])
       key_time_tracker = observation.time;
       z_off_track = z_off;
     }
-    pel_pos_des << 0,0,1 + z_off;
+    pel_pos_des << 0,0,pel_z + z_off;
 
     // saturate position command
     if(abs(pel_pos(2) - pel_pos_des(2)) > 0.04){
@@ -565,7 +618,7 @@ int main(int argc, char* argv[])
     //cout << "set up sparse constraint: " << elapsed_time.count() << endl;
     if(QP_initialized == 0){
       QP_initialized = 1;
-      osc.setupQPVector(des_acc_pel, des_acc, des_acc_toe, G);
+      osc.setupQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);
       osc.setupQPMatrix(Weight_pel, Weight_ToeF, Weight_ToeB, M, 
                         B, Spring_Jaco, left_toe_jaco_fa, 
                         left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
@@ -574,11 +627,11 @@ int main(int argc, char* argv[])
       osc.setUpQP(check_solver); 
     }
     else{
-      osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G);
+      osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);
       osc.updateQPMatrix(Weight_pel, Weight_ToeF, Weight_ToeB, M, 
                         B, Spring_Jaco, left_toe_jaco_fa, 
                         left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
-                        left_toe_rot_jaco_fa, right_toe_rot_jaco_fa);
+                        left_toe_rot_jaco_fa, right_toe_rot_jaco_fa, contact);
       osc.updateQP();
     }
 
@@ -593,16 +646,6 @@ int main(int argc, char* argv[])
     // OSC on leg, PD on arm
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + QP formulation + Solving: " << elapsed_time.count() << endl;
-    if(elapsed_time.count()<1200) counter(0)+=1;
-    else counter(1)+=1;
-    counter(2) += elapsed_time.count();
-    //cout << "solving time summary" << endl;
-    //cout << counter << endl;
-    //cout << "average solving time: " << counter(2)/(counter(0) + counter(1)) << endl;
-
-    //cout << "Time passed since controller start: " << observation.time << endl;
-    //cout << "Time passed between 2 calls: " << (observation.time - counter(3)) * 1e6 << endl;
-    counter(3) = observation.time;
 
     // Integrate osc ddq to find velocity command
     VectorXd wb_dq_next = VectorXd::Zero(12,1);
@@ -616,8 +659,8 @@ int main(int argc, char* argv[])
     }
 
     
-
-    // arm control, trial implementation. Incorporate to analytical_expressions class in the future
+    /*
+    // IK arm control for conducting, trial implementation. Incorporate to analytical_expressions class in the future
     VectorXd ql = VectorXd::Zero(10,1);
     VectorXd p_lh = VectorXd::Zero(3,1);
     MatrixXd J_lh = MatrixXd::Zero(3,10);
@@ -631,7 +674,7 @@ int main(int argc, char* argv[])
     VectorXd p_rh_err = VectorXd::Zero(3,1);
 
     double cur_time = (observation.time - digit_time_start);
-    double period = 1;
+    double period = arm_z_prd;
     if(key_mode == 4){
       if((observation.time - digit_time_start - key_time_tracker_c) > 1)
         cur_time -= key_time_tracker_c + floor((cur_time - key_time_tracker_c)/period) * period;
@@ -655,91 +698,117 @@ int main(int argc, char* argv[])
       key_time_tracker_c = (observation.time - digit_time_start);
     }
 
-    if(cur_time<period/2){
-      p_lh_ref << 0.2, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.3 - .3 * sin(cur_time/period*2*3.14);
-      p_rh_ref << 0.2,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.3 - .3 * sin(cur_time/period*2*3.14);
+    if(cur_time< (period/2)){
+      p_lh_ref << 0.4, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag * sin(cur_time/period*2*3.14);
+      p_rh_ref << 0.4,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag* sin(cur_time/period*2*3.14);
     }
     else{
-      p_lh_ref << 0.2, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.3 + .3 * sin(cur_time/period*2*3.14);
-      p_rh_ref << 0.2,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + 0.3 + .3 * sin(cur_time/period*2*3.14);
+      p_lh_ref << 0.4, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
+      p_rh_ref << 0.4,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
     }
 
-    // initial q
+    // initialize q with current pose
     for(int i = 0;i<6;i++){
       ql(i) = wb_q(i);
       qr(i) = wb_q(i);
     }
     ql.block(6,0,4,1) = wb_q.block(20,0,4,1);
     qr.block(6,0,4,1) = wb_q.block(24,0,4,1);
+
     kin_left_arm(ql.data(),p_lh.data(), J_lh.data());
     kin_right_arm(qr.data(),p_rh.data(), J_rh.data());
     J_lh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
     J_rh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
-
+    
     // left arm IK
     double error;
     error = (p_lh - p_lh_ref).norm();
     double iter = 0;
-    while(error >0.01 && iter<2){
-      // solve for new joint
-      ql += J_lh.colPivHouseholderQr().solve(p_lh_ref - p_lh);
-      // Clip joints
-      //ql(6) = max(min(ql(6),deg2rad(75)),deg2rad(-75));
-      ql(6) = -0.3;
-      ql(7) = max(min(ql(7),deg2rad(145)),deg2rad(-145));
-      ql(8) = max(min(ql(8),deg2rad(100)),deg2rad(-100));
-      ql(9) = max(min(ql(9),deg2rad(77.5)),deg2rad(-77.5));
-      // Evaluate new pos
-      kin_left_arm(ql.data(),p_lh.data(), J_lh.data());
-      J_lh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
-      error = (p_lh - p_lh_ref).norm();
-      iter++;
-    }
-    target_position[12] = ql(6);
-    target_position[13] = ql(7);
-    target_position[14] = ql(8);
-    target_position[15] = ql(9); 
 
+    // IK is warmed started with last solution is goal is close enough. Otherwise initialize with current configuration
+    if(error > 0.01){
+      while(error > 0.01 && iter<2){
+        // solve for new joint
+        ql += J_lh.colPivHouseholderQr().solve(p_lh_ref - p_lh);
+        // Clip joints
+        //ql(6) = max(min(ql(6),deg2rad(75)),deg2rad(-75));
+        if(cur_time<period/2){
+          ql(6) = -0.3 - cur_time/(period/2) * .2;
+        }
+        else{
+          ql(6) = -0.5 + cur_time/(period/2) * .2;
+        }
+        ql(7) = max(min(ql(7),deg2rad(145)),deg2rad(-145));
+        ql(8) = max(min(ql(8),deg2rad(100)),deg2rad(-100));
+        ql(9) = max(min(ql(9),deg2rad(77.5)),deg2rad(-77.5));
+        // Evaluate new pos
+        kin_left_arm(ql.data(),p_lh.data(), J_lh.data());
+        J_lh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
+        error = (p_lh - p_lh_ref).norm();
+        iter++;
+      }
+      target_position[12] = ql(6);
+      target_position[13] = ql(7);
+      target_position[14] = ql(8);
+      target_position[15] = ql(9); 
+      ql_last = ql;
+    }
+    else{
+      ql = ql_last;
+    }
     // right arm IK
     error = (p_rh - p_rh_ref).norm();
     iter = 0;
-    while(error >0.01 && iter<2){
-      qr += J_rh.colPivHouseholderQr().solve(p_rh_ref - p_rh);
-      // Clip joints
-      //qr(6) = max(min(qr(6),deg2rad(75)),deg2rad(-75));
-      qr(6) = 0.3;
-      qr(7) = max(min(qr(7),deg2rad(145)),deg2rad(-145));
-      qr(8) = max(min(qr(8),deg2rad(100)),deg2rad(-100));
-      qr(9) = max(min(qr(9),deg2rad(77.5)),deg2rad(-77.5));
-      // Evaluate new pos
-      kin_right_arm(qr.data(),p_rh.data(), J_rh.data());
-      J_rh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
-      error = (p_rh - p_rh_ref).norm();
-      iter++;
+    if(error > 0.01){
+      while(error > 0.01 && iter<2){
+        qr += J_rh.colPivHouseholderQr().solve(p_rh_ref - p_rh);
+        // Clip joints
+        //qr(6) = max(min(qr(6),deg2rad(75)),deg2rad(-75));
+        if(cur_time<period/2){
+          qr(6) = 0.3 + cur_time/(period/2) * .2;
+        }
+        else{
+          qr(6) = 0.5 - cur_time/(period/2) * .2;
+        }
+        qr(7) = max(min(qr(7),deg2rad(145)),deg2rad(-145));
+        qr(8) = max(min(qr(8),deg2rad(100)),deg2rad(-100));
+        qr(9) = max(min(qr(9),deg2rad(77.5)),deg2rad(-77.5));
+        // Evaluate new pos
+        kin_right_arm(qr.data(),p_rh.data(), J_rh.data());
+        J_rh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
+        error = (p_rh - p_rh_ref).norm();
+        iter++;
+      }
+      target_position[16] = qr(6);
+      target_position[17] = qr(7);
+      target_position[18] = qr(8);
+      target_position[19] = qr(9); 
+      qr_last = qr;
     }
-    target_position[16] = qr(6);
-    target_position[17] = qr(7);
-    target_position[18] = qr(8);
-    target_position[19] = qr(9); 
+    else{
+      qr = qr_last;
+    }
+    */
+    // safety check
+    safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
 
-  // safety check
-  safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
-  elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-  cout << "current height is:" << endl;
-  cout << pel_pos_des(2) << endl;
-  cout << pel_pos(2) << endl;
-  //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
+    elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
+    cout << "current height is:" << endl;
+    cout << pel_pos_des(2) << endl;
+    cout << pel_pos(2) << endl;
+    //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
     for (int i = 0; i < NUM_MOTORS; ++i) {
-      if(safe_check.checkSafety()){
+      if(safe_check.checkSafety()){ // safety check
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];
           command.motors[i].velocity = 0;
           command.motors[i].damping = 1 * limits->damping_limit[i];
           cout << "safety triggered" << endl;
       }
       else{
+        // wrap up torque
         if(i>=12){
           command.motors[i].torque =
-            arm_P * (target_position[i] - observation.motor.position[i]);
+            min((observation.time - digit_time_start)/soft_count,1.0) * arm_P * (target_position[i] - observation.motor.position[i]);
             command.motors[i].velocity = 0;
             command.motors[i].damping = 0.75 * limits->damping_limit[i];
         }
@@ -912,4 +981,19 @@ MatrixXd get_pr2m_jaco(VectorXd a, VectorXd b, double x, double y){
   jaco(1,0) = b(1) + 2*b(3)*x + b(4)*y + 3*b(6)*pow(x,2) + 2*b(7) * x*y + b(8)*pow(y,2) + 4*b(10)*pow(x,3) + 3*b(11)*pow(x,2)*y + 2*b(12)*x*pow(y,2) + b(13)*pow(y,3);
   jaco(1,1) = b(2) + 2*b(5)*y + b(4)*x + 3*b(9)*pow(y,2) + 2*b(8) * x*y + b(7)*pow(x,2) + 4*b(14)*pow(y,3) + 3*b(13)*pow(y,2)*x + 2*b(12)*y*pow(x,2) + b(11)*pow(x,3);
   return jaco;
+}
+
+VectorXd get_quintic_params(VectorXd x0, VectorXd xT, double T){
+  MatrixXd A = MatrixXd::Zero(6,6);
+  VectorXd b(6); b << x0, xT;
+
+  A(0,0) = 1;
+  A(1,1) = 1;
+  A(2,2) = 2;
+  A.block(3,0,1,6) << 1, T, pow(T,2), pow(T,3), pow(T,4), pow(T,5);
+  A.block(4,1,1,5) << 1, 2*T,  3*pow(T,2), 4*pow(T,3), 5*pow(T,4);
+  A.block(5,2,1,4) << 2, 6*T, 12*pow(T,2), 20*pow(T,3);
+
+  VectorXd sol = A.colPivHouseholderQr().solve(b);
+  return sol;
 }

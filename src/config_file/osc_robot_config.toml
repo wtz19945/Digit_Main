@@ -33,12 +33,17 @@ foot_D_z = 2
 arm_P = 450.0
 
 [QP-Params]
-st_foot_W = 1050.0
-sw_foot_W = 1050.0
-com_W = 150.0
+st_foot_W = 150.0
+sw_foot_W = 20.0
+com_W = 50.0
 force_max = 400.0
 mu = 0.6
 
+[Walk-Params]
+step_time = 0.4   
+step_height = 0.2 
+end_vel = -0.1      # velocity when foot hit ground 
+end_acc = -1        # Acceleration when foot hig ground
 [Filter]
 wd_sz = 500      # number of the consecutive safety violation to trigger safe controller. Control frequency is 1kHz, so 0.5s safe window
 

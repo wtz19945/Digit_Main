@@ -4,12 +4,18 @@ OSC_Control::OSC_Control(std::shared_ptr<cpptoml::table> config){
     Wcom = config->get_qualified_as<double>("QP-Params.com_W").value_or(0);
     Wff  = config->get_qualified_as<double>("QP-Params.st_foot_W").value_or(0);
     Wfb  = config->get_qualified_as<double>("QP-Params.st_foot_W").value_or(0);
-
+    
+    Wffsw  = config->get_qualified_as<double>("QP-Params.sw_foot_W").value_or(0);
+    Wfbsw  = config->get_qualified_as<double>("QP-Params.sw_foot_W").value_or(0);
+    
     force_max = config->get_qualified_as<double>("QP-Params.force_max").value_or(0);
     mu = config->get_qualified_as<double>("QP-Params.mu").value_or(0);
     
     Weight_ToeF = Wff*MatrixXd::Identity(6,6);
     Weight_ToeB = Wfb*MatrixXd::Identity(8,8);
+    Weight_ToeFsw = Wffsw*MatrixXd::Identity(6,6);
+    Weight_ToeBsw = Wfbsw*MatrixXd::Identity(8,8);
+
     Weight_pel = Wcom * MatrixXd::Identity(6,6);
 
     // initialize limit vector
@@ -68,23 +74,52 @@ OSC_Control::OSC_Control(std::shared_ptr<cpptoml::table> config){
     solver.data()->setNumberOfConstraints(Cons_Num);
 }
 
-void OSC_Control::setupQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd des_acc_toe, VectorXd G){
+void OSC_Control::setupQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd des_acc_toe, VectorXd G, VectorXd contact){
+    int contact1 = contact(0);
+    int contact2 = contact(1);
 
-    gradient << -Weight_pel * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeF.block(0,0,3,3) * des_acc.block(0,0,3,1),
-                -Weight_ToeB.block(0,0,4,4) * des_acc_toe.block(0,0,4,1),
-                -Weight_ToeF.block(3,3,3,3) * des_acc.block(3,0,3,1),
-                -Weight_ToeB.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
+    if(contact1 == 1 && contact2 == 1){
+        gradient << -Weight_pel * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeF.block(0,0,3,3) * des_acc.block(0,0,3,1),
+                    -Weight_ToeB.block(0,0,4,4) * des_acc_toe.block(0,0,4,1),
+                    -Weight_ToeF.block(3,3,3,3) * des_acc.block(3,0,3,1),
+                    -Weight_ToeB.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
+    }
+    else if(contact1 == 0 && contact2 == 1){
+        gradient << -Weight_pel * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeFsw.block(0,0,3,3) * des_acc.block(0,0,3,1),
+                    -Weight_ToeBsw.block(0,0,4,4) * des_acc_toe.block(0,0,4,1),
+                    -Weight_ToeF.block(3,3,3,3) * des_acc.block(3,0,3,1),
+                    -Weight_ToeB.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
+    }
+    else if(contact1 == 1 && contact2 == 0){
+        gradient << -Weight_pel * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeF.block(0,0,3,3) * des_acc.block(0,0,3,1),
+                    -Weight_ToeB.block(0,0,4,4) * des_acc_toe.block(0,0,4,1),
+                    -Weight_ToeFsw.block(3,3,3,3) * des_acc.block(3,0,3,1),
+                    -Weight_ToeBsw.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
+    }
+    else{
+        gradient << -Weight_pel * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeFsw.block(0,0,3,3) * des_acc.block(0,0,3,1),
+                    -Weight_ToeBsw.block(0,0,4,4) * des_acc_toe.block(0,0,4,1),
+                    -Weight_ToeFsw.block(3,3,3,3) * des_acc.block(3,0,3,1),
+                    -Weight_ToeBsw.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
+    }
+
+    f_limit_max(2) = force_max * contact1;
+    f_limit_max(5) = force_max * contact1;
+    f_limit_max(8) = force_max * contact2;
+    f_limit_max(11) = force_max * contact2;
 
     lowerBound << -G, VectorXd::Zero(4,1) , -ddq_limit, -u_limit, -tor_limit, f_limit_min, -qt,
-                   f_cons_min,VectorXd::Zero(14,1);
+                f_cons_min,VectorXd::Zero(14,1);
 
     upperBound << -G, VectorXd::Zero(4,1) ,  ddq_limit,  u_limit, tor_limit , f_limit_max, qt, 
-                   VectorXd::Zero(16,1),VectorXd::Zero(14,1);
+                VectorXd::Zero(16,1),VectorXd::Zero(14,1);
+
 }
 
 void OSC_Control::setupQPMatrix(MatrixXd Weight_pel, MatrixXd Weight_ToeF, MatrixXd Weight_ToeB, MatrixXd M, MatrixXd B, MatrixXd Spring_Jaco,
         MatrixXd left_toe_jaco_fa, MatrixXd left_toe_back_jaco_fa, MatrixXd right_toe_jaco_fa, MatrixXd right_toe_back_jaco_fa,
         MatrixXd left_toe_rot_jaco_fa, MatrixXd right_toe_rot_jaco_fa){
+    // This function should be only called at initialization stage as it iterates through the entire matrix to record sparsity of the matrix. 
     // Hessian matrix
     hessian_full.block(0,0,6,6) = Weight_pel;
     hessian_full.block(48,48,3,3) = Weight_ToeF.block(0,0,3,3);
@@ -125,20 +160,43 @@ void OSC_Control::setupQPMatrix(MatrixXd Weight_pel, MatrixXd Weight_ToeF, Matri
     }
 }
 
-void OSC_Control::updateQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd des_acc_toe, VectorXd G){
+void OSC_Control::updateQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd des_acc_toe, VectorXd G, VectorXd contact){
     // currently, QP vector is basically changing with every iteration. no difference between setup and update
-    setupQPVector(des_acc_pel, des_acc, des_acc_toe, G);
+    setupQPVector(des_acc_pel, des_acc, des_acc_toe, G,contact);
 }
 
 void OSC_Control::updateQPMatrix(MatrixXd Weight_pel, MatrixXd Weight_ToeF, MatrixXd Weight_ToeB, MatrixXd M, MatrixXd B, MatrixXd Spring_Jaco,
         MatrixXd left_toe_jaco_fa, MatrixXd left_toe_back_jaco_fa, MatrixXd right_toe_jaco_fa, MatrixXd right_toe_back_jaco_fa,
-        MatrixXd left_toe_rot_jaco_fa, MatrixXd right_toe_rot_jaco_fa){
+        MatrixXd left_toe_rot_jaco_fa, MatrixXd right_toe_rot_jaco_fa, VectorXd contact){
+    
+    int contact1 = contact(0);
+    int contact2 = contact(1);
     // Hessian matrix
     hessian_full.block(0,0,6,6) = Weight_pel;
-    hessian_full.block(48,48,3,3) = Weight_ToeF.block(0,0,3,3);
-    hessian_full.block(51,51,4,4) = Weight_ToeB.block(0,0,4,4);
-    hessian_full.block(55,55,3,3) = Weight_ToeF.block(3,3,3,3);
-    hessian_full.block(58,58,4,4) = Weight_ToeB.block(4,4,4,4);
+    if(contact1 == 1 && contact2 == 1){
+        hessian_full.block(48,48,3,3) = Weight_ToeF.block(0,0,3,3);
+        hessian_full.block(51,51,4,4) = Weight_ToeB.block(0,0,4,4);
+        hessian_full.block(55,55,3,3) = Weight_ToeF.block(3,3,3,3);
+        hessian_full.block(58,58,4,4) = Weight_ToeB.block(4,4,4,4);
+    }
+    else if(contact1 == 0 && contact2 == 1){
+        hessian_full.block(48,48,3,3) = Weight_ToeFsw.block(0,0,3,3);
+        hessian_full.block(51,51,4,4) = Weight_ToeBsw.block(0,0,4,4);
+        hessian_full.block(55,55,3,3) = Weight_ToeF.block(3,3,3,3);
+        hessian_full.block(58,58,4,4) = Weight_ToeB.block(4,4,4,4);
+    }
+    else if(contact1 == 1 && contact2 == 0){
+        hessian_full.block(48,48,3,3) = Weight_ToeF.block(0,0,3,3);
+        hessian_full.block(51,51,4,4) = Weight_ToeB.block(0,0,4,4);
+        hessian_full.block(55,55,3,3) = Weight_ToeFsw.block(3,3,3,3);
+        hessian_full.block(58,58,4,4) = Weight_ToeBsw.block(4,4,4,4);
+    }
+    else{
+        hessian_full.block(48,48,3,3) = Weight_ToeFsw.block(0,0,3,3);
+        hessian_full.block(51,51,4,4) = Weight_ToeBsw.block(0,0,4,4);
+        hessian_full.block(55,55,3,3) = Weight_ToeFsw.block(3,3,3,3);
+        hessian_full.block(58,58,4,4) = Weight_ToeBsw.block(4,4,4,4);
+    }
     
     for(int i = 0;i<hessian_full.rows();i++){
       if(i<6||i>48){
