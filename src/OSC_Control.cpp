@@ -2,6 +2,13 @@
 
 OSC_Control::OSC_Control(std::shared_ptr<cpptoml::table> config){
     Wcom = config->get_qualified_as<double>("QP-Params.com_W").value_or(0);
+    Wcomx = config->get_qualified_as<double>("QP-Params.com_Wx").value_or(0);
+    Wcomy = config->get_qualified_as<double>("QP-Params.com_Wy").value_or(0);
+    Wcomz = config->get_qualified_as<double>("QP-Params.com_Wz").value_or(0);
+    Wcomrz = config->get_qualified_as<double>("QP-Params.com_Wrz").value_or(0);
+    Wcomry = config->get_qualified_as<double>("QP-Params.com_Wry").value_or(0);
+    Wcomrx = config->get_qualified_as<double>("QP-Params.com_Wrx").value_or(0);
+
     Wff  = config->get_qualified_as<double>("QP-Params.st_foot_W").value_or(0);
     Wfb  = config->get_qualified_as<double>("QP-Params.st_foot_W").value_or(0);
     
@@ -15,9 +22,14 @@ OSC_Control::OSC_Control(std::shared_ptr<cpptoml::table> config){
     Weight_ToeB = Wfb*MatrixXd::Identity(8,8);
     Weight_ToeFsw = Wffsw*MatrixXd::Identity(6,6);
     Weight_ToeBsw = Wfbsw*MatrixXd::Identity(8,8);
-
-    Weight_pel = Wcom * MatrixXd::Identity(6,6);
-
+    
+    Weight_pel = Wcomx*MatrixXd::Identity(6,6);
+    Weight_pel(0,0) = Wcomx;
+    Weight_pel(1,1) = Wcomy;
+    Weight_pel(2,2) = Wcomz;
+    Weight_pel(3,3) = Wcomrz;
+    Weight_pel(4,4) = Wcomry;
+    Weight_pel(5,5) = Wcomrx;
     // initialize limit vector
     ddq_limit = VectorXd::Zero(20,1); // state acceleration 
     u_limit = VectorXd::Zero(12,1);   // torque limits
@@ -102,7 +114,7 @@ void OSC_Control::setupQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd
                     -Weight_ToeFsw.block(3,3,3,3) * des_acc.block(3,0,3,1),
                     -Weight_ToeBsw.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
     }
-
+    
     f_limit_max(2) = force_max * contact1;
     f_limit_max(5) = force_max * contact1;
     f_limit_max(8) = force_max * contact2;
@@ -116,7 +128,7 @@ void OSC_Control::setupQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd
 
 }
 
-void OSC_Control::setupQPMatrix(MatrixXd Weight_pel, MatrixXd Weight_ToeF, MatrixXd Weight_ToeB, MatrixXd M, MatrixXd B, MatrixXd Spring_Jaco,
+void OSC_Control::setupQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, MatrixXd Spring_Jaco,
         MatrixXd left_toe_jaco_fa, MatrixXd left_toe_back_jaco_fa, MatrixXd right_toe_jaco_fa, MatrixXd right_toe_back_jaco_fa,
         MatrixXd left_toe_rot_jaco_fa, MatrixXd right_toe_rot_jaco_fa){
     // This function should be only called at initialization stage as it iterates through the entire matrix to record sparsity of the matrix. 
@@ -143,7 +155,7 @@ void OSC_Control::setupQPMatrix(MatrixXd Weight_pel, MatrixXd Weight_ToeF, Matri
     constraint_full.block(0,45,20,3) = -right_toe_back_jaco_fa.transpose();
     constraint_full.block(20,0,4,20) = Spring_Jaco;
     constraint_full.block(24,0,Vars_Num,Vars_Num) = MatrixXd::Identity(Vars_Num,Vars_Num);
-    constraint_full.block(24+Vars_Num,Vars_Num-12,16,12) = get_fric_cons(mu);
+    constraint_full.block(24+Vars_Num,Vars_Num-26,16,12) = get_fric_cons(mu);
     constraint_full.block(40+Vars_Num,0,3,20) = left_toe_jaco_fa;
     constraint_full.block(43+Vars_Num,0,4,20) = left_toe_rot_jaco_fa;
     constraint_full.block(47+Vars_Num,0,3,20) = right_toe_jaco_fa;
@@ -165,7 +177,7 @@ void OSC_Control::updateQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorX
     setupQPVector(des_acc_pel, des_acc, des_acc_toe, G,contact);
 }
 
-void OSC_Control::updateQPMatrix(MatrixXd Weight_pel, MatrixXd Weight_ToeF, MatrixXd Weight_ToeB, MatrixXd M, MatrixXd B, MatrixXd Spring_Jaco,
+void OSC_Control::updateQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, MatrixXd Spring_Jaco,
         MatrixXd left_toe_jaco_fa, MatrixXd left_toe_back_jaco_fa, MatrixXd right_toe_jaco_fa, MatrixXd right_toe_back_jaco_fa,
         MatrixXd left_toe_rot_jaco_fa, MatrixXd right_toe_rot_jaco_fa, VectorXd contact){
     
