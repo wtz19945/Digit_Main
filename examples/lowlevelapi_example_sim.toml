@@ -16,5 +16,10 @@ send-port = 25501
 
 [[model-list]]
 model = "robot"
-pose = {rpyxyz = [0, 0, 1.57, 0, 0, 1]}
+pose = {rpyxyz = [0, 0, 0, 0, 0, 1]}
+
+
+[logging]
+enable-visualizer-log = true
+log-directory = "/tmp/control"
 

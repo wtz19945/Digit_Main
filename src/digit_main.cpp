@@ -538,14 +538,17 @@ int main(int argc, char* argv[])
     right_toe_vel_ref << 0,0,0;
     right_toe_acc_ref << 0,0,0;
 
+    //VectorXd p_com = analytical_expressions.p_COM(wb_q);
+    //VectorXd v_com = analytical_expressions.J_COM(wb_q) * wb_dq;
+    
     double cp_py = 1;
     if(contact(0) == 0){
       // temporally use capture point
       double x_goal = pel_pos(0) + 0.0 + sqrt(1/9.81) * pel_vel(0);
-      double y_goal = pel_pos(1) + 0.11 + cp_py * sqrt(.9/9.81) * pel_vel(1);
+      double y_goal = pel_pos(1) + 0.14 + cp_py * sqrt(.9/9.81) * pel_vel(1);
 
       left_toe_pos_ref << x_goal,y_goal,0;
-      left_toe_vel_ref << pel_vel(0), pel_vel_y.getData(pel_vel(1)), 0;
+      left_toe_vel_ref << pel_vel(0), pel_vel(1), 0;
       left_toe_acc_ref << 0,0,0;
 
       if(traj_time < step_time/2){
@@ -572,10 +575,10 @@ int main(int argc, char* argv[])
     if(contact(1) == 0){
       // temporally use capture point
       double x_goal = pel_pos(0) + 0.0 + sqrt(1/9.81) * pel_vel(0);
-      double y_goal = pel_pos(1) - 0.11 + cp_py * sqrt(.9/9.81) * pel_vel(1);
+      double y_goal = pel_pos(1) - 0.14 + cp_py * sqrt(.9/9.81) * pel_vel(1);
 
       right_toe_pos_ref << x_goal, y_goal, 0;
-      right_toe_pos_ref << pel_vel(0), pel_vel_y.getData(pel_vel(1)), 0;
+      right_toe_pos_ref << pel_vel(0), pel_vel(1), 0;
       right_toe_acc_ref << 0,0,0;
 
       if(traj_time < step_time/2){

@@ -173,6 +173,19 @@ MatrixXd AnalyticalExpressions::p_COM(VectorXd q)
   return output;
 }
 
+MatrixXd AnalyticalExpressions::J_COM(VectorXd q)
+{
+  MatrixXd output(3,28);
+  //input
+  assert_size_matrix(q, 28, 1);
+  // - Outputs
+  assert_size_matrix(output, 3, 28);
+  // set zero the matrix
+  output.setZero();
+  Jp_COM_src(output.data(), q.data());
+  return output;
+}
+
 MatrixXd AnalyticalExpressions::p_left_toe_pitch(VectorXd q)
 {
   MatrixXd output(3,1);

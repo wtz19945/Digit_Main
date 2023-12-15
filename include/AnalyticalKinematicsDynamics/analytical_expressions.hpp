@@ -32,6 +32,7 @@ public:
   
   //--FK for COM
   MatrixXd p_COM(VectorXd q);
+  MatrixXd J_COM(VectorXd q);
   
   //--FK for arm
   MatrixXd p_left_elbow(VectorXd q);
