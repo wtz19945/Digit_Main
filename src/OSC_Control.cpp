@@ -22,7 +22,7 @@ OSC_Control::OSC_Control(std::shared_ptr<cpptoml::table> config){
     Weight_ToeB = Wfb*MatrixXd::Identity(8,8);
     Weight_ToeFsw = Wffsw*MatrixXd::Identity(6,6);
     Weight_ToeBsw = Wfbsw*MatrixXd::Identity(8,8);
-    
+
     Weight_pel = Wcomx*MatrixXd::Identity(6,6);
     Weight_pel(0,0) = Wcomx;
     Weight_pel(1,1) = Wcomy;
