@@ -40,7 +40,7 @@ source devel/setup.bash
 ## Start Simulator
 To run the Agility simulator, run the following command
 ``` bash
-cd ~/catkin_ws/src/Digit_Ros
+cd ~/catkin_ws/src/Digit_Main
 chmod +x ar-control # you only need this command for the first time
 ./ar-control ./examples/lowlevelapi_example.toml
 ```
@@ -51,7 +51,7 @@ This will start a webpage at localhost:8080. Open this link with your browser. Y
 Run the following command in another terminal,
 ```bash
 cd ~/catkin_ws
-roslaunch Digit_ROS digit_launch.launch 
+roslaunch Digit_ROS digit_main_launch.launch 
 ```
 Now you should see the solver info, ros outputs, and etc in the terminal.
 
