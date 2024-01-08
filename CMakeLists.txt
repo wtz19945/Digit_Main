@@ -31,6 +31,7 @@ find_package(OsqpEigen REQUIRED)
 add_message_files(
   FILES
   digit_state.msg
+  mpc_info.msg
 )
 
 generate_messages(
@@ -90,6 +91,8 @@ ${Digit_Source})
 set(digit_main_source src/digit_main.cpp src/input_listener.cpp
 ${Digit_Source})
 
+set(mpc_main_source src/mpc_main.cpp ${Digit_Source})
+
 # the followings are the costum libraries used for your controller
 add_library(digit_safety_lib STATIC src/Digit_safety.cpp)
 target_include_directories(digit_safety_lib 
@@ -107,6 +110,11 @@ target_include_directories(filter_lib
     PUBLIC 
     ${Home_Dir}/include)
 
+add_library(mpc_cmd_lib STATIC src/mpc_listener.cpp)
+target_include_directories(mpc_cmd_lib 
+    PUBLIC 
+    ${Home_Dir}/include)
+    
 # the following will be executable to control Digit
 # a simple standing controller implementation
 add_executable(standing_controlV2 ${standing_SOURCESV2})
@@ -115,6 +123,11 @@ add_dependencies(standing_controlV2 Digit_Ros_generate_messages_cpp)
 
 # walking controller
 add_executable(digit_main ${digit_main_source})
-target_link_libraries(digit_main OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib ${catkin_LIBRARIES})
+target_link_libraries(digit_main OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib mpc_cmd_lib ${catkin_LIBRARIES})
 add_dependencies(digit_main Digit_Ros_generate_messages_cpp)
+
+# mpc controller
+add_executable(mpc_main ${mpc_main_source})
+target_link_libraries(mpc_main OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib ${catkin_LIBRARIES})
+add_dependencies(mpc_main Digit_Ros_generate_messages_cpp)
 

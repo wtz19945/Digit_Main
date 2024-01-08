@@ -602,7 +602,12 @@ int main(int argc, char* argv[])
     VectorXd torque = VectorXd::Zero(12,1);
     for(int i = 0;i<12;i++)
       torque(i) = QPSolution(20+i);
-
+    
+    cout << "left torque" << endl;
+    cout << torque.block(0,0,6,1) << endl;
+    cout << "right torque" << endl;
+    cout << torque.block(6,0,6,1) << endl;
+    
     // OSC on leg, PD on arm
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + QP formulation + Solving: " << elapsed_time.count() << endl;
@@ -789,7 +794,11 @@ int main(int argc, char* argv[])
     llapi_send_command(&command);
 
     Digit_Ros::digit_state msg;
-    msg.yaw = yaw_des;
+    std::copy(pel_pos.data(),pel_pos.data() + 3,msg.pel_pos.begin());
+    std::copy(pel_vel.data(),pel_vel.data() + 3,msg.pel_vel.begin());
+    std::copy(theta.data(),theta.data() + 3,msg.pel_rot.begin());
+    std::copy(dtheta.data(),dtheta.data() + 3,msg.pel_omg.begin());
+    //msg.yaw = yaw_des;
     state_pub.publish(msg);
     ros::spinOnce();
     control_loop_rate.sleep();

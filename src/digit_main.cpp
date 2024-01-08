@@ -25,6 +25,7 @@
 #include "Digit_safety.hpp"
 #include "OSC_Control.hpp"
 #include "Filter.hpp"
+#include "mpc_listener.hpp"
 
 // ros part
 #include "ros/ros.h"
@@ -132,16 +133,16 @@ VectorXd get_quintic_params(VectorXd x0, VectorXd xT, double T);
 
 using namespace std;
 using namespace std::chrono;
+using namespace Eigen;
+
 int main(int argc, char* argv[])
 {
-  
 
   OsqpEigen::Solver solver;
   int QP_initialized = 0;
 
   AnalyticalExpressions analytical_expressions;
-  VectorXd q(NUM_MOTORS);using namespace Eigen;
-
+  VectorXd q(NUM_MOTORS);
   VectorXd dq(NUM_MOTORS);
   VectorXd qj(NUM_JOINTS);
   VectorXd dqj(NUM_JOINTS);
@@ -249,6 +250,7 @@ int main(int argc, char* argv[])
   double zh = config->get_qualified_as<double>("Walk-Params.step_height").value_or(0);
   double dzend = config->get_qualified_as<double>("Walk-Params.end_vel").value_or(0);
   double ddzend = config->get_qualified_as<double>("Walk-Params.end_acc").value_or(0);
+
   // Weight Matrix and Gain Vector
   MatrixXd Weight_ToeF = Wff*MatrixXd::Identity(6,6);
   VectorXd KP_ToeF = VectorXd::Zero(6,1);
@@ -295,11 +297,12 @@ int main(int argc, char* argv[])
 
   // Set ROS params
   ros::Rate control_loop_rate(1000);
-  ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("digit_state", 10);
+  ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("/digit_state", 10);
   int count = 0;
   double key_time_tracker, key_time_tracker_c, conduct_time_prev = 0; // time log helper for key input, might remove in the future
   int key_mode = -1;
   InputListener input_listener(&key_mode);
+  MPC_CMD_Listener mpc_cmd_listener;
 
   // arm IK warm start
   VectorXd ql_last = VectorXd::Zero(10,1);
@@ -340,13 +343,11 @@ int main(int argc, char* argv[])
     // trajectory time
     //traj_time = global_time - floor(global_time / step_time) * step_time;
     traj_time = traj_time + 0.001;
-    cout << "trajectory time is: " << traj_time << endl;
-
-
+    //cout << "trajectory time is: " << traj_time << endl;
+    //cout << "contact flag is " << endl << contact << endl;
     
-
-    cout << "contact flag is " << endl << contact << endl;
-    
+    cout << "mpc cmd subscribed is: " << endl;
+    cout << mpc_cmd_listener.get_pel_pos_cmd().block(0,0,1,1) << endl;
     // Update observation
     int return_val = llapi_get_observation(&observation);
     if (return_val < 1) {
@@ -631,7 +632,7 @@ int main(int argc, char* argv[])
        pel_vel_des(1) = .12;
     }
 
-    cout << "current height" << pel_pos << endl;
+    //cout << "current height" << pel_pos << endl;
     //left_toe_pos_ref(2) = -0.7;
     //right_toe_pos_ref(2) = -0.7;
 
@@ -950,7 +951,11 @@ int main(int argc, char* argv[])
     llapi_send_command(&command);
 
     Digit_Ros::digit_state msg;
-    msg.yaw = yaw_des;
+    std::copy(pel_pos.data(),pel_pos.data() + 3,msg.pel_pos.begin());
+    std::copy(pel_vel.data(),pel_vel.data() + 3,msg.pel_vel.begin());
+    std::copy(theta.data(),theta.data() + 3,msg.pel_rot.begin());
+    std::copy(dtheta.data(),dtheta.data() + 3,msg.pel_omg.begin());
+  
     state_pub.publish(msg);
     ros::spinOnce();
     control_loop_rate.sleep();
