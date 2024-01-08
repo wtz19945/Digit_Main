@@ -47,7 +47,7 @@ chmod +x ar-control # you only need this command for the first time
 
 This will start a webpage at localhost:8080. Open this link with your browser. You can read the detailed Digit documentation or simulate Digit robot in this webpage.
 
-## Run the controller
+## Run the controller in Sim
 Run the following command in another terminal,
 ```bash
 cd ~/catkin_ws
