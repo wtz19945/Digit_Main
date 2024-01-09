@@ -223,6 +223,7 @@ int main(int argc, char* argv[])
   double cdhy = config->get_qualified_as<double>("PD-Gains.hip_yaw_D").value_or(0);
 
   double arm_P = config->get_qualified_as<double>("PD-Gains.arm_P").value_or(0);
+  double cp_py  = config->get_qualified_as<double>("PD-Gains.cp_P").value_or(0);
 
   double fpx = config->get_qualified_as<double>("PD-Gains.foot_P_x").value_or(0);
   double fpy = config->get_qualified_as<double>("PD-Gains.foot_P_y").value_or(0);
@@ -250,6 +251,7 @@ int main(int argc, char* argv[])
   double zh = config->get_qualified_as<double>("Walk-Params.step_height").value_or(0);
   double dzend = config->get_qualified_as<double>("Walk-Params.end_vel").value_or(0);
   double ddzend = config->get_qualified_as<double>("Walk-Params.end_acc").value_or(0);
+  double ds_time = config->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
 
   // Weight Matrix and Gain Vector
   MatrixXd Weight_ToeF = Wff*MatrixXd::Identity(6,6);
@@ -275,6 +277,7 @@ int main(int argc, char* argv[])
               66.849, 26.1129, 38.05, 38.05, 0 , 15.5532, 15.5532;
   MatrixXd Dmat = damping.asDiagonal();
   D_term = 0.0 * Dmat * wb_dq.block(0,0,20,1);
+
   VectorXd counter = VectorXd::Zero(4,1);
 
   // record initial base status
@@ -321,8 +324,8 @@ int main(int argc, char* argv[])
   VectorXd fzint(3) ; fzint << 0,0,0;
   VectorXd fzmid(3) ; fzmid << zh,0,0;
   VectorXd fzend(3) ; fzend << 0,dzend,ddzend;
-  VectorXd a = get_quintic_params(fzint,fzmid,step_time/2);
-  VectorXd b = get_quintic_params(fzmid,fzend,step_time/2);
+  VectorXd a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
+  VectorXd b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
   VectorXd tvec = VectorXd::Zero(6,1);
   VectorXd dtvec = VectorXd::Zero(6,1);
   VectorXd ddtvec = VectorXd::Zero(6,1);
@@ -419,20 +422,30 @@ int main(int argc, char* argv[])
     }
 
 
-    if(global_time < 2.8){
+    if(global_time < 7 * step_time){
       contact << 1,1;
     }
     else{
-      if(traj_time > 0.4){
+      if(traj_time > step_time){
         traj_time = 0;
         stance_leg *= -1;
       }
 
       if(stance_leg == 1){
-        contact << 0,1;
+        if(traj_time <= ds_time/2)
+          contact << 0.5 - traj_time * 1 / ds_time, 0.5 + traj_time * 1 / ds_time;
+        else if(traj_time >= 0.4 - ds_time/2)
+          contact << 0 + 1 / ds_time * (traj_time - 0.4 + ds_time/2),1 - 1 / ds_time * (traj_time - 0.4 + ds_time/2);
+        else
+          contact << 0,1;
       }
       else{
-        contact << 1,0;
+        if(traj_time <= ds_time/2)
+          contact << 0.5 + traj_time * 1 / ds_time, 0.5 - traj_time * 1 / ds_time;
+        else if(traj_time >= 0.4 - ds_time/2)
+          contact << 1 - 1 / ds_time * (traj_time - 0.4 + ds_time/2), 0 + 1 / ds_time * (traj_time - 0.4 + ds_time/2);
+        else
+          contact << 1,0;
       }
 
     }
@@ -516,7 +529,7 @@ int main(int argc, char* argv[])
         pos_avg = (left_toe_pos + right_toe_pos + left_toe_back_pos + right_toe_back_pos) / 4;
     }
     else{
-        pel_pos(0) -= pos_avg(0) + 0.07; 
+        pel_pos(0) -= pos_avg(0) + 0.03; 
         pel_pos(1) -= pos_avg(1);
     }
     
@@ -543,21 +556,19 @@ int main(int argc, char* argv[])
 
     //VectorXd p_com = analytical_expressions.p_COM(wb_q);
     //VectorXd v_com = analytical_expressions.J_COM(wb_q) * wb_dq;
-    
-    double cp_py = 1.8;
 
     if(contact(0) == 0){
       // temporally use capture point
-      double x_goal = pel_pos(0) + 0.0 + sqrt(1/9.81) * pel_vel(0);
-      double y_goal = pel_pos(1) + 0.11 + cp_py * sqrt(.9/9.81) * pel_vel(1);
+      double x_goal = pel_pos(0) + 0.0 + cp_py * sqrt(1/9.81) * pel_vel(0);
+      double y_goal = pel_pos(1) + 0.09 + cp_py * sqrt(.9/9.81) * pel_vel(1);
 
       
       left_toe_pos_ref << x_goal,y_goal,0;
       left_toe_vel_ref << pel_vel(0), cp_py * pel_vel(1), 0;
       left_toe_acc_ref << 0,0,0;
 
-      if(traj_time < step_time/2){
-        double n = traj_time;
+      if(traj_time < step_time/2 ){
+        double n = traj_time - ds_time / 2;
         tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
         dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
         ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
@@ -579,15 +590,15 @@ int main(int argc, char* argv[])
 
     if(contact(1) == 0){
       // temporally use capture point
-      double x_goal = pel_pos(0) + 0.0 + sqrt(1/9.81) * pel_vel(0);
-      double y_goal = pel_pos(1) - 0.11 + cp_py * sqrt(.9/9.81) * pel_vel(1);
+      double x_goal = pel_pos(0) + 0.0 + cp_py * sqrt(1/9.81) * pel_vel(0);
+      double y_goal = pel_pos(1) - 0.09 + cp_py * sqrt(.9/9.81) * pel_vel(1);
 
       right_toe_pos_ref << x_goal, y_goal, 0;
       right_toe_vel_ref << pel_vel(0), cp_py * pel_vel(1), 0;
       right_toe_acc_ref << 0,0,0;
 
       if(traj_time < step_time/2){
-        double n = traj_time;
+        double n = traj_time - 0.05;
         tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
         dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
         ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
@@ -627,8 +638,8 @@ int main(int argc, char* argv[])
     }
 
     //
-    if(global_time > 2.4 && global_time < 2.8){
-       pel_pos_des(1) = 0 + .12 * (global_time - 2.4);
+    if(global_time > 6 * step_time && global_time < 7 * step_time){
+       pel_pos_des(1) = 0 + .12 * (global_time - 6 * step_time);
        pel_vel_des(1) = .12;
     }
 
@@ -690,12 +701,12 @@ int main(int argc, char* argv[])
                    -cphy * (right_toe_rot(3) - 0) - cdhy * (right_toe_drot(3) - 0);
     
     // Compute JdotV. TODO: check if this is needed for control
-    if(contact(0) == 1){
+    if(contact(0) != 0){
       des_acc.block(0,0,3,1) = VectorXd::Zero(3,1);
       des_acc_toe.block(0,0,3,1) = VectorXd::Zero(3,1); 
     }
 
-    if(contact(1) == 1){
+    if(contact(1) != 0){
       des_acc.block(3,0,3,1) = VectorXd::Zero(3,1);
       des_acc_toe.block(4,0,3,1) = VectorXd::Zero(3,1);
     }
@@ -725,8 +736,8 @@ int main(int argc, char* argv[])
                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
     }
     else{
-      des_acc_pel << -1 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 1 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
-                    -1 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 1 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
+      des_acc_pel << -0.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 1 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
+                    -0.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 1 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
                     -1 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 1 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
@@ -738,6 +749,23 @@ int main(int argc, char* argv[])
     // Solve OSC QP
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "set up sparse constraint: " << elapsed_time.count() << endl;
+
+    /*MatrixXd select = MatrixXd::Zero(12,20);
+    select(0,6) = 1;
+    select(1,7) = 1;
+    select(2,8) = 1;
+    select(3,9) = 1;
+    select(4,11) = 1;
+    select(5,12) = 1;
+    select(6,13) = 1;
+    select(7,14) = 1;
+    select(8,15) = 1;
+    select(9,16) = 1;
+    select(10,18) = 1;
+    select(11,19) = 1;
+    D_term = 0.075 * B * select * Dmat * wb_dq.block(0,0,20,1);
+    */
+
     if(QP_initialized == 0){
       QP_initialized = 1;
       osc.setupQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);

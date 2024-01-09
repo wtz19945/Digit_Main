@@ -87,8 +87,8 @@ OSC_Control::OSC_Control(std::shared_ptr<cpptoml::table> config){
 }
 
 void OSC_Control::setupQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd des_acc_toe, VectorXd G, VectorXd contact){
-    int contact1 = contact(0);
-    int contact2 = contact(1);
+    double contact1 = contact(0);
+    double contact2 = contact(1);
 
     if(contact1 == 1 && contact2 == 1){
         gradient << -Weight_pel * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeF.block(0,0,3,3) * des_acc.block(0,0,3,1),
