@@ -569,9 +569,16 @@ int main(int argc, char* argv[])
 
     //VectorXd p_com = analytical_expressions.p_COM(wb_q);
     //VectorXd v_com = analytical_expressions.J_COM(wb_q) * wb_dq;
-    int use_x_cap = 1;
-    int use_y_cap = 1;
-
+    int use_x_cap;
+    int use_y_cap;
+    if(run_sim){
+      int use_x_cap = 1;
+      int use_y_cap = 1;
+    }
+    else{
+      int use_x_cap = 1; // use capture point
+      int use_y_cap = 1;
+    }
     if(contact(0) == 0){
       // temporally use capture point
       double x_goal = pel_pos(0) + 0.0 + cp_py * sqrt(1/9.81) * pel_vel(0);

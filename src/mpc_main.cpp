@@ -192,19 +192,19 @@ int main(int argc, char **argv){
       if(traj_time - 0.05 - mpc_index * 0.1 < 0.1){
         QPSolution = digit_mpc.Update_MPC_(mpc_index,mpc_input);
         auto mpc_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - mpc_time_start);
-        //cout << "solving time: " << mpc_time.count() << endl;
+        cout << "solving time: " << mpc_time.count() << endl;
       }
       if(digit_mpc.get_stance_leg() == 1){
         foot_change << QPSolution(39), QPSolution(82);
-        cout << "this is a left step, right foot on ground" << endl;
-        cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
-        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;
+        //cout << "this is a left step, right foot on ground" << endl;
+        //cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
+        //cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;
       }
       else{
         foot_change << QPSolution(39), QPSolution(82);
-        cout << "this is a right step, left foot on ground" << endl;
-        cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
-        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;
+        //cout << "this is a right step, left foot on ground" << endl;
+        //cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
+        //cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;
       }
 
       double dt = (traj_time -.05 - mpc_index * 0.1) / 0.1;
