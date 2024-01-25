@@ -273,8 +273,8 @@ int main(int argc, char* argv[])
   // Incorporate damping command into OSC
   double damping_dt = 0.00;
   VectorXd damping(20),D_term(20);;
-  damping << VectorXd::Zero(6,1), 66.849, 26.1129, 38.05, 38.05, 0 , 15.5532, 15.5532, 
-              66.849, 26.1129, 38.05, 38.05, 0 , 15.5532, 15.5532;
+  damping << VectorXd::Zero(6,1), 66.849, 26.1129, 38.05, 38.05, 0 , 0, 0, 
+              66.849, 26.1129, 38.05, 38.05, 0 , 0, 0;
   MatrixXd Dmat = damping.asDiagonal();
   D_term = 0.0 * Dmat * wb_dq.block(0,0,20,1);
 
@@ -556,6 +556,8 @@ int main(int argc, char* argv[])
 
     //VectorXd p_com = analytical_expressions.p_COM(wb_q);
     //VectorXd v_com = analytical_expressions.J_COM(wb_q) * wb_dq;
+    int use_x_cap = 1;
+    int use_y_cap = 1;
 
     if(contact(0) == 0){
       // temporally use capture point
@@ -727,6 +729,8 @@ int main(int argc, char* argv[])
     VectorXd des_acc_pel = VectorXd::Zero(6,1);
     MatrixXd pel_jaco = MatrixXd::Zero(6,20);
     pel_jaco.block(0,0,6,6) = MatrixXd::Identity(6,6);
+
+
     if(contact(0) == 1 && contact(1) == 1){
       des_acc_pel << -KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
                     -KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
@@ -736,8 +740,13 @@ int main(int argc, char* argv[])
                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
     }
     else{
-      des_acc_pel << -0.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 1 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
-                    -0.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 1 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
+      VectorXd foot = pel_pos;
+      if(contact(0) == 0)
+        foot = right_toe_back_pos;
+      if(contact(1) == 0)
+        foot = left_toe_back_pos;
+      des_acc_pel << -0.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 1 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) + 0 * 9.81/1 * (pel_pos(0) - foot(0)),
+                    -0.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 1 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) + 0 * 9.81/1 * (pel_pos(1) - foot(1)),
                     -1 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 1 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
@@ -750,7 +759,7 @@ int main(int argc, char* argv[])
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "set up sparse constraint: " << elapsed_time.count() << endl;
 
-    /*MatrixXd select = MatrixXd::Zero(12,20);
+    MatrixXd select = MatrixXd::Zero(12,20);
     select(0,6) = 1;
     select(1,7) = 1;
     select(2,8) = 1;
@@ -763,8 +772,8 @@ int main(int argc, char* argv[])
     select(9,16) = 1;
     select(10,18) = 1;
     select(11,19) = 1;
-    D_term = 0.075 * B * select * Dmat * wb_dq.block(0,0,20,1);
-    */
+    // D_term = B * select * Dmat * wb_dq.block(0,0,20,1);
+    // M -= B * select * Dmat * damping_dt;
 
     if(QP_initialized == 0){
       QP_initialized = 1;
@@ -807,8 +816,15 @@ int main(int argc, char* argv[])
       else
         wb_dq_next(i) = wb_dq(8+i) + damping_dt * QPSolution(8+i);
     }
+    if(contact(0) > 0)
+      wb_dq_next.block(0,0,6,1) = VectorXd::Zero(6,1);
+    if(contact(1) > 0)
+      wb_dq_next.block(6,0,6,1) = VectorXd::Zero(6,1);
 
-    
+    wb_dq_next(4) = 0;
+    wb_dq_next(5) = 0;
+    wb_dq_next(10) = 0;
+    wb_dq_next(11) = 0;
     // IK arm control for conducting, trial implementation. Incorporate to analytical_expressions class in the future
     VectorXd ql = VectorXd::Zero(10,1);
     VectorXd p_lh = VectorXd::Zero(3,1);
@@ -946,6 +962,11 @@ int main(int argc, char* argv[])
     //cout << pel_pos_des(2) << endl;
     //cout << pel_pos(2) << endl;
     //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
+    VectorXd damping(NUM_MOTORS);
+    damping << 66.849, 26.1129, 38.05, 38.05, 15.5532, 15.5532, 
+          66.849, 26.1129, 38.05, 38.05, 15.5532, 15.5532, 
+          66.849, 66.849, 26.1129, 66.849, 
+          66.849, 66.849, 26.1129, 66.849;
     for (int i = 0; i < NUM_MOTORS; ++i) {
       if(safe_check.checkSafety()){ // safety check
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];
@@ -959,13 +980,13 @@ int main(int argc, char* argv[])
           command.motors[i].torque =
             min((observation.time - digit_time_start)/soft_count,1.0) * arm_P * (target_position[i] - observation.motor.position[i]);
             command.motors[i].velocity = 0;
-            command.motors[i].damping = 0.75 * limits->damping_limit[i];
+            command.motors[i].damping = .75 * limits->damping_limit[i];
         }
         else{
           torque *= min((observation.time - digit_time_start)/soft_count,1.0);
           command.motors[i].torque = 1 * torque(i);
-          command.motors[i].velocity = 0;
-          command.motors[i].damping = 0.75 * limits->damping_limit[i];
+          command.motors[i].velocity = 0 * wb_dq_next(i);
+          command.motors[i].damping = .75 * limits->damping_limit[i];
         }
       }
     }
@@ -978,11 +999,27 @@ int main(int argc, char* argv[])
     command.apply_command = true;
     llapi_send_command(&command);
 
+    VectorXd pel_ref(4), foot_pos(2), obs_info(4);
+    pel_ref << 0.0, 0.0, 0.0, 0.0; // pel_pos_des.block(0,0,2,1), pel_vel_des.block(0,0,2,1);
+    obs_info << -10.4, 0.0, 1.0, -0.0;
+
+    if(contact(0) == 0){
+      foot_pos << (right_toe_pos(0) + right_toe_back_pos(0))/2, (right_toe_pos(1) + right_toe_back_pos(1))/2;
+    }
+    if(contact(1) == 0){
+      foot_pos << (left_toe_pos(0) + left_toe_back_pos(0))/2, (left_toe_pos(1) + left_toe_back_pos(1))/2;
+    }
+
     Digit_Ros::digit_state msg;
     std::copy(pel_pos.data(),pel_pos.data() + 3,msg.pel_pos.begin());
     std::copy(pel_vel.data(),pel_vel.data() + 3,msg.pel_vel.begin());
     std::copy(theta.data(),theta.data() + 3,msg.pel_rot.begin());
     std::copy(dtheta.data(),dtheta.data() + 3,msg.pel_omg.begin());
+    std::copy(pel_ref.data(),pel_ref.data() + 4, msg.pel_ref.begin());
+    std::copy(foot_pos.data(),foot_pos.data() + 2,msg.foot_pos.begin());
+    std::copy(obs_info.data(),obs_info.data() + 4,msg.obs_info.begin());
+    msg.traj_time = traj_time;
+    msg.stance_leg = stance_leg;
   
     state_pub.publish(msg);
     ros::spinOnce();

@@ -56,7 +56,7 @@ class OSC_Control{
     MatrixXd Weight_ToeBsw;
 
     MatrixXd Weight_pel;
-
+    MatrixXd Weight_pelst;
     VectorXd ddq_limit;
     VectorXd u_limit;
     VectorXd tor_limit;

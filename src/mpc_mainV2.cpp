@@ -1,4 +1,4 @@
-#include "mpc_main.hpp"
+#include "mpc_mainV2.hpp"
 #include "utilities.hpp"
 
 using namespace Eigen;
@@ -6,9 +6,9 @@ using namespace std;
 namespace fs = std::filesystem;
 using namespace std::chrono;
 
-Digit_MPC::Digit_MPC()
+Digit_MPCV2::Digit_MPCV2()
 {
-  mpc_sub_ = node_handler_.subscribe("/digit_state", 10, &Digit_MPC::MPCInputCallback, this);
+  mpc_sub_ = node_handler_.subscribe("/digit_state", 10, &Digit_MPCV2::MPCInputCallback, this);
   pel_pos_ = VectorXd::Zero(3,1);
   pel_vel_ = VectorXd::Zero(3,1);
   theta_ = VectorXd::Zero(3,1);
@@ -21,13 +21,13 @@ Digit_MPC::Digit_MPC()
 
   // MPC QP Matrix
   std::string prefix_lib = fs::current_path().parent_path().string();
-  left_step0_matrix_ = casadi::external("LeftStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/LeftStart_Step0.so");
-  left_step1_matrix_ = casadi::external("LeftStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/LeftStart_Step1.so");
-  left_step2_matrix_ = casadi::external("LeftStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/LeftStart_Step2.so");
+  left_step0_matrix_ = casadi::external("LeftStart_Step0V2", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/LeftStart_Step0V2.so");
+  left_step1_matrix_ = casadi::external("LeftStart_Step1V2", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/LeftStart_Step1V2.so");
+  left_step2_matrix_ = casadi::external("LeftStart_Step2V2", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/LeftStart_Step2V2.so");
 
-  right_step0_matrix_ = casadi::external("RightStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/RightStart_Step0.so");
-  right_step1_matrix_ = casadi::external("RightStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/RightStart_Step1.so");
-  right_step2_matrix_ = casadi::external("RightStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/RightStart_Step2.so");
+  right_step0_matrix_ = casadi::external("RightStart_Step0V2", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/RightStart_Step0V2.so");
+  right_step1_matrix_ = casadi::external("RightStart_Step1V2", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/RightStart_Step1V2.so");
+  right_step2_matrix_ = casadi::external("RightStart_Step2V2", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/RightStart_Step2V2.so");
 
   // read control parameters
   std::string package_path; 
@@ -66,15 +66,15 @@ Digit_MPC::Digit_MPC()
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {153,154,155};
-  Vars_Num_ = 112;
+  Cons_Num_ = {143,143,143};
+  Vars_Num_ = 99;
   //
-  mpc_solver0_ = MPC_Solver(Cons_Num_[0],Vars_Num_);
-  mpc_solver1_ = MPC_Solver(Cons_Num_[1],Vars_Num_);
-  mpc_solver2_ = MPC_Solver(Cons_Num_[2],Vars_Num_);
+  mpc_solver0_ = MPC_Solver(Cons_Num_[0], Vars_Num_);
+  mpc_solver1_ = MPC_Solver(Cons_Num_[1], Vars_Num_);
+  mpc_solver2_ = MPC_Solver(Cons_Num_[2], Vars_Num_);
 }
 
-void Digit_MPC::MPCInputCallback(const Digit_Ros::digit_state& msg) {
+void Digit_MPCV2::MPCInputCallback(const Digit_Ros::digit_state& msg) {
   for(int i = 0;i<3;i++){
     pel_pos_[i] = msg.pel_pos[i]; 
     pel_vel_[i] = msg.pel_vel[i];
@@ -85,24 +85,24 @@ void Digit_MPC::MPCInputCallback(const Digit_Ros::digit_state& msg) {
   std::copy(msg.foot_pos.begin(), msg.foot_pos.begin() + 2, foot_pos_.data());
   std::copy(msg.obs_info.begin(), msg.obs_info.begin() + 4, obs_info_.data());
 
-
   traj_time_ = msg.traj_time;
   stance_leg_ = msg.stance_leg;
 }
 
-VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input){
+VectorXd Digit_MPCV2::Update_MPC_(int traj_time, vector<vector<double>> mpc_input){
   VectorXd QPSolution;
   int mpc_in = traj_time;
   std::vector<double> input;
   input.insert(input.end(), mpc_input[0].begin(), mpc_input[0].end());
   input.insert(input.end(), mpc_input[1].begin(), mpc_input[1].end());
-  input.insert(input.end(), f_length_.begin(), f_length_.end());
   input.insert(input.end(), mpc_input[2].begin(), mpc_input[2].end());
+  input.insert(input.end(), f_length_.begin(), f_length_.end());
   input.insert(input.end(), mpc_input[3].begin(), mpc_input[3].end());
+  input.insert(input.end(), mpc_input[4].begin(), mpc_input[4].end());
   input.insert(input.end(), Weights_ss_.begin(), Weights_ss_.end());
   input.insert(input.end(), r_.begin(), r_.end());
-  input.insert(input.end(), mpc_input[4].begin(), mpc_input[4].end());
   input.insert(input.end(), mpc_input[5].begin(), mpc_input[5].end());
+  input.insert(input.end(), mpc_input[6].begin(), mpc_input[6].end());
 
   std::vector<casadi::DM> MPC_arg = {input,sol_};
   std::vector<casadi::DM> res;
@@ -145,7 +145,7 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input)
 
 int main(int argc, char **argv){
   ros::init(argc, argv, "listener");
-  Digit_MPC digit_mpc;
+  Digit_MPCV2 digit_mpc;
 
   ros::NodeHandle n;
   ros::Rate loop_rate(200);
@@ -170,8 +170,19 @@ int main(int argc, char **argv){
     VectorXd mpc_f_init = digit_mpc.get_foot_pos();
     VectorXd mpc_obs_info = digit_mpc.get_obs_info();
 
+    VectorXd mpc_x_ref(5), mpc_y_ref(5);
+    mpc_x_ref << mpc_pel_ref(0), mpc_pel_ref(1), mpc_pel_ref(1), mpc_pel_ref(1), mpc_pel_ref(1);
+    double dy_des = sqrt(9.81/.9) * digit_mpc.get_foot_wdith() * tanh(sqrt(9.81/0.9) * 0.3 / 2);
+
+    if(digit_mpc.get_stance_leg() == 1){
+      mpc_y_ref << 0, dy_des, -dy_des, dy_des, -dy_des;
+    }
+    else{
+      mpc_y_ref << 0, -dy_des, dy_des, -dy_des, dy_des;
+    }
     std::vector<double> q_init = {mpc_pel_pos(0), mpc_pel_vel(0), mpc_pel_pos(1), mpc_pel_vel(1)};
-    std::vector<double> q_ref(mpc_pel_ref.data(), mpc_pel_ref.data() + mpc_pel_ref.size());
+    std::vector<double> x_ref(mpc_x_ref.data(), mpc_x_ref.data() + mpc_x_ref.size());
+    std::vector<double> y_ref(mpc_y_ref.data(), mpc_y_ref.data() + mpc_y_ref.size());
     std::vector<double> f_init(mpc_f_init.data(), mpc_f_init.data() + mpc_f_init.size());
     std::vector<double> f_param = {0, 0, mpc_pel_ref(1)*0.3, 0, 0, digit_mpc.get_foot_wdith()};
     std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
@@ -179,7 +190,8 @@ int main(int argc, char **argv){
 
     vector<vector<double>> mpc_input;
     mpc_input.push_back(q_init);
-    mpc_input.push_back(q_ref);
+    mpc_input.push_back(x_ref);
+    mpc_input.push_back(y_ref);
     mpc_input.push_back(f_init);
     mpc_input.push_back(f_param);
     mpc_input.push_back(qo_ic);

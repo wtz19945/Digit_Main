@@ -1,5 +1,5 @@
-#ifndef MPC_MAIN_H
-#define MPC_MAIN_H
+#ifndef MPCV2_MAIN_H
+#define MPCV2_MAIN_H
 /*
 MPC block
 Input : Digit state   (current CoM info)
@@ -33,10 +33,10 @@ Output: Digit command (target CoM and Foot Position)
 // custom pack
 #include "mpc_solver.hpp"
 
-class Digit_MPC {
+class Digit_MPCV2 {
 
 public:
-  Digit_MPC();
+  Digit_MPCV2();
   Eigen::VectorXd get_pel_pos() {return pel_pos_;};
   Eigen::VectorXd get_pel_vel() {return pel_vel_;};
   Eigen::VectorXd get_theta()   {return theta_;};
@@ -98,4 +98,4 @@ private:
   // QP solution
   std::vector<double> sol_;
 };
-#endif //MPC_MAIN_H
+#endif //MPCV2_MAIN_H

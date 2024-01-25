@@ -15,6 +15,7 @@ project(Digit_Ros)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+set(CMAKE_CXX_STANDARD 17)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -27,6 +28,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(OsqpEigen REQUIRED)
+find_package(casadi REQUIRED)
 
 add_message_files(
   FILES
@@ -92,6 +94,8 @@ set(digit_main_source src/digit_main.cpp src/input_listener.cpp
 ${Digit_Source})
 
 set(mpc_main_source src/mpc_main.cpp ${Digit_Source})
+set(mpc_main_sourceV2 src/mpc_mainV2.cpp ${Digit_Source})
+set(mpc_lib libcasadi.so)
 
 # the followings are the costum libraries used for your controller
 add_library(digit_safety_lib STATIC src/Digit_safety.cpp)
@@ -115,6 +119,14 @@ target_include_directories(mpc_cmd_lib
     PUBLIC 
     ${Home_Dir}/include)
     
+add_library(mpc_solver_lib STATIC src/mpc_solver.cpp)
+target_include_directories(mpc_solver_lib 
+    PUBLIC 
+    ${Home_Dir}/include)
+target_link_libraries(mpc_solver_lib OsqpEigen::OsqpEigen ${mpc_lib})
+
+
+
 # the following will be executable to control Digit
 # a simple standing controller implementation
 add_executable(standing_controlV2 ${standing_SOURCESV2})
@@ -128,6 +140,12 @@ add_dependencies(digit_main Digit_Ros_generate_messages_cpp)
 
 # mpc controller
 add_executable(mpc_main ${mpc_main_source})
-target_link_libraries(mpc_main OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib ${catkin_LIBRARIES})
+target_link_libraries(mpc_main OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib mpc_solver_lib ${catkin_LIBRARIES} ${mpc_lib})
 add_dependencies(mpc_main Digit_Ros_generate_messages_cpp)
+
+# mpc controller
+add_executable(mpc_mainV2 ${mpc_main_sourceV2})
+target_link_libraries(mpc_mainV2 OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib mpc_solver_lib ${catkin_LIBRARIES} ${mpc_lib})
+add_dependencies(mpc_mainV2 Digit_Ros_generate_messages_cpp)
+
 
