@@ -21,13 +21,13 @@ Digit_MPC::Digit_MPC()
 
   // MPC QP Matrix
   std::string prefix_lib = fs::current_path().parent_path().string();
-  left_step0_matrix_ = casadi::external("LeftStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/LeftStart_Step0.so");
-  left_step1_matrix_ = casadi::external("LeftStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/LeftStart_Step1.so");
-  left_step2_matrix_ = casadi::external("LeftStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/LeftStart_Step2.so");
+  left_step0_matrix_ = casadi::external("LeftStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStart_Step0.so");
+  left_step1_matrix_ = casadi::external("LeftStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStart_Step1.so");
+  left_step2_matrix_ = casadi::external("LeftStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStart_Step2.so");
 
-  right_step0_matrix_ = casadi::external("RightStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/RightStart_Step0.so");
-  right_step1_matrix_ = casadi::external("RightStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/RightStart_Step1.so");
-  right_step2_matrix_ = casadi::external("RightStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Ros/mpc_lib/RightStart_Step2.so");
+  right_step0_matrix_ = casadi::external("RightStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStart_Step0.so");
+  right_step1_matrix_ = casadi::external("RightStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStart_Step1.so");
+  right_step2_matrix_ = casadi::external("RightStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStart_Step2.so");
 
   // read control parameters
   std::string package_path; 
