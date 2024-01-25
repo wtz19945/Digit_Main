@@ -242,7 +242,9 @@ int main(int argc, char* argv[])
   int wd_sz = config->get_qualified_as<double>("Filter.wd_sz").value_or(0);
   double init_count = config->get_qualified_as<double>("Start.init_count").value_or(0);
   double soft_count = config->get_qualified_as<double>("Start.soft_count").value_or(0);
-
+  if(!run_sim){
+    soft_count += 10; // increase soft start time for hardware test
+  }
   double arm_z_int = config->get_qualified_as<double>("Arm-IK.z_int").value_or(0);
   double arm_z_mag = config->get_qualified_as<double>("Arm-IK.z_mag").value_or(0);
   double arm_z_prd = config->get_qualified_as<double>("Arm-IK.z_prd").value_or(0);
@@ -349,8 +351,8 @@ int main(int argc, char* argv[])
     //cout << "trajectory time is: " << traj_time << endl;
     //cout << "contact flag is " << endl << contact << endl;
     
-    cout << "mpc cmd subscribed is: " << endl;
-    cout << mpc_cmd_listener.get_pel_pos_cmd().block(0,0,1,1) << endl;
+    //cout << "mpc cmd subscribed is: " << endl;
+    //cout << mpc_cmd_listener.get_pel_pos_cmd().block(0,0,1,1) << endl;
     // Update observation
     int return_val = llapi_get_observation(&observation);
     if (return_val < 1) {
@@ -421,8 +423,14 @@ int main(int argc, char* argv[])
       //;
     }
 
-
-    if(global_time < 7 * step_time){
+    double start_time;
+    if(run_sim){
+      start_time = 7 * step_time; 
+    }
+    else{
+      start_time = step_time;
+    }
+    if(global_time < start_time){
       contact << 1,1;
     }
     else{
@@ -527,12 +535,17 @@ int main(int argc, char* argv[])
     // Might need this to make sure the desired pelvis is in the center of two foot.
     if((observation.time - digit_time_start)  < init_count){
         pos_avg = (left_toe_pos + right_toe_pos + left_toe_back_pos + right_toe_back_pos) / 4;
+        fzint << pos_avg(2),0,0;
+        fzmid << pos_avg(2) + zh,0,0;
+        fzend << pos_avg(2),dzend,ddzend;
+        a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
+        b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
     }
     else{
         pel_pos(0) -= pos_avg(0) + 0.03; 
         pel_pos(1) -= pos_avg(1);
     }
-    
+
     // End effector velocity
     VectorXd  left_toe_vel = left_toe_jaco * wb_dq;
     VectorXd  right_toe_vel = right_toe_jaco * wb_dq;
