@@ -8,6 +8,13 @@ OSC_Control::OSC_Control(std::shared_ptr<cpptoml::table> config){
     Wcomrz = config->get_qualified_as<double>("QP-Params.com_Wrz").value_or(0);
     Wcomry = config->get_qualified_as<double>("QP-Params.com_Wry").value_or(0);
     Wcomrx = config->get_qualified_as<double>("QP-Params.com_Wrx").value_or(0);
+    
+    double Wcomxst = config->get_qualified_as<double>("QP-Params.com_Wxst").value_or(0);
+    double Wcomyst = config->get_qualified_as<double>("QP-Params.com_Wyst").value_or(0);
+    double Wcomzst = config->get_qualified_as<double>("QP-Params.com_Wzst").value_or(0);
+    double Wcomrzst = config->get_qualified_as<double>("QP-Params.com_Wrzst").value_or(0);
+    double Wcomryst = config->get_qualified_as<double>("QP-Params.com_Wryst").value_or(0);
+    double Wcomrxst = config->get_qualified_as<double>("QP-Params.com_Wrxst").value_or(0);
 
     Wff  = config->get_qualified_as<double>("QP-Params.st_foot_W").value_or(0);
     Wfb  = config->get_qualified_as<double>("QP-Params.st_foot_W").value_or(0);
@@ -23,13 +30,22 @@ OSC_Control::OSC_Control(std::shared_ptr<cpptoml::table> config){
     Weight_ToeFsw = Wffsw*MatrixXd::Identity(6,6);
     Weight_ToeBsw = Wfbsw*MatrixXd::Identity(8,8);
 
-    Weight_pel = Wcomx*MatrixXd::Identity(6,6);
-    Weight_pel(0,0) = Wcomx;
-    Weight_pel(1,1) = Wcomy;
-    Weight_pel(2,2) = Wcomz;
-    Weight_pel(3,3) = Wcomrz;
-    Weight_pel(4,4) = Wcomry;
-    Weight_pel(5,5) = Wcomrx;
+    Weight_pel_ = Wcomx*MatrixXd::Identity(6,6);
+    Weight_pel_(0,0) = Wcomx;
+    Weight_pel_(1,1) = Wcomy;
+    Weight_pel_(2,2) = Wcomz;
+    Weight_pel_(3,3) = Wcomrz;
+    Weight_pel_(4,4) = Wcomry;
+    Weight_pel_(5,5) = Wcomrx;
+
+    Weight_pelst = Wcomx*MatrixXd::Identity(6,6);
+    Weight_pelst(0,0) = Wcomxst;
+    Weight_pelst(1,1) = Wcomyst;
+    Weight_pelst(2,2) = Wcomzst;
+    Weight_pelst(3,3) = Wcomrzst;
+    Weight_pelst(4,4) = Wcomryst;
+    Weight_pelst(5,5) = Wcomrxst;
+
     // initialize limit vector
     ddq_limit = VectorXd::Zero(20,1); // state acceleration 
     u_limit = VectorXd::Zero(12,1);   // torque limits
@@ -91,25 +107,25 @@ void OSC_Control::setupQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd
     double contact2 = contact(1);
 
     if(contact1 == 1 && contact2 == 1){
-        gradient << -Weight_pel * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeF.block(0,0,3,3) * des_acc.block(0,0,3,1),
+        gradient << -Weight_pel_ * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeF.block(0,0,3,3) * des_acc.block(0,0,3,1),
                     -Weight_ToeB.block(0,0,4,4) * des_acc_toe.block(0,0,4,1),
                     -Weight_ToeF.block(3,3,3,3) * des_acc.block(3,0,3,1),
                     -Weight_ToeB.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
     }
     else if(contact1 == 0 && contact2 == 1){
-        gradient << -Weight_pel * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeFsw.block(0,0,3,3) * des_acc.block(0,0,3,1),
+        gradient << -Weight_pelst * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeFsw.block(0,0,3,3) * des_acc.block(0,0,3,1),
                     -Weight_ToeBsw.block(0,0,4,4) * des_acc_toe.block(0,0,4,1),
                     -Weight_ToeF.block(3,3,3,3) * des_acc.block(3,0,3,1),
                     -Weight_ToeB.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
     }
     else if(contact1 == 1 && contact2 == 0){
-        gradient << -Weight_pel * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeF.block(0,0,3,3) * des_acc.block(0,0,3,1),
+        gradient << -Weight_pelst * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeF.block(0,0,3,3) * des_acc.block(0,0,3,1),
                     -Weight_ToeB.block(0,0,4,4) * des_acc_toe.block(0,0,4,1),
                     -Weight_ToeFsw.block(3,3,3,3) * des_acc.block(3,0,3,1),
                     -Weight_ToeBsw.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
     }
     else{
-        gradient << -Weight_pel * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeFsw.block(0,0,3,3) * des_acc.block(0,0,3,1),
+        gradient << -Weight_pel_ * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeFsw.block(0,0,3,3) * des_acc.block(0,0,3,1),
                     -Weight_ToeBsw.block(0,0,4,4) * des_acc_toe.block(0,0,4,1),
                     -Weight_ToeFsw.block(3,3,3,3) * des_acc.block(3,0,3,1),
                     -Weight_ToeBsw.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
@@ -184,26 +200,29 @@ void OSC_Control::updateQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, Ma
     int contact1 = contact(0);
     int contact2 = contact(1);
     // Hessian matrix
-    hessian_full.block(0,0,6,6) = Weight_pel;
     if(contact1 == 1 && contact2 == 1){
+        hessian_full.block(0,0,6,6) = Weight_pel_;
         hessian_full.block(48,48,3,3) = Weight_ToeF.block(0,0,3,3);
         hessian_full.block(51,51,4,4) = Weight_ToeB.block(0,0,4,4);
         hessian_full.block(55,55,3,3) = Weight_ToeF.block(3,3,3,3);
         hessian_full.block(58,58,4,4) = Weight_ToeB.block(4,4,4,4);
     }
     else if(contact1 == 0 && contact2 == 1){
+        hessian_full.block(0,0,6,6) = Weight_pelst;
         hessian_full.block(48,48,3,3) = Weight_ToeFsw.block(0,0,3,3);
         hessian_full.block(51,51,4,4) = Weight_ToeBsw.block(0,0,4,4);
         hessian_full.block(55,55,3,3) = Weight_ToeF.block(3,3,3,3);
         hessian_full.block(58,58,4,4) = Weight_ToeB.block(4,4,4,4);
     }
     else if(contact1 == 1 && contact2 == 0){
+        hessian_full.block(0,0,6,6) = Weight_pelst;
         hessian_full.block(48,48,3,3) = Weight_ToeF.block(0,0,3,3);
         hessian_full.block(51,51,4,4) = Weight_ToeB.block(0,0,4,4);
         hessian_full.block(55,55,3,3) = Weight_ToeFsw.block(3,3,3,3);
         hessian_full.block(58,58,4,4) = Weight_ToeBsw.block(4,4,4,4);
     }
     else{
+        hessian_full.block(0,0,6,6) = Weight_pel_;
         hessian_full.block(48,48,3,3) = Weight_ToeFsw.block(0,0,3,3);
         hessian_full.block(51,51,4,4) = Weight_ToeBsw.block(0,0,4,4);
         hessian_full.block(55,55,3,3) = Weight_ToeFsw.block(3,3,3,3);

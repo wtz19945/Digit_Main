@@ -273,7 +273,7 @@ int main(int argc, char* argv[])
   KD_pel << cdx,cdy,cdz,cdrz,cdry,cdrx;
 
   // Incorporate damping command into OSC
-  double damping_dt = 0.00;
+  double damping_dt = 0.000;
   VectorXd damping(20),D_term(20);;
   damping << VectorXd::Zero(6,1), 66.849, 26.1129, 38.05, 38.05, 0 , 0, 0, 
               66.849, 26.1129, 38.05, 38.05, 0 , 0, 0;
@@ -581,7 +581,7 @@ int main(int argc, char* argv[])
     }
     if(contact(0) == 0){
       // temporally use capture point
-      double x_goal = pel_pos(0) + 0.0 + cp_py * sqrt(1/9.81) * pel_vel(0);
+      double x_goal = pel_pos(0) + 0.0 + sqrt(1/9.81) * pel_vel(0);
       double y_goal = pel_pos(1) + 0.09 + cp_py * sqrt(.9/9.81) * pel_vel(1);
 
       
@@ -612,7 +612,7 @@ int main(int argc, char* argv[])
 
     if(contact(1) == 0){
       // temporally use capture point
-      double x_goal = pel_pos(0) + 0.0 + cp_py * sqrt(1/9.81) * pel_vel(0);
+      double x_goal = pel_pos(0) + 0.0 + sqrt(1/9.81) * pel_vel(0);
       double y_goal = pel_pos(1) - 0.09 + cp_py * sqrt(.9/9.81) * pel_vel(1);
 
       right_toe_pos_ref << x_goal, y_goal, 0;
@@ -760,6 +760,7 @@ int main(int argc, char* argv[])
                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
     }
     else{
+      // Use LIPM prediction as feed-forward command
       VectorXd foot = pel_pos;
       if(contact(0) == 0)
         foot = right_toe_back_pos;
@@ -840,11 +841,21 @@ int main(int argc, char* argv[])
       wb_dq_next.block(0,0,6,1) = VectorXd::Zero(6,1);
     if(contact(1) > 0)
       wb_dq_next.block(6,0,6,1) = VectorXd::Zero(6,1);
+    
+    // 
+    if(contact(0) != 0){
+      wb_dq_next.block(0,0,4,1) = VectorXd::Zero(4,1);
+    }
 
+    if(contact(1) != 0){
+      wb_dq_next.block(6,0,4,1) = VectorXd::Zero(4,1);
+    }
+    // Foot joint velocity command
     wb_dq_next(4) = 0;
     wb_dq_next(5) = 0;
     wb_dq_next(10) = 0;
     wb_dq_next(11) = 0;
+
     // IK arm control for conducting, trial implementation. Incorporate to analytical_expressions class in the future
     VectorXd ql = VectorXd::Zero(10,1);
     VectorXd p_lh = VectorXd::Zero(3,1);
@@ -987,6 +998,7 @@ int main(int argc, char* argv[])
           66.849, 26.1129, 38.05, 38.05, 15.5532, 15.5532, 
           66.849, 66.849, 26.1129, 66.849, 
           66.849, 66.849, 26.1129, 66.849;
+
     for (int i = 0; i < NUM_MOTORS; ++i) {
       if(safe_check.checkSafety()){ // safety check
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];

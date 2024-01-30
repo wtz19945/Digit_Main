@@ -35,12 +35,12 @@ hip_yaw_P = 250
 hip_yaw_D = 25
 
 arm_P = 150.0
-cp_P  = 2.4        # capture point gains
+cp_P  = 1.8        # capture point gains
 
 
 [QP-Params]
 st_foot_W = 1350.0
-sw_foot_W = 350.0
+sw_foot_W = 1350.0
 com_W = 1050.0
 com_Wx = 3050.0
 com_Wy = 3050.0
@@ -51,7 +51,7 @@ com_Wrx = 1050.0
 
 com_Wxst = 3050.0
 com_Wyst = 3050.0
-com_Wzst = 7550.0
+com_Wzst = 3550.0
 com_Wrzst = 1050.0
 com_Wryst = 1050.0
 com_Wrxst = 1050.0
