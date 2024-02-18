@@ -46,6 +46,8 @@ public:
   Eigen::VectorXd get_obs_info()  {return obs_info_;};
   double get_traj_time()  {return traj_time_;};
   double get_foot_wdith() {return f_width_;};
+  double get_steptime() {return step_time_;};
+  double get_dstime() {return ds_time_;};
   int get_stance_leg() {return stance_leg_;};
   int get_Var_Num() {return Vars_Num_;};
   Eigen::VectorXd Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input);
@@ -82,12 +84,13 @@ private:
   std::vector<double> Weights_ds_; // double support
   std::vector<double> r_;          // obstacle radius
   double f_width_;
-
+  
   // MPC
   int Nodes_;
   int nx_;
   int NPred_;
-
+  double ds_time_;
+  double step_time_;
   // OSQP Solver
   MPC_Solver mpc_solver0_;
   MPC_Solver mpc_solver1_;

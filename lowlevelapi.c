@@ -67,7 +67,7 @@ static llapi_limits_t command_limits;
 static double error_shutdown_delay = -1;
 static artl_publisher_t* pub;
 static artl_subscriber_t* sub;
-
+static artl_description_t* desc;
 
 // This mapping function is called every time the local subscriber connects to
 // a new publisher. Using the description of the incoming message stream it
@@ -208,6 +208,8 @@ static artl_map_t* llapi_map_fcn(const artl_description_t* desc, void* arg)
   artl_map_get_array(comment_map, NULL, 1, 1, desc->comment_data,
                      desc->comment->message_size);
 
+  artl_map_free(comment_map);
+
   return map;
 }
 
@@ -221,7 +223,7 @@ void llapi_init(const char* pub_addr)
 void llapi_init_custom(const char* pub_addr, int listen_port, int send_port)
 {
   // Create description for publisher
-  artl_description_t* desc = artl_description_init();
+  desc = artl_description_init();
 
   // Add motor fields to the description using an X macro (see above)
 #define X(name, idx)                                         \
@@ -251,6 +253,14 @@ void llapi_init_custom(const char* pub_addr, int listen_port, int send_port)
   sub->mapfun = llapi_map_fcn;
   sub->output_buffer_size = sizeof(llapi_observation_t);
   sub->disconnect_timeout_ms = 100;
+}
+
+
+void llapi_free()
+{
+  artl_subscriber_free(sub);
+  artl_publisher_free(pub);
+  artl_description_free(desc);
 }
 
 

@@ -44,6 +44,9 @@ extern "C" {
 void llapi_init(const char* pub_addr);
 void llapi_init_custom(const char* pub_addr, int listen_port, int send_port);
 
+// Free data allocated by llapi_init
+void llapi_free();
+
 // This type explicitly defines the quaternion convention
 typedef struct {
   double w;
@@ -81,7 +84,7 @@ typedef struct {
     double angular_velocity[3];
   } base;
 
-  // Raw sensor signals from IMU
+  // Sensor signals from IMU
   struct {
     llapi_quaternion_t orientation;
     double angular_velocity[3];

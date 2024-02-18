@@ -29,7 +29,22 @@ OSC_Control::OSC_Control(std::shared_ptr<cpptoml::table> config){
     Weight_ToeB = Wfb*MatrixXd::Identity(8,8);
     Weight_ToeFsw = Wffsw*MatrixXd::Identity(6,6);
     Weight_ToeBsw = Wfbsw*MatrixXd::Identity(8,8);
+/*     Weight_ToeFsw(1,1) *= 0.1;
+    Weight_ToeFsw(4,4) *= 0.1;
 
+    Weight_ToeBsw(1,1) *= 0.1;
+    Weight_ToeBsw(5,5) *= 0.1;
+
+    Weight_ToeFsw(2,2) *= 2.5;
+    Weight_ToeFsw(5,5) *= 2.5;
+
+    Weight_ToeBsw(2,2) *= 2.5;
+    Weight_ToeBsw(6,6) *= 2.5; */
+/* 
+    Weight_ToeFsw(2,2) *= 5;
+    Weight_ToeFsw(5,5) *= 5; 
+    Weight_ToeBsw(2,2) *= 5;
+    Weight_ToeBsw(6,6) *= 5; */
     Weight_pel_ = Wcomx*MatrixXd::Identity(6,6);
     Weight_pel_(0,0) = Wcomx;
     Weight_pel_(1,1) = Wcomy;
@@ -65,7 +80,7 @@ OSC_Control::OSC_Control(std::shared_ptr<cpptoml::table> config){
         qt(i) = OsqpEigen::INFTY;
     }
 
-    u_limit  << 116.682, 70.1765, 206.928,220.928,35.9759,35.9759,116.682, 70.1765, 206.928,220.928,35.9759,35.9759;
+    u_limit  << 116.682, 70.1765, 206.928,220.928,35.9759,35.9759, 116.682, 70.1765, 206.928,220.928,35.9759,35.9759;
     tor_limit<< OsqpEigen::INFTY,  OsqpEigen::INFTY,  OsqpEigen::INFTY,  OsqpEigen::INFTY;
 
     for(int i=0;i<12;i++){
@@ -95,7 +110,7 @@ OSC_Control::OSC_Control(std::shared_ptr<cpptoml::table> config){
     gradient = VectorXd::Zero(Vars_Num,1);
     lowerBound = VectorXd::Zero(Cons_Num,1);
     upperBound = VectorXd::Zero(Cons_Num,1);
-    QPSolution = VectorXd::Zero(Vars_Num,1);
+    QPSolution_ = VectorXd::Zero(Vars_Num,1);
 
     // Set Up Solver
     solver.data()->setNumberOfVariables(Vars_Num);
@@ -125,17 +140,16 @@ void OSC_Control::setupQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd
                     -Weight_ToeBsw.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
     }
     else{
-        gradient << -Weight_pel_ * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeFsw.block(0,0,3,3) * des_acc.block(0,0,3,1),
-                    -Weight_ToeBsw.block(0,0,4,4) * des_acc_toe.block(0,0,4,1),
-                    -Weight_ToeFsw.block(3,3,3,3) * des_acc.block(3,0,3,1),
-                    -Weight_ToeBsw.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
+        gradient << -Weight_pel_ * des_acc_pel, VectorXd::Zero(42,1),-Weight_ToeF.block(0,0,3,3) * des_acc.block(0,0,3,1),
+                    -Weight_ToeB.block(0,0,4,4) * des_acc_toe.block(0,0,4,1),
+                    -Weight_ToeF.block(3,3,3,3) * des_acc.block(3,0,3,1),
+                    -Weight_ToeB.block(4,4,4,4) * des_acc_toe.block(4,0,4,1);
     }
     
     f_limit_max(2) = force_max * contact1;
     f_limit_max(5) = force_max * contact1;
     f_limit_max(8) = force_max * contact2;
     f_limit_max(11) = force_max * contact2;
-
     lowerBound << -G, VectorXd::Zero(4,1) , -ddq_limit, -u_limit, -tor_limit, f_limit_min, -qt,
                 f_cons_min,VectorXd::Zero(14,1);
 
@@ -149,16 +163,14 @@ void OSC_Control::setupQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, Mat
         MatrixXd left_toe_rot_jaco_fa, MatrixXd right_toe_rot_jaco_fa){
     // This function should be only called at initialization stage as it iterates through the entire matrix to record sparsity of the matrix. 
     // Hessian matrix
-    hessian_full.block(0,0,6,6) = Weight_pel;
+    hessian_full.block(0,0,6,6) = Weight_pel_;
     hessian_full.block(48,48,3,3) = Weight_ToeF.block(0,0,3,3);
     hessian_full.block(51,51,4,4) = Weight_ToeB.block(0,0,4,4);
     hessian_full.block(55,55,3,3) = Weight_ToeF.block(3,3,3,3);
     hessian_full.block(58,58,4,4) = Weight_ToeB.block(4,4,4,4);
     
     for(int i = 0;i<hessian_full.rows();i++){
-      if(i<6||i>48){
         hessian.insert(i,i) = hessian_full(i,i);
-      }
     }
 
     // Constraint matrix
@@ -197,8 +209,8 @@ void OSC_Control::updateQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, Ma
         MatrixXd left_toe_jaco_fa, MatrixXd left_toe_back_jaco_fa, MatrixXd right_toe_jaco_fa, MatrixXd right_toe_back_jaco_fa,
         MatrixXd left_toe_rot_jaco_fa, MatrixXd right_toe_rot_jaco_fa, VectorXd contact){
     
-    int contact1 = contact(0);
-    int contact2 = contact(1);
+    double contact1 = contact(0);
+    double contact2 = contact(1);
     // Hessian matrix
     if(contact1 == 1 && contact2 == 1){
         hessian_full.block(0,0,6,6) = Weight_pel_;
@@ -223,15 +235,18 @@ void OSC_Control::updateQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, Ma
     }
     else{
         hessian_full.block(0,0,6,6) = Weight_pel_;
-        hessian_full.block(48,48,3,3) = Weight_ToeFsw.block(0,0,3,3);
-        hessian_full.block(51,51,4,4) = Weight_ToeBsw.block(0,0,4,4);
-        hessian_full.block(55,55,3,3) = Weight_ToeFsw.block(3,3,3,3);
-        hessian_full.block(58,58,4,4) = Weight_ToeBsw.block(4,4,4,4);
+        hessian_full.block(48,48,3,3) = Weight_ToeF.block(0,0,3,3);
+        hessian_full.block(51,51,4,4) = Weight_ToeB.block(0,0,4,4);
+        hessian_full.block(55,55,3,3) = Weight_ToeF.block(3,3,3,3);
+        hessian_full.block(58,58,4,4) = Weight_ToeB.block(4,4,4,4);
     }
-    
+
     for(int i = 0;i<hessian_full.rows();i++){
       if(i<6||i>48){
         hessian.coeffRef(i,i) = hessian_full(i,i);
+      }
+      else{
+        hessian.coeffRef(i,i) = 1e-3;
       }
     }
 
@@ -260,12 +275,17 @@ void OSC_Control::updateQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, Ma
 
 void OSC_Control::setUpQP(bool mute_solver){
     solver.settings()->setVerbosity(mute_solver);
+    solver.settings()->setWarmStart(true);
     solver.data()->setHessianMatrix(hessian);
     solver.data()->setGradient(gradient);
     solver.data()->setLinearConstraintsMatrix(linearMatrix);
     solver.data()->setLowerBound(lowerBound);
     solver.data()->setUpperBound(upperBound);
     solver.initSolver();
+}
+
+void OSC_Control::muteSolver(bool mute_solver){
+    solver.settings()->setVerbosity(true);
 }
 
 void OSC_Control::updateQP(){
@@ -277,8 +297,10 @@ void OSC_Control::updateQP(){
 
 VectorXd OSC_Control::solveQP(){
     solver.solveProblem();
-    QPSolution = solver.getSolution();
-    return QPSolution;
+    if((solver.getStatus() == OsqpEigen::Status::Solved)){
+        QPSolution_ = solver.getSolution();
+    }
+    return QPSolution_;
 }
 
 MatrixXd OSC_Control::get_fric_cons(double mu){

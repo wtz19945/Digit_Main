@@ -13,13 +13,13 @@ name = "digit"
 [PD-Gains]
 com_P_gain_x = 35.0
 com_P_gain_y = 35.0
-com_P_gain_z = 50.0
+com_P_gain_z = 40.0
 com_P_gain_rz = 150.0
 com_P_gain_ry = 150.0
 com_P_gain_rx = 150.0
 com_D_gain_x = 5.0
 com_D_gain_y = 5.0
-com_D_gain_z = 3.0
+com_D_gain_z = 5.0
 com_D_gain_rz = 5.0
 com_D_gain_ry = 5.0
 com_D_gain_rx = 5.0
@@ -44,32 +44,32 @@ sw_foot_W = 1350.0
 com_W = 1050.0
 com_Wx = 3050.0
 com_Wy = 3050.0
-com_Wz = 12550.0
+com_Wz = 3550.0
 com_Wrz = 1050.0
 com_Wry = 1050.0
 com_Wrx = 1050.0
 
-com_Wxst = 3050.0
-com_Wyst = 3050.0
-com_Wzst = 3550.0
-com_Wrzst = 1050.0
-com_Wryst = 1050.0
-com_Wrxst = 1050.0
-force_max = 550.0
-mu = 0.7
+com_Wxst = 750.0
+com_Wyst = 750.0
+com_Wzst = 1350.0
+com_Wrzst = 10050.0
+com_Wryst = 10050.0
+com_Wrxst = 10050.0
+force_max = 450.0
+mu = 0.6
 
 [Walk-Params]
 step_time = 0.4
-step_height = 0.4
-end_vel = -0.7     # velocity when foot hit ground 
-end_acc = -1       # Acceleration when foot hig ground
-ds_time = 0.1      # Time duration for double support phase
+step_height = 0.3
+end_vel = -0.5     # velocity when foot hit ground 
+end_acc = -5       # Acceleration when foot hig ground
+ds_time = 0.0     # Time duration for double support phase
 [Filter]
 wd_sz = 5000      # number of the consecutive safety violation to trigger safe controller. Control frequency is 1kHz, so 0.5s safe window
 
 [Start]
-init_count = 0.1 # Time to record robot's initial configuration
-soft_count = 0.1  # Time to soft start motor torques
+init_count = 0.3 # Time to record robot's initial configuration
+soft_count = 0.2  # Time to soft start motor torques
 
 [Arm-IK]
 z_int = 0.4  # initial height for the arm

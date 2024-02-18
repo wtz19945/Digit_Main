@@ -54,6 +54,9 @@ Digit_MPC::Digit_MPC()
   double r1 = config->get_qualified_as<double>("MPC-Params.obs_rad1").value_or(0);
   double r2 = config->get_qualified_as<double>("MPC-Params.obs_rad2").value_or(0);
 
+  std::shared_ptr<cpptoml::table> config_osc = cpptoml::parse_file(package_path + "/src/config_file/osc_robot_config.toml");
+  step_time_ = config_osc->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
+  ds_time_ = config_osc->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
   f_length_ = {flx, fly};
   Weights_ss_ = {Wx, Wdx, Wy, Wdy, Wux, Wuy, Wdux, Wduy, Wobs};
   Weights_ds_ = {0, 2500, 0, 2500, 10000, 10000, 100, 6000, 15000};
@@ -112,6 +115,7 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input)
         case 0: res = left_step0_matrix_(MPC_arg); break;
         case 1: res = left_step1_matrix_(MPC_arg); break;
         case 2: res = left_step2_matrix_(MPC_arg); break;
+        case 3: res = left_step2_matrix_(MPC_arg); break;
         default: ;
       }
   }
@@ -120,6 +124,7 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input)
         case 0: res = right_step0_matrix_(MPC_arg); break;
         case 1: res = right_step1_matrix_(MPC_arg); break;
         case 2: res = right_step2_matrix_(MPC_arg); break;
+        case 3: res = right_step2_matrix_(MPC_arg); break;
         default: ;
       }
   }
@@ -135,6 +140,7 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input)
     case 0: QPSolution = mpc_solver0_.Update_Solver(Aeq,beq,Aiq,biq,H,f); break;
     case 1: QPSolution = mpc_solver1_.Update_Solver(Aeq,beq,Aiq,biq,H,f); break;
     case 2: QPSolution = mpc_solver2_.Update_Solver(Aeq,beq,Aiq,biq,H,f); break;
+    case 3: QPSolution = mpc_solver2_.Update_Solver(Aeq,beq,Aiq,biq,H,f); break;
     default: ;
   }  
 
@@ -187,28 +193,28 @@ int main(int argc, char **argv){
 
     // solve for results
     traj_time = digit_mpc.get_traj_time();
-    if(traj_time >= 0.05 && traj_time < 0.35 ){
-      int mpc_index = floor((traj_time - 0.05) / 0.1);
-      if(traj_time - 0.05 - mpc_index * 0.1 < 0.1){
+    if(traj_time >= digit_mpc.get_dstime()/2 && traj_time < digit_mpc.get_steptime() - digit_mpc.get_dstime()/2){
+      int mpc_index = floor((traj_time - digit_mpc.get_dstime()/2) / 0.1);
+      if(traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1 < 0.1){
         QPSolution = digit_mpc.Update_MPC_(mpc_index,mpc_input);
         auto mpc_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - mpc_time_start);
-        cout << "solving time: " << mpc_time.count() << endl;
+        //cout << "solving time: " << mpc_time.count() << endl;
       }
       if(digit_mpc.get_stance_leg() == 1){
         foot_change << QPSolution(39), QPSolution(82);
-        //cout << "this is a left step, right foot on ground" << endl;
-        //cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
-        //cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;
+/*         cout << "this is a left step, right foot on ground" << endl;
+        cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
+        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl; */
       }
       else{
         foot_change << QPSolution(39), QPSolution(82);
-        //cout << "this is a right step, left foot on ground" << endl;
-        //cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
-        //cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;
+/*         cout << "this is a right step, left foot on ground" << endl;
+        cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
+        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl; */
       }
 
-      double dt = (traj_time -.05 - mpc_index * 0.1) / 0.1;
-      dt = 1;
+      double dt = (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1) / 0.1;
+      //dt = 1;
       cmd_pel_pos << (1 - dt) * QPSolution(0) + dt * QPSolution(2), (1 - dt) * QPSolution(43) + dt * QPSolution(45), 1;
       cmd_pel_vel << (1 - dt) * QPSolution(1) + dt * QPSolution(3), (1 - dt) * QPSolution(44) + dt * QPSolution(46), 0;
       cmd_left_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;

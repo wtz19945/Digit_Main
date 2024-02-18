@@ -32,6 +32,7 @@ class OSC_Control{
                         MatrixXd left_toe_rot_jaco_fa, MatrixXd right_toe_rot_jaco_fa, VectorXd contact);
 
     void setUpQP(bool mute_solver);
+    void muteSolver(bool mute_solver);
     void updateQP();
     VectorXd solveQP();
 
@@ -80,7 +81,7 @@ class OSC_Control{
     Eigen::VectorXd gradient; 
     Eigen::VectorXd lowerBound;
     Eigen::VectorXd upperBound;
-    Eigen::VectorXd QPSolution;
+    Eigen::VectorXd QPSolution_;
 };
 
 #endif //OSC_CONTROL_H

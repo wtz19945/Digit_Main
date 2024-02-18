@@ -1,10 +1,4 @@
 #!/usr/bin/python3
-###
-# Author:       Guillermo Castillo
-# Email:        castillomartinez.2@osu.edu
-# Modified:     01-25-2022
-# Copyright:    Cyberbotics Lab @The Ohio State University
-###
 
 import rospy 
 from std_msgs.msg import Bool
