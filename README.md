@@ -45,6 +45,9 @@ chmod +x ar-control # you only need this command for the first time
 ./ar-control ./examples/lowlevelapi_example.toml
 ```
 
+Notice: The simulator has been upgraded to ar-control-2023. However, the new simulator is too large to be uploaded to github. 
+Make sure you use the correct simulator since there is significant refactor of the simulator and the walking controller will not work for current version.
+
 This will start a webpage at localhost:8080. Open this link with your browser. You can read the detailed Digit documentation or simulate Digit robot in this webpage.
 
 ## Run the controller in Sim
@@ -53,7 +56,7 @@ Run the following command in another terminal,
 cd ~/catkin_ws
 roslaunch Digit_ROS digit_main_launch.launch 
 ```
-Now you should see the solver info, ros outputs, and etc in the terminal.
+Now you should see the solver info, ros outputs, and etc in the terminal. Make sure run `source devel/setup.bash` everytime you launch a new terminal.
 
 ## Hardware Test
 Disclaimer: this repository is in development and not liable for any damage caused by the hardware experiment.
@@ -66,7 +69,7 @@ For hardware test,
 To visualize Digit, use the gamepad or check the following IP address "10.10.1.1"
 
 ## Notice
-- [ ] This repo is actively updated. Walking controller will be released next.
+- [ ] This repo is actively updated. Walking controller with obstacle avoidance MPC will be released next.
 - [ ] If you install OSQP with the conda method, you might need to run the following command or add it to ~/.bashrc
 ``` bash 
 export PATH="/home/username/miniconda/bin:$PATH". # Remember to chagne the path to your actual conbda path.
