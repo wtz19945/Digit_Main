@@ -29,7 +29,7 @@ foot_P_y = 155
 foot_P_z = 152.5
 foot_D_x = 10
 foot_D_y = 10
-foot_D_z = 21
+foot_D_z = 18
 
 hip_yaw_P = 250
 hip_yaw_D = 25
@@ -60,10 +60,10 @@ mu = 0.6
 
 [Walk-Params]
 step_time = 0.4
-step_height = 0.3
+step_height = 0.2
 end_vel = -0.5     # velocity when foot hit ground 
 end_acc = -5       # Acceleration when foot hig ground
-ds_time = 0.0     # Time duration for double support phase
+ds_time = 0.05     # Time duration for double support phase
 [Filter]
 wd_sz = 5000      # number of the consecutive safety violation to trigger safe controller. Control frequency is 1kHz, so 0.5s safe window
 

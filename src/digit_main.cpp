@@ -900,16 +900,6 @@ int main(int argc, char* argv[])
     }
 /*     des_acc.block(3,0,3,1) = (1-contact(1)) * des_acc.block(3,0,3,1) + VectorXd::Zero(3,1);
     des_acc_toe.block(4,0,3,1) = (1-contact(1)) * des_acc_toe.block(4,0,3,1) + VectorXd::Zero(3,1);  */
-
-    // for stance foot, desired acc is 0
-/*     if(contact(0) == 0){
-      des_acc_toe.block(0,0,3,1) -= left_toe_back_djaco * wb_dq; 
-      des_acc.block(0,0,3,1) -= left_toe_djaco * wb_dq;
-    }
-    if(contact(1) == 0){
-      des_acc_toe.block(4,0,3,1) -= right_toe_back_djaco * wb_dq; 
-      des_acc.block(3,0,3,1) -= right_toe_djaco * wb_dq;  
-    } */
     // B matrix
     MatrixXd B = get_B(wb_q);
 
@@ -979,7 +969,7 @@ int main(int argc, char* argv[])
                         B, Spring_Jaco, left_toe_jaco_fa, 
                         left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
                         left_toe_rot_jaco_fa, right_toe_rot_jaco_fa);
-      bool check_solver = true; // change this to false if you want to check OSQP solver output for debug
+      bool check_solver = false; // change this to false if you want to check OSQP solver output for debug
       osc.setUpQP(check_solver); 
     }
     else{
@@ -1093,7 +1083,7 @@ int main(int argc, char* argv[])
 
     //
 
-    //
+    if(0){
     if(stepping == 2){
       if(stance_leg == 1){
         p_lh_ref << pel_pos(0) + 0.00 + 0.08 * sin(M_PI * traj_time/step_time), pel_pos(1) + 0.3, pel_pos(2) - 0.1;
@@ -1191,7 +1181,7 @@ int main(int argc, char* argv[])
     else{
       qr = qr_last;
     }
-    
+    }
     // safety check
     safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
 
@@ -1199,7 +1189,7 @@ int main(int argc, char* argv[])
     //cout << "current height is:" << endl;
     //cout << pel_pos_des(2) << endl;
     //cout << pel_pos(2) << endl;
-    //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
+    cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
 
     VectorXd u_limit = VectorXd::Zero(12,1);
     u_limit << 118.682, 72.1765, 208.928, 222.928, 37.9759, 37.9759, 118.682, 72.1765, 208.928, 222.928, 37.9759, 37.9759;
@@ -1238,54 +1228,6 @@ int main(int argc, char* argv[])
             cout << "torque is " << torque.block(6,0,3,1) << endl;
             cout << "contact" << contact << endl;
           }
-
-          // Add torque checker
-/*         if(contact(0) > 0){
-          command.motors[0].velocity = .0 * wb_dq_next(0) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[1].velocity = .0 * wb_dq_next(1) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[2].velocity = .0 * wb_dq_next(2) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[3].velocity = .0 * wb_dq_next(3) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-
-          command.motors[0].damping = .75 * limits->damping_limit[0];
-          command.motors[1].damping = .75 * limits->damping_limit[1];
-          command.motors[2].damping = .75 * limits->damping_limit[2];
-          command.motors[3].damping = .75 * limits->damping_limit[3];
-        }
-        else{
-          command.motors[0].velocity = .9 * wb_dq_next(0) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[1].velocity = .0 * wb_dq_next(1) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[2].velocity = .0 * wb_dq_next(2) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[3].velocity = .9 * wb_dq_next(3) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-
-          command.motors[0].damping = .75 * limits->damping_limit[0];
-          command.motors[1].damping = .75 * limits->damping_limit[1];
-          command.motors[2].damping = .75 * limits->damping_limit[2];
-          command.motors[3].damping = .75 * limits->damping_limit[3];
-        }
-
-        if(contact(1) > 0){
-          command.motors[6].velocity = .0 * wb_dq_next(6) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[7].velocity = .0 * wb_dq_next(7) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[8].velocity = .0 * wb_dq_next(8) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[9].velocity = .0 * wb_dq_next(9) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-
-          command.motors[6].damping = .75 * limits->damping_limit[6];
-          command.motors[7].damping = .75 * limits->damping_limit[7];
-          command.motors[8].damping = .75 * limits->damping_limit[8];
-          command.motors[9].damping = .75 * limits->damping_limit[9];
-        } 
-        else{
-          command.motors[6].velocity = .9 * wb_dq_next(6) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[7].velocity = .0 * wb_dq_next(7) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[8].velocity = .0 * wb_dq_next(8) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[9].velocity = .9 * wb_dq_next(9) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          
-          command.motors[6].damping = .75 * limits->damping_limit[6];
-          command.motors[7].damping = .75 * limits->damping_limit[7];
-          command.motors[8].damping = .75 * limits->damping_limit[8];
-          command.motors[9].damping = .75 * limits->damping_limit[9];
-        } */
-
       }
     }
     if(run_sim){
@@ -1339,7 +1281,6 @@ int main(int argc, char* argv[])
     state_pub.publish(msg);
     ros::spinOnce();
     control_loop_rate.sleep();
-    //cout << "Desired yaw angle is: " << msg.yaw << endl;
     count++;
 
     if(ros::isShuttingDown()){
@@ -1350,12 +1291,6 @@ int main(int argc, char* argv[])
       // Handle error case. You don't need to re-initialize subscriber
       // Calling llapi_send_command will keep low level api open
     }
-
-    // Sleep to keep to a reasonable update rate
-    //usleep(2000);
-    /*int time = 1000-elapsed_time.count();
-    int sleep_time = max(0,time);
-    usleep(sleep_time);*/
   }
 }
 
