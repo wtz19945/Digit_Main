@@ -137,26 +137,26 @@ using namespace Eigen;
 
 int main(int argc, char* argv[])
 {
+  
 
   OsqpEigen::Solver solver;
   int QP_initialized = 0;
 
+  //joint readings
   AnalyticalExpressions analytical_expressions;
   VectorXd q(NUM_MOTORS);
   VectorXd dq(NUM_MOTORS);
   VectorXd qj(NUM_JOINTS);
   VectorXd dqj(NUM_JOINTS);
+  VectorXd torq(NUM_MOTORS);
 
   // joint used in FROST is 28, 3 base position, 3 base orientation, 22 (6 floating base, 12 actuated joints, 4 passive joints). Assuming fixed arm
   VectorXd wb_q(NUM_FROST_STATE);
   VectorXd wb_dq(NUM_FROST_STATE);
-  VectorXd wb_qj(NUM_FROST_STATE);
-  VectorXd wb_dqj(NUM_FROST_STATE);
-
   VectorXd pb_q(NUM_Dyn_STATE);
   VectorXd pb_dq(NUM_Dyn_STATE);
-  MatrixXd M_fix(20,20);
 
+  // Position estimator reading from LLAPI
   VectorXd pel_pos(3),pel_vel(3),pel_quaternion(4),theta(3),dtheta(3);
   pel_pos = VectorXd::Zero(3,1);
   pel_vel = VectorXd::Zero(3,1);
@@ -193,7 +193,7 @@ int main(int argc, char* argv[])
   // Get local copy of command limits (torque and damping)
   const llapi_limits_t* limits = llapi_get_limits();
   
-  // Load Gains from TOML file
+  // Load Controller Gains from TOML file
   std::string package_path; 
   try {
     package_path = ros::package::getPath("Digit_Ros");
@@ -206,6 +206,7 @@ int main(int argc, char* argv[])
   }
   std::shared_ptr<cpptoml::table> config = cpptoml::parse_file(package_path + "/src/config_file/osc_robot_config.toml");
 
+  // OSC base gain
   double cpx = config->get_qualified_as<double>("PD-Gains.com_P_gain_x").value_or(0);
   double cpy = config->get_qualified_as<double>("PD-Gains.com_P_gain_y").value_or(0);
   double cpz = config->get_qualified_as<double>("PD-Gains.com_P_gain_z").value_or(0);
@@ -213,7 +214,7 @@ int main(int argc, char* argv[])
   double cpry = config->get_qualified_as<double>("PD-Gains.com_P_gain_ry").value_or(0);
   double cprx = config->get_qualified_as<double>("PD-Gains.com_P_gain_rx").value_or(0);
   double cphy = config->get_qualified_as<double>("PD-Gains.hip_yaw_P").value_or(0);
-  
+
   double cdx = config->get_qualified_as<double>("PD-Gains.com_D_gain_x").value_or(0);
   double cdy = config->get_qualified_as<double>("PD-Gains.com_D_gain_y").value_or(0);
   double cdz = config->get_qualified_as<double>("PD-Gains.com_D_gain_z").value_or(0);
@@ -222,9 +223,11 @@ int main(int argc, char* argv[])
   double cdrx = config->get_qualified_as<double>("PD-Gains.com_D_gain_rx").value_or(0);
   double cdhy = config->get_qualified_as<double>("PD-Gains.hip_yaw_D").value_or(0);
 
+  // IK arm gain
   double arm_P = config->get_qualified_as<double>("PD-Gains.arm_P").value_or(0);
-  double cp_py  = config->get_qualified_as<double>("PD-Gains.cp_P").value_or(0);
 
+  // Foot Params
+  double cp_py  = config->get_qualified_as<double>("PD-Gains.cp_P").value_or(0);
   double fpx = config->get_qualified_as<double>("PD-Gains.foot_P_x").value_or(0);
   double fpy = config->get_qualified_as<double>("PD-Gains.foot_P_y").value_or(0);
   double fpz = config->get_qualified_as<double>("PD-Gains.foot_P_z").value_or(0);
@@ -242,9 +245,7 @@ int main(int argc, char* argv[])
   int wd_sz = config->get_qualified_as<double>("Filter.wd_sz").value_or(0);
   double init_count = config->get_qualified_as<double>("Start.init_count").value_or(0);
   double soft_count = config->get_qualified_as<double>("Start.soft_count").value_or(0);
-  if(!run_sim){
-    soft_count += 10; // increase soft start time for hardware test
-  }
+
   double arm_z_int = config->get_qualified_as<double>("Arm-IK.z_int").value_or(0);
   double arm_z_mag = config->get_qualified_as<double>("Arm-IK.z_mag").value_or(0);
   double arm_z_prd = config->get_qualified_as<double>("Arm-IK.z_prd").value_or(0);
@@ -261,7 +262,7 @@ int main(int argc, char* argv[])
   VectorXd KD_ToeF = VectorXd::Zero(6,1);
   KP_ToeF << fpx,fpy,fpz,fpx,fpy,fpz;
   KD_ToeF << fdx,fdy,fdz,fdx,fdy,fdz;
-  
+
   MatrixXd Weight_ToeB = Wfb*MatrixXd::Identity(8,8);
   VectorXd KP_ToeB = KP_ToeF;
   VectorXd KD_ToeB = KD_ToeF;
@@ -274,13 +275,12 @@ int main(int argc, char* argv[])
 
   // Incorporate damping command into OSC
   double damping_dt = 0.001;
-  VectorXd damping(20),D_term(20);;
+  VectorXd damping(20),D_term(20);
   damping << VectorXd::Zero(6,1), 66.849, 26.1129, 38.05, 38.05, 0 , 0, 0, 
               66.849, 26.1129, 38.05, 38.05, 0 , 0, 0;
   MatrixXd Dmat = damping.asDiagonal();
 
-  VectorXd counter = VectorXd::Zero(4,1);
-  // record initial base status
+  // initialize Digit foot and base states
   double yaw_des = 0;
   double pel_x = 0;
   double pel_y = 0;
@@ -295,6 +295,7 @@ int main(int argc, char* argv[])
   VectorXd left_toe_back_pos(3);
   VectorXd right_toe_pos(3);
   VectorXd right_toe_back_pos(3);
+
   // initialize safety checker
   Digit_safety safe_check(wd_sz,NUM_LEG_STATE);
 
@@ -302,38 +303,37 @@ int main(int argc, char* argv[])
   MovingAverageFilter pel_vel_x; 
   MovingAverageFilter pel_vel_y;
   vector<MovingAverageFilter> wb_dq_fil;
-  for(int i = 0;i < NUM_LEG_STATE - 2;i++){
+  for(int i = 0;i < NUM_LEG_STATE;i++){
     wb_dq_fil.push_back(MovingAverageFilter(5));
+  }
+  vector<MovingAverageFilter> f_vel_fil;
+  for(int i=0;i<12;i++){
+    f_vel_fil.push_back(MovingAverageFilter(5));
   }
 
   // Set ROS params
   ros::Rate control_loop_rate(1000);
-  ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("/digit_state", 10);
+  ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("digit_state", 10);
   int count = 0;
   double key_time_tracker, key_time_tracker_c, conduct_time_prev = 0; // time log helper for key input, might remove in the future
   int key_mode = -1;
   InputListener input_listener(&key_mode);
   MPC_CMD_Listener mpc_cmd_listener;
 
-  // arm IK warm start
+  // arm IK tracker
   VectorXd ql_last = VectorXd::Zero(10,1);
   VectorXd qr_last = VectorXd::Zero(10,1);
 
-  // computation time tracker
-  auto time_control_start = std::chrono::system_clock::now();
-  double digit_time_start = observation.time;
-  
-  // trajectory time tracker
-  double traj_time = 0;
-  VectorXd pos_avg = VectorXd::Zero(3,1);
-
-  // OSC and Walking Parameters
+  // OSC and Walking Variables
+  VectorXd pel_pos_des = VectorXd::Zero(3,1);
+  VectorXd pel_vel_des = VectorXd::Zero(3,1);
   OSC_Control osc(config);
   VectorXd fzint(3) ; fzint << 0,0,0;
   VectorXd fzmid(3) ; fzmid << zh,0,0;
   VectorXd fzend(3) ; fzend << 0,dzend,ddzend;
   VectorXd a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
   VectorXd b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
+  VectorXd foot_start = VectorXd::Zero(2,1);
   VectorXd ya(6);
   VectorXd xa(6);
   VectorXd tvec = VectorXd::Zero(6,1);
@@ -344,25 +344,21 @@ int main(int argc, char* argv[])
   int stance_leg = 1;
   int stepping = 0;
   int change_state = 0;
+  double traj_time = 0;
+  VectorXd pos_avg = VectorXd::Zero(3,1);
+
+  // computation time tracker
+  auto time_control_start = std::chrono::system_clock::now();
+  double digit_time_start = observation.time;
 
   while (ros::ok()) {
     // count running time
     auto elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_control_start);
     //cout << "run time of the robot is: " << observation.time - digit_time_start << endl;
-    //cout << "run time of the controller is: " << elapsed_time.count() / 1e6 << endl;
+    //cout << "run time of the controller is: " << elapsed_time.count() << endl;
     auto time_program_start = std::chrono::system_clock::now();
-
-    // global time
     double global_time = elapsed_time.count() / 1e6;
 
-    // trajectory time
-    //traj_time = global_time - floor(global_time / step_time) * step_time;
-    
-    //cout << "trajectory time is: " << traj_time << endl;
-    //cout << "contact flag is " << endl << contact << endl;
-    
-    //cout << "mpc cmd subscribed is: " << endl;
-    //cout << mpc_cmd_listener.get_pel_pos_cmd().block(0,0,1,1) << endl;
     // Update observation
     int return_val = llapi_get_observation(&observation);
     if (return_val < 1) {
@@ -373,67 +369,8 @@ int main(int argc, char* argv[])
       // No new data
     }
 
-    // Get state information
-    for (int i = 0; i < NUM_MOTORS; i++){
-      q(i) = observation.motor.position[i];
-      dq(i) = observation.motor.velocity[i];
-    }
-
-    for (int i = 0; i < NUM_JOINTS; i++){
-      qj(i) = observation.joint.position[i];
-      dqj(i) = observation.joint.velocity[i];
-    }
-    
-    for (int i = 0;i < 3;i++){
-        pel_pos(i) = observation.base.translation[i];
-        pel_vel(i) = observation.base.linear_velocity[i];
-        dtheta(i) = observation.base.angular_velocity[i];
-    }
-    pel_quaternion(0) = observation.base.orientation.w;
-    pel_quaternion(1) = observation.base.orientation.x;
-    pel_quaternion(2) = observation.base.orientation.y;
-    pel_quaternion(3) = observation.base.orientation.z;
-    
-    theta = ToEulerAngle(pel_quaternion); // transform quaternion in euler roll, pitch, yaw order
-    VectorXd theta_copy = theta;
-    MatrixXd OmegaToDtheta = MatrixXd::Zero(3,3);
-    OmegaToDtheta << 0 , -sin(theta(2)), cos(theta(2)) * cos(theta(1)), 0, cos(theta(2)), cos(theta(1)) * sin(theta(2)), 1, 0, -sin(theta(1));
-    //dtheta = OmegaToDtheta * dtheta;
-
-    MatrixXd rotZ = MatrixXd::Zero(3,3);
-    rotZ << cos(yaw_des),-sin(yaw_des),0,sin(yaw_des),cos(yaw_des),0,0,0,1;
-
-    //pel_vel(0) = pel_vel_x.getData(pel_vel(0));
-    //pel_vel(1) = pel_vel_y.getData(pel_vel(1));
-
-    // Wrap yaw orientation and positions so the desired states are always 0
-    if((observation.time - digit_time_start) < init_count){
-        yaw_des = theta(2);
-        pel_x = pel_pos(0);
-        pel_y = pel_pos(1);
-        pel_z = pel_pos(2);
-    }
-
-    pel_pos(0) -= pel_x;
-    pel_pos(1) -= pel_y;
-        
-    theta(2) -= yaw_des;
-
-    // Using estimation from Agility. It seems only the position est is tranfermed into world frame. Double-checl with Agility or other Digit user
-    pel_pos = rotZ.transpose() * pel_pos; 
-    // pel_vel = rotZ.transpose() * pel_vel;
-
-    if(theta(2) > M_PI){
-        theta(2) -= 2 * M_PI; 
-    }
-    else if(theta(2) < -M_PI){
-        theta(2) += 2 * M_PI;
-    }
-    else{
-      //;
-    }
-
-    if(key_mode == 2 || stepping >0){
+    // get contact trajectory
+    if(key_mode == 2 || stepping > 0){
       traj_time = traj_time + 0.001;
       if(traj_time > step_time){
         traj_time = 0;
@@ -483,10 +420,70 @@ int main(int argc, char* argv[])
             contact << 1,0;
         }
       }
-
     }
 
 
+    // Get state information
+    for (int i = 0; i < NUM_MOTORS; i++){
+      q(i) = observation.motor.position[i];
+      dq(i) = observation.motor.velocity[i];
+      torq(i) = observation.motor.torque[i];
+    }
+
+    for (int i = 0; i < NUM_JOINTS; i++){
+      qj(i) = observation.joint.position[i];
+      dqj(i) = observation.joint.velocity[i];
+    }
+    
+    for (int i = 0;i < 3;i++){
+        pel_pos(i) = observation.base.translation[i];
+        pel_vel(i) = observation.base.linear_velocity[i];
+        dtheta(i) = observation.base.angular_velocity[i];
+    }
+    pel_quaternion(0) = observation.base.orientation.w;
+    pel_quaternion(1) = observation.base.orientation.x;
+    pel_quaternion(2) = observation.base.orientation.y;
+    pel_quaternion(3) = observation.base.orientation.z;
+    
+    theta = ToEulerAngle(pel_quaternion); // transform quaternion in euler roll, pitch, yaw order
+    VectorXd theta_copy = theta;
+    MatrixXd OmegaToDtheta = MatrixXd::Zero(3,3);
+/*     OmegaToDtheta << 0 , -sin(theta(2)), cos(theta(2)) * cos(theta(1)), 0, cos(theta(2)), cos(theta(1)) * sin(theta(2)), 1, 0, -sin(theta(1));
+    dtheta = OmegaToDtheta * dtheta; */
+    OmegaToDtheta << cos(theta(2)) * cos(theta(1)), -sin(theta(2)), 0, sin(theta(2)) *cos(theta(1)), cos(theta(2)), 0, -sin(theta(1)), 0, 1;
+    dtheta = OmegaToDtheta.transpose() * dtheta;
+
+    MatrixXd rotZ = MatrixXd::Zero(3,3);
+    rotZ << cos(yaw_des),-sin(yaw_des),0,sin(yaw_des),cos(yaw_des),0,0,0,1;
+
+    //pel_vel(0) = pel_vel_x.getData(pel_vel(0));
+    //pel_vel(1) = pel_vel_y.getData(pel_vel(1));
+
+    // Wrap yaw orientation and positions so the desired states are always 0
+    if((observation.time - digit_time_start) < init_count){
+        yaw_des = theta(2);
+        pel_x = pel_pos(0);
+        pel_y = pel_pos(1);
+        pel_z = pel_pos(2);
+    }
+
+    pel_pos(0) -= pel_x;
+    pel_pos(1) -= pel_y;
+    theta(2) -= yaw_des;
+
+    // Using estimation from Agility. It seems only the position est is tranfermed into world frame. Double-checl with Agility or other Digit user
+    pel_pos = rotZ.transpose() * pel_pos; 
+    pel_vel = rotZ.transpose() * pel_vel;
+
+    if(theta(2) > M_PI){
+        theta(2) -= 2 * M_PI; 
+    }
+    else if(theta(2) < -M_PI){
+        theta(2) += 2 * M_PI;
+    }
+    else{
+      //;
+    }
 
     // get state vector
     wb_q  << pel_pos, theta(2), theta(1), theta(0), q(joint::left_hip_roll),q(joint::left_hip_yaw),q(joint::left_hip_pitch),q(joint::left_knee)
@@ -502,20 +499,7 @@ int main(int argc, char* argv[])
       dqj(joint::right_tarsus),dqj(joint::right_toe_pitch),dqj(joint::right_toe_roll),dq(joint::left_shoulder_roll),dq(joint::left_shoulder_pitch)
       ,dq(joint::left_shoulder_yaw),dq(joint::left_elbow),dq(joint::right_shoulder_roll),dq(joint::right_shoulder_pitch)
       ,dq(joint::right_shoulder_yaw),dq(joint::right_elbow);
-
-    wb_qj  << pel_pos, theta(2), theta(1), theta(0), q(joint::left_hip_roll),q(joint::left_hip_yaw),q(joint::left_hip_pitch),q(joint::left_knee)
-      ,13 * M_PI/180 - q(joint::left_knee),qj(joint::left_toe_pitch),qj(joint::left_toe_roll),
-      q(joint::right_hip_roll),q(joint::right_hip_yaw),q(joint::right_hip_pitch),q(joint::right_knee),
-      13 * M_PI/180 - q(joint::right_knee),qj(joint::right_toe_pitch),qj(joint::right_toe_roll),q(joint::left_shoulder_roll),q(joint::left_shoulder_pitch)
-      ,q(joint::left_shoulder_yaw),q(joint::left_elbow),q(joint::right_shoulder_roll),q(joint::right_shoulder_pitch)
-      ,q(joint::right_shoulder_yaw),q(joint::right_elbow);
-
-    wb_dqj  << pel_vel, dtheta(2), dtheta(1), dtheta(0), dq(joint::left_hip_roll),dq(joint::left_hip_yaw),dq(joint::left_hip_pitch),dq(joint::left_knee)
-      ,-dq(joint::left_knee),dqj(joint::left_toe_pitch),dqj(joint::left_toe_roll),
-      dq(joint::right_hip_roll),dq(joint::right_hip_yaw),dq(joint::right_hip_pitch),dq(joint::right_knee),
-      -dq(joint::right_knee),dqj(joint::right_toe_pitch),dqj(joint::right_toe_roll),dq(joint::left_shoulder_roll),dq(joint::left_shoulder_pitch)
-      ,dq(joint::left_shoulder_yaw),dq(joint::left_elbow),dq(joint::right_shoulder_roll),dq(joint::right_shoulder_pitch)
-      ,dq(joint::right_shoulder_yaw),dq(joint::right_elbow);
+    
 
     pb_q << pel_pos, theta(2), theta(1), theta(0), q(joint::left_hip_roll),q(joint::left_hip_yaw),q(joint::left_hip_pitch),q(joint::left_knee)
       ,qj(joint::left_tarsus),qj(joint::left_toe_pitch),qj(joint::left_toe_roll),q(joint::right_hip_roll),q(joint::right_hip_yaw),q(joint::right_hip_pitch)
@@ -529,10 +513,6 @@ int main(int argc, char* argv[])
     // Need to consider full body dynamics in the future. Arm inertia is not trivial
     MatrixXd M = analytical_expressions.InertiaMatrix(pb_q);
     MatrixXd G = analytical_expressions.CoriolisTerm(pb_q,pb_dq) + analytical_expressions.GravityVector(pb_q);
-    //MatrixXd C = analytical_expressions.CoriolisTerm(pb_q,pb_dq);
-    // compute end effector position
-    // VectorXd pelvis_pos = analytical_expressions.p_Pelvis(wb_q);
-    
 
     // height compensation for drifting assumeing fixed ground height
     if(contact(0) > 0 && contact(1) >0){
@@ -548,6 +528,10 @@ int main(int argc, char* argv[])
         //left_toe_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
         //left_toe_back_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
     }
+
+    // compute end effector position
+    // VectorXd pelvis_pos = analytical_expressions.p_Pelvis(wb_q);
+    
     // toe front kinematics
     left_toe_pos = analytical_expressions.p_left_toe_front(wb_q);
     MatrixXd left_toe_jaco  = analytical_expressions.Jp_left_toe_front(wb_q);
@@ -566,6 +550,7 @@ int main(int argc, char* argv[])
 
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin is: " << elapsed_time.count() << endl;
+
     // Get fixed arm version
     MatrixXd left_toe_jaco_fa = MatrixXd::Zero(3,20); // fa: fixed arm
     MatrixXd left_toe_back_jaco_fa = MatrixXd::Zero(3,20);
@@ -577,6 +562,23 @@ int main(int argc, char* argv[])
     right_toe_jaco_fa << right_toe_jaco.block(0,0,3,6) , MatrixXd::Zero(3,7), right_toe_jaco.block(0,13,3,7);
     right_toe_back_jaco_fa << right_toe_back_jaco.block(0,0,3,6) , MatrixXd::Zero(3,7), right_toe_back_jaco.block(0,13,3,7);
 
+    // Might need this to make sure the desired pelvis is in the center of two foot.
+    if((observation.time - digit_time_start)  < init_count){
+        pos_avg = (left_toe_pos + right_toe_pos + left_toe_back_pos + right_toe_back_pos) / 4;
+        fzint << pos_avg(2),0,0;
+        fzmid << pos_avg(2) + zh,0,0;
+        fzend << pos_avg(2) - 0.08,dzend,ddzend;
+        a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
+        b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
+    }
+    else{
+        pel_pos(0) -= pos_avg(0) + 0.0; 
+        pel_pos(1) -= pos_avg(1);
+    }
+    
+    // End effector velocity
+    VectorXd  left_toe_vel = left_toe_jaco * wb_dq;
+    VectorXd  right_toe_vel = right_toe_jaco * wb_dq;
 
     // Control another contact point on toe back to enable foot rotation control
     VectorXd left_toe_rot  = VectorXd::Zero(4,1);
@@ -602,186 +604,23 @@ int main(int argc, char* argv[])
     right_toe_rot_jaco_fa.block(0,0,3,20) = right_toe_back_jaco_fa;
     right_toe_rot_jaco_fa(3,wbc::right_hip_yaw) = 1;
 
-    // Might need this to make sure the desired pelvis is in the center of two foot.
-    if((observation.time - digit_time_start)  < init_count){
-        pos_avg = (left_toe_pos + right_toe_pos + left_toe_back_pos + right_toe_back_pos) / 4;
-        fzint << pos_avg(2),0,0;
-        fzmid << pos_avg(2) + zh,0,0;
-        fzend << pos_avg(2) - 0.08,dzend,ddzend;
-        a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
-        b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
-    }
-    else{
-        pel_pos(0) -= pos_avg(0); 
-        pel_pos(1) -= pos_avg(1);
-    }
+     
+    left_toe_vel(0) = f_vel_fil[0].getData(left_toe_vel(0));
+    left_toe_vel(1) = f_vel_fil[1].getData(left_toe_vel(1));
+    left_toe_vel(2) = f_vel_fil[2].getData(left_toe_vel(2));
+    left_toe_rot(0) = f_vel_fil[3].getData(left_toe_rot(0));
+    left_toe_rot(1) = f_vel_fil[4].getData(left_toe_rot(1));
+    left_toe_rot(2) = f_vel_fil[5].getData(left_toe_rot(2));
 
-    // End effector velocity
-    VectorXd  left_toe_vel = left_toe_jaco * wb_dq;
-    VectorXd  right_toe_vel = right_toe_jaco * wb_dq;
-
-    // Compute Desired Foot Traj
-    VectorXd left_toe_pos_ref = VectorXd::Zero(3,1);
-    VectorXd left_toe_vel_ref = VectorXd::Zero(3,1);
-    VectorXd left_toe_acc_ref = VectorXd::Zero(3,1);
-
-    VectorXd right_toe_pos_ref = VectorXd::Zero(3,1);
-    VectorXd right_toe_vel_ref = VectorXd::Zero(3,1);
-    VectorXd right_toe_acc_ref = VectorXd::Zero(3,1);
+    right_toe_vel(0) = f_vel_fil[6].getData(right_toe_vel(0));
+    right_toe_vel(1) = f_vel_fil[7].getData(right_toe_vel(1));
+    right_toe_vel(2) = f_vel_fil[8].getData(right_toe_vel(2));
+    right_toe_rot(0) = f_vel_fil[9].getData(right_toe_rot(0));
+    right_toe_rot(1) = f_vel_fil[10].getData(right_toe_rot(1));
+    right_toe_rot(2) = f_vel_fil[11].getData(right_toe_rot(2));
+     
     
-    left_toe_pos_ref << 0, 0.1, 0;
-    left_toe_vel_ref << 0,0,0;
-    left_toe_acc_ref << 0,0,0;
-
-    right_toe_pos_ref << 0, -0.1, 0;
-    right_toe_vel_ref << 0,0,0;
-    right_toe_acc_ref << 0,0,0;
-
-    //VectorXd p_com = analytical_expressions.p_COM(wb_q);
-    //VectorXd v_com = analytical_expressions.J_COM(wb_q) * wb_dq;
     int use_cap = 1;
-    double foot_start = 0;
-    if(contact(0) == 0){
-      // temporally use capture point
-      double x_goal = pel_pos(0) - 0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0);
-      double dx_goal = pel_vel(0);
-      double ddx_goal = 0;
-
-      double y_goal = pel_pos(1) + 0.12 + cp_py * sqrt(.9/9.81) * pel_vel(1);
-      double dy_goal = pel_vel(1);
-      double ddy_goal = 0;
-
-      VectorXd foot_cmd = mpc_cmd_listener.get_left_foot_cmd();
-      if(use_cap == 0){
-        int mpc_index = floor((traj_time - ds_time/2) / 0.1);
-        if(traj_time - ds_time/2 - mpc_index * 0.1 < 0.005){
-          VectorXd fy_int(3),fy_end(3);
-          fy_int << (left_toe_pos(1) + left_toe_back_pos(1))/2, 1*(left_toe_vel(1) + left_toe_drot(1))/2, 0;
-          fy_end << foot_cmd(1), 0, 0;
-          ya = get_quintic_params(fy_int,fy_end, step_time - ds_time - 0.1 * mpc_index);
-          
-          VectorXd fx_int(3),fx_end(3);
-          fx_int << (left_toe_pos(0) + left_toe_back_pos(0))/2, 0*(left_toe_vel(0) + left_toe_drot(0))/2, 0;
-          fx_end << foot_cmd(0), 0, 0;
-          xa = get_quintic_params(fx_int,fx_end, step_time - ds_time - 0.1 * mpc_index);
-        }
-
-        double n = traj_time - ds_time / 2 - 0.1 * mpc_index;
-        tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
-        dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
-        ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
-        y_goal = ya.dot(tvec);
-        dy_goal = ya.dot(dtvec);
-        ddy_goal = ya.dot(ddtvec); 
-
-        double w = M_PI / (step_time - ds_time);
-        x_goal = xa.dot(tvec);
-        dx_goal = xa.dot(dtvec);
-        ddx_goal = 0;  
-/*         if(traj_time - ds_time < 0.002)
-        foot_start = (left_toe_pos(0) + left_toe_back_pos(0))/2;
-        x_goal = foot_cmd(0);
-        dx_goal = .5 * foot_cmd(0) * w * (-sin(w * n)) + .5 * w * (sin(w * n)) * foot_start;
-        ddx_goal = .5 * foot_cmd(0) * w * w * (-cos(w * n)) + .5 * w * w * (cos(w * n)) * foot_start;   */
-      }
-      left_toe_pos_ref << x_goal,y_goal,0;
-      left_toe_vel_ref << dx_goal, dy_goal, 0;
-      left_toe_acc_ref << ddx_goal,ddy_goal,0;
-
-      if(traj_time < step_time/2 ){
-        double n = traj_time - ds_time / 2;
-        tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
-        dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
-        ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
-        
-        left_toe_pos_ref(2) = a.dot(tvec);
-        left_toe_vel_ref(2) = a.dot(dtvec);
-        left_toe_acc_ref(2) = a.dot(ddtvec);
-      }
-      else{
-        double n = traj_time - step_time/2;
-        tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
-        dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
-        ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
-        left_toe_pos_ref(2) = b.dot(tvec);
-        left_toe_vel_ref(2) = b.dot(dtvec);
-        left_toe_acc_ref(2) = b.dot(ddtvec);
-      }
-    }
-
-    if(contact(1) == 0){
-      // temporally use capture point
-      double x_goal = pel_pos(0) + -0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0);
-      double dx_goal = pel_vel(0);
-      double ddx_goal = 0;
-
-      double y_goal = pel_pos(1) - 0.12 + cp_py * sqrt(.9/9.81) * pel_vel(1);
-      double dy_goal = pel_vel(1);
-      double ddy_goal = 0;
-
-      VectorXd foot_cmd = mpc_cmd_listener.get_left_foot_cmd();
-
-      if(use_cap == 0){
-        int mpc_index = floor((traj_time - ds_time/2) / 0.1);
-        if(traj_time - ds_time/2 - mpc_index * 0.1 < 0.005){
-          VectorXd fy_int(3),fy_end(3);
-          fy_int << (right_toe_pos(1) + right_toe_back_pos(1))/2, 1*(right_toe_vel(1) + right_toe_drot(1))/2, 0;
-          fy_end << foot_cmd(1), 0, 0;
-          ya = get_quintic_params(fy_int,fy_end, step_time - ds_time - 0.1 * mpc_index);
-
-          VectorXd fx_int(3),fx_end(3);
-          fx_int << (right_toe_pos(0) + right_toe_back_pos(0))/2, 0*(right_toe_vel(0) + right_toe_drot(0))/2, 0;
-          fx_end << foot_cmd(0), 0, 0;
-          xa = get_quintic_params(fx_int,fx_end, step_time - ds_time - 0.1 * mpc_index);
-        }
-
-        double n = traj_time - ds_time / 2 - 0.1 * mpc_index;
-        tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
-        dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
-        ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
-        y_goal = ya.dot(tvec);
-        dy_goal = ya.dot(dtvec);
-        ddy_goal = ya.dot(ddtvec); 
-        x_goal = xa.dot(tvec);
-        dx_goal = xa.dot(dtvec);
-        ddx_goal = 0; 
-         double w = M_PI / (step_time - ds_time); 
-/*         if(traj_time - ds_time/2 < 0.002)
-          foot_start = (right_toe_pos(0) + right_toe_back_pos(0))/2;
-        x_goal = foot_cmd(0);
-        dx_goal = .5 * foot_cmd(0) * w * (-sin(w * n)) + .5 * w * (sin(w * n)) * foot_start;
-        ddx_goal = .5 * foot_cmd(0) * w * w * (-cos(w * n)) + .5 * w * w * (cos(w * n)) * foot_start;   */
-      }
-      right_toe_pos_ref << x_goal, y_goal, 0;
-      right_toe_vel_ref << dx_goal, dy_goal, 0;
-      right_toe_acc_ref << ddx_goal,ddy_goal,0;
-
-      if(traj_time < step_time/2){
-        double n = traj_time - ds_time / 2;
-        tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
-        dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
-        ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
-        right_toe_pos_ref(2) = a.dot(tvec);
-        right_toe_vel_ref(2) = a.dot(dtvec);
-        right_toe_acc_ref(2) = a.dot(ddtvec);
-      }
-      else{
-        double n = traj_time - step_time/2;
-        tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
-        dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
-        ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
-        right_toe_pos_ref(2) = b.dot(tvec);
-        right_toe_vel_ref(2) = b.dot(dtvec);
-        right_toe_acc_ref(2) = b.dot(ddtvec);
-      }
-    }
-    // Compute Base Reference
-    VectorXd pel_pos_des = VectorXd::Zero(3,1);
-    VectorXd pel_vel_des = VectorXd::Zero(3,1);
-    
-    if(traj_time <= 0.01){
-      pel_pos_des.block(0,0,2,1) = pel_pos.block(0,0,2,1);
-    }
     // Compute Desired CoM Traj// Testing use
     if(key_mode == 0){
       z_off = min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.3);
@@ -800,21 +639,127 @@ int main(int argc, char* argv[])
         pel_pos_des(2) = pel_pos(2) + (pel_pos_des(2) - pel_pos(2)) / abs(pel_pos(2) - pel_pos_des(2)) * 0.04;
     }
 
-    //
+    // transit to stepping
     if(stepping == 1){
        pel_pos_des(1) = 0 + .06 * traj_time;
        pel_vel_des(1) = .06 * traj_time;
     }
 
+    // transit command
     if(stepping == 2 && use_cap == 0){
       pel_pos_des.block(0,0,2,1) = mpc_cmd_listener.get_pel_pos_cmd().block(0,0,2,1);
       pel_vel_des.block(0,0,2,1) = mpc_cmd_listener.get_pel_vel_cmd().block(0,0,2,1);
     }
-    //left_toe_pos_ref(2) = -0.7;
-    //right_toe_pos_ref(2) = -0.7;
 
-    // Toe weights and Gains
-    // compute target position acc
+    double vel_des = 0.0;
+    if(stepping == 2 && use_cap == 1){
+      pel_pos_des(0) = vel_des * global_time;
+      pel_vel_des(0) = vel_des;
+    }
+
+    // Compute Desired Foot Traj
+    VectorXd left_toe_pos_ref = VectorXd::Zero(3,1);
+    VectorXd left_toe_vel_ref = VectorXd::Zero(3,1);
+    VectorXd left_toe_acc_ref = VectorXd::Zero(3,1);
+
+    VectorXd right_toe_pos_ref = VectorXd::Zero(3,1);
+    VectorXd right_toe_vel_ref = VectorXd::Zero(3,1);
+    VectorXd right_toe_acc_ref = VectorXd::Zero(3,1);
+
+    if(contact(0) == 0){
+      // temporally use capture point
+      double x_goal = pel_pos(0) - 0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des * traj_time;
+      double dx_goal = pel_vel(0) + vel_des;
+      double ddx_goal = 0;
+
+      double y_goal = max(pel_pos(1) + 0.1 + cp_py * sqrt(.9/9.81) * pel_vel(1), (right_toe_pos(2) + right_toe_back_pos(2))/2 + 0.03);
+      double dy_goal = pel_vel(1);
+      double ddy_goal = 0;
+
+      double w = M_PI / (step_time - ds_time);
+      double n = traj_time - ds_time / 2;
+      if(traj_time - ds_time/2 < 0.002)
+        foot_start << (left_toe_pos(0) + left_toe_back_pos(0))/2, (left_toe_pos(1) + left_toe_back_pos(1))/2;
+      
+      dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
+      ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(1);
+
+      dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
+      ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(0);
+
+      left_toe_pos_ref << x_goal,y_goal,0;
+      left_toe_vel_ref << dx_goal, dy_goal, 0;
+      left_toe_acc_ref << ddx_goal,ddy_goal,0;
+
+      if(traj_time < step_time/2 ){
+        double n = traj_time - ds_time / 2;
+        tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
+        dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
+        ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
+        
+        left_toe_pos_ref(2) = a.dot(tvec) - (pos_avg(2) -  (right_toe_pos(2) + right_toe_back_pos(2))/2);
+        left_toe_vel_ref(2) = a.dot(dtvec);
+        left_toe_acc_ref(2) = a.dot(ddtvec);
+      }
+      else{
+        double n = traj_time - step_time/2;
+        tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
+        dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
+        ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
+        left_toe_pos_ref(2) = b.dot(tvec) - (pos_avg(2) -  (right_toe_pos(2) + right_toe_back_pos(2))/2);
+        left_toe_vel_ref(2) = b.dot(dtvec);
+        left_toe_acc_ref(2) = b.dot(ddtvec);
+      }
+    }
+
+    if(contact(1) == 0){
+      // temporally use capture point
+      double x_goal = pel_pos(0) + -0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des * traj_time;
+      double dx_goal = pel_vel(0) + vel_des;
+      double ddx_goal = 0;
+
+      double y_goal = min(pel_pos(1) - 0.1 + cp_py * sqrt(.9/9.81) * pel_vel(1), (left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.05);
+      double dy_goal = pel_vel(1);
+      double ddy_goal = 0;
+
+      double w = M_PI / (step_time - ds_time);
+      double n = traj_time - ds_time / 2;
+      if(traj_time - ds_time/2 < 0.002){
+        foot_start << (right_toe_pos(0) + right_toe_back_pos(0))/2, (right_toe_pos(1) + right_toe_back_pos(1))/2;
+      }
+      dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
+      ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(1);
+      dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
+      ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(0);
+
+      right_toe_pos_ref << x_goal, y_goal, 0;
+      right_toe_vel_ref << dx_goal, dy_goal, 0;
+      right_toe_acc_ref << ddx_goal,ddy_goal,0;
+
+      if(traj_time < step_time/2){
+        double n = traj_time - ds_time / 2;
+        tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
+        dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
+        ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
+        right_toe_pos_ref(2) = a.dot(tvec) - (pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2))/2);
+        right_toe_vel_ref(2) = a.dot(dtvec);
+        right_toe_acc_ref(2) = a.dot(ddtvec);
+      }
+      else{
+        double n = traj_time - step_time/2;
+        tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
+        dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
+        ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
+        right_toe_pos_ref(2) = b.dot(tvec) - (pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2))/2);
+        right_toe_vel_ref(2) = b.dot(dtvec);
+        right_toe_acc_ref(2) = b.dot(ddtvec);
+      }
+    }
+
     VectorXd des_acc = VectorXd::Zero(6,1);
     des_acc << -KP_ToeF(0) * (left_toe_pos(0) - left_toe_pos_ref(0)   - 0.0) - KD_ToeF(0) * (left_toe_vel(0) - left_toe_vel_ref(0)) + left_toe_acc_ref(0),
                -KP_ToeF(1) * (left_toe_pos(1) - left_toe_pos_ref(1))  - KD_ToeF(1) * (left_toe_vel(1) - left_toe_vel_ref(1)) + left_toe_acc_ref(1), 
@@ -840,25 +785,21 @@ int main(int argc, char* argv[])
       des_acc_toe.block(0,0,3,1) = VectorXd::Zero(3,1); 
     }
 
+/*     des_acc.block(0,0,3,1) = (1-contact(0)) * des_acc.block(0,0,3,1) + VectorXd::Zero(3,1);
+    des_acc_toe.block(0,0,3,1) = (1-contact(0)) * des_acc_toe.block(0,0,3,1) + VectorXd::Zero(3,1);  */
+
     if(contact(1) != 0){
       des_acc.block(3,0,3,1) = VectorXd::Zero(3,1);
       des_acc_toe.block(4,0,3,1) = VectorXd::Zero(3,1);
     }
-    // for stance foot, desired acc is 0
-/*     if(contact(0) == 0){
-      des_acc_toe.block(0,0,3,1) -= left_toe_back_djaco * wb_dq; 
-      des_acc.block(0,0,3,1) -= left_toe_djaco * wb_dq;
-    }
-    if(contact(1) == 0){
-      des_acc_toe.block(4,0,3,1) -= right_toe_back_djaco * wb_dq; 
-      des_acc.block(3,0,3,1) -= right_toe_djaco * wb_dq;  
-    } */
+
     // B matrix
     MatrixXd B = get_B(wb_q);
 
     // Spring Jacobian
     MatrixXd Spring_Jaco = get_Spring_Jaco();
 
+    // For pelvis control in standing OSC
     // For pelvis control in standing OSC
     VectorXd des_acc_pel = VectorXd::Zero(6,1);
     MatrixXd pel_jaco = MatrixXd::Zero(6,20);
@@ -873,47 +814,20 @@ int main(int argc, char* argv[])
                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
     }
     else{
-      // Use LIPM prediction as feed-forward command
-      VectorXd foot = pel_pos;
-      if(contact(0) == 0)
-        foot = right_toe_back_pos;
-      if(contact(1) == 0)
-        foot = left_toe_back_pos;
-      des_acc_pel << -1 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 1 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) + 0 * 9.81/1 * (pel_pos(0) - foot(0)),
-                    -.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 1 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) + 0 * 9.81/1 * (pel_pos(1) - foot(1)),
+      des_acc_pel << -.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 1 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
+                    -.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 1 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
                     -1 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 1 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
     }
+    
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
-  
+    
     // Solve OSC QP
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "set up sparse constraint: " << elapsed_time.count() << endl;
-
-    MatrixXd select = MatrixXd::Zero(12,20);
-    if(contact(0) == 0){
-      select(0,6) = 1;
-      select(1,7) = 1;
-      select(2,8) = 1;
-      select(3,9) = 1;
-      //select(4,11) = 1;
-      //select(5,12) = 1;
-    }
-    if(contact(1) == 0){
-      select(6,13) = 1;
-      select(7,14) = 1;
-      select(8,15) = 1;
-      select(9,16) = 1;
-      //select(10,18) = 1;
-      //select(11,19) = 1;
-    }
-
-    //D_term = -0.075 * B * select * Dmat * wb_dq.block(0,0,20,1);
-    M -= 0.1 * B * select * Dmat * damping_dt;
-
     if(QP_initialized == 0){
       QP_initialized = 1;
       osc.setupQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);
@@ -925,7 +839,7 @@ int main(int argc, char* argv[])
       osc.setUpQP(check_solver); 
     }
     else{
-      osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G + D_term, contact);
+      osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);
       osc.updateQPMatrix(Weight_pel, M, 
                         B, Spring_Jaco, left_toe_jaco_fa, 
                         left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
@@ -940,7 +854,12 @@ int main(int argc, char* argv[])
     VectorXd torque = VectorXd::Zero(12,1);
     for(int i = 0;i<12;i++)
       torque(i) = QPSolution(20+i);
-
+    
+    cout << "left torque" << endl;
+    cout << torque.block(0,0,6,1) << endl;
+    cout << "right torque" << endl;
+    cout << torque.block(6,0,6,1) << endl;
+    
     // OSC on leg, PD on arm
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + QP formulation + Solving: " << elapsed_time.count() << endl;
@@ -948,28 +867,15 @@ int main(int argc, char* argv[])
     // Integrate osc ddq to find velocity command
     VectorXd wb_dq_next = VectorXd::Zero(12,1);
     for(int i=0;i<12;i++){
-      // forward euler
-      if(i<4){
-        //wb_dq(6+i) = wb_dq_fil[i].getData(wb_dq(6+i)); 
+      if(i<4) 
         wb_dq_next(i) = wb_dq(6+i) + damping_dt * QPSolution(6+i); // skip passive joint tarsus
-      }
-      else if(i<10){
-        //wb_dq(7+i) = wb_dq_fil[i].getData(wb_dq(7+i)); 
+      else if(i<10)
         wb_dq_next(i) = wb_dq(7+i) + damping_dt * QPSolution(7+i);
-      }
-      else{
-        //wb_dq(8+i) = wb_dq_fil[i].getData(wb_dq(8+i)); 
+      else
         wb_dq_next(i) = wb_dq(8+i) + damping_dt * QPSolution(8+i);
-      }
     }
+
     
-/*  cout << "pel info" << endl;
-    cout << (left_toe_pos + left_toe_back_pos ) / 2 << endl;
-    cout << (right_toe_pos + right_toe_back_pos) / 2 << endl;
-    
-    cout << "acc " << QPSolution.block(0,0,3,1) << endl;
-    cout << "cmd acc " << des_acc_pel.block(0,0,3,1) << endl; */
-    // 
     wb_dq_next(2) = 1*wb_dq_next(2);
     wb_dq_next(3) = 1*wb_dq_next(3);
     wb_dq_next(8) = 1*wb_dq_next(8);
@@ -986,7 +892,7 @@ int main(int argc, char* argv[])
     wb_dq_next(5) = 0;
     wb_dq_next(10) = 0;
     wb_dq_next(11) = 0;
-
+    
     // IK arm control for conducting, trial implementation. Incorporate to analytical_expressions class in the future
     VectorXd ql = VectorXd::Zero(10,1);
     VectorXd p_lh = VectorXd::Zero(3,1);
@@ -1026,12 +932,12 @@ int main(int argc, char* argv[])
     }
 
     if(cur_time< (period/2)){
-      p_lh_ref << pel_pos(0) + 0.4,pel_pos(1) + 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag * sin(cur_time/period*2*3.14);
-      p_rh_ref << pel_pos(0) + 0.4,pel_pos(1) + -0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag* sin(cur_time/period*2*3.14);
+      p_lh_ref << 0.4, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag * sin(cur_time/period*2*3.14);
+      p_rh_ref << 0.4,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag* sin(cur_time/period*2*3.14);
     }
     else{
-      p_lh_ref << pel_pos(0) + 0.4,pel_pos(1) + 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
-      p_rh_ref << pel_pos(0) + 0.4,pel_pos(1) + -0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
+      p_lh_ref << 0.4, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
+      p_rh_ref << 0.4,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
     }
 
     // initialize q with current pose
@@ -1115,20 +1021,10 @@ int main(int argc, char* argv[])
     else{
       qr = qr_last;
     }
-    
     // safety check
     safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
-
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-    //cout << "current height is:" << endl;
-    //cout << pel_pos_des(2) << endl;
-    //cout << pel_pos(2) << endl;
     //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
-    VectorXd damping(NUM_MOTORS);
-    damping << 66.849, 26.1129, 38.05, 38.05, 15.5532, 15.5532, 
-               66.849, 26.1129, 38.05, 38.05, 15.5532, 15.5532, 
-               66.849, 66.849, 26.1129, 66.849, 
-               66.849, 66.849, 26.1129, 66.849;
 
     for (int i = 0; i < NUM_MOTORS; ++i) {
       if(safe_check.checkSafety()){ // safety check
@@ -1143,36 +1039,14 @@ int main(int argc, char* argv[])
           command.motors[i].torque =
             min((observation.time - digit_time_start)/soft_count,1.0) * arm_P * (target_position[i] - observation.motor.position[i]);
             command.motors[i].velocity = 0;
-            command.motors[i].damping = .75 * limits->damping_limit[i];
+            command.motors[i].damping = 0.75 * limits->damping_limit[i];
         }
         else{
           torque *= min((observation.time - digit_time_start)/soft_count,1.0);
           command.motors[i].torque = 1 * torque(i);
           command.motors[i].velocity = 1 * wb_dq_next(i);
-          command.motors[i].damping = .1 * limits->damping_limit[i];
+          command.motors[i].damping = .2 * limits->damping_limit[i];
         }
-/*         if(contact(0) == 0){
-          command.motors[0].velocity = .9 * wb_dq_next(0) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[1].velocity = .9 * wb_dq_next(1) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[2].velocity = .9 * wb_dq_next(2) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[3].velocity = .9 * wb_dq_next(3) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[0].damping = .75 * limits->damping_limit[0];
-          command.motors[1].damping = .75 * limits->damping_limit[1];
-          command.motors[2].damping = .75 * limits->damping_limit[2];
-          command.motors[3].damping = .75 * limits->damping_limit[3];
-        }
-
-        if(contact(1) == 0){
-          command.motors[6].velocity = .9 * wb_dq_next(6) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[7].velocity = .9 * wb_dq_next(7) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[8].velocity = .9 * wb_dq_next(8) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[9].velocity = .9 * wb_dq_next(9) * sin(min(2*M_PI * traj_time/step_time,.5 * M_PI));
-          command.motors[6].damping = .75 * limits->damping_limit[6];
-          command.motors[7].damping = .75 * limits->damping_limit[7];
-          command.motors[8].damping = .75 * limits->damping_limit[8];
-          command.motors[9].damping = .75 * limits->damping_limit[9];
-        } */
-
       }
     }
     if(run_sim){
@@ -1183,7 +1057,6 @@ int main(int argc, char* argv[])
     }
     command.apply_command = true;
     llapi_send_command(&command);
-
     VectorXd pel_ref(4), foot_pos(2), obs_info(4);
     pel_ref << 0.0, 0.3, 0.0, 0.0; // pel_pos_des.block(0,0,2,1), pel_vel_des.block(0,0,2,1);
     obs_info << -10.4, 0.0, 1.0, -0.0;
@@ -1203,15 +1076,35 @@ int main(int argc, char* argv[])
     std::copy(pel_ref.data(),pel_ref.data() + 4, msg.pel_ref.begin());
     std::copy(foot_pos.data(),foot_pos.data() + 2,msg.foot_pos.begin());
     std::copy(obs_info.data(),obs_info.data() + 4,msg.obs_info.begin());
+    std::copy(pel_pos_des.data(), pel_pos_des.data() + pel_pos_des.size(), msg.pel_pos_des.begin());
+    std::copy(pel_vel_des.data(), pel_vel_des.data() + pel_vel_des.size(), msg.pel_vel_des.begin());
+
+    std::copy(left_toe_pos.data(), left_toe_pos.data() + left_toe_pos.size(), msg.left_toe_pos.begin());
+    std::copy(left_toe_pos_ref.data(), left_toe_pos_ref.data() + left_toe_pos_ref.size(), msg.left_toe_pos_ref.begin());
+    std::copy(left_toe_vel.data(), left_toe_vel.data() + left_toe_vel.size(), msg.left_toe_vel.begin());
+    std::copy(left_toe_vel_ref.data(), left_toe_vel_ref.data() + left_toe_vel_ref.size(), msg.left_toe_vel_ref.begin());
+
+    std::copy(right_toe_pos.data(), right_toe_pos.data() + right_toe_pos.size(), msg.right_toe_pos.begin());
+    std::copy(right_toe_pos_ref.data(), right_toe_pos_ref.data() + right_toe_pos_ref.size(), msg.right_toe_pos_ref.begin());
+    std::copy(right_toe_vel.data(), right_toe_vel.data() + right_toe_vel.size(), msg.right_toe_vel.begin());
+    std::copy(right_toe_vel_ref.data(), right_toe_vel_ref.data() + right_toe_vel_ref.size(), msg.right_toe_vel_ref.begin());
+
+    std::copy(torque.data(), torque.data() + torque.size(), msg.torque.begin());
+    std::copy(torq.data(), torq.data() + torq.size(), msg.torq.begin());
+    std::copy(contact.data(), contact.data() + contact.size(), msg.contact.begin());
+
     msg.traj_time = traj_time;
     msg.stance_leg = stance_leg;
   
+      //msg.yaw = yaw_des;
     state_pub.publish(msg);
     ros::spinOnce();
     control_loop_rate.sleep();
     //cout << "Desired yaw angle is: " << msg.yaw << endl;
-    count++;
     // Check if llapi has become disconnected
+    if(ros::isShuttingDown()){
+      break;
+    }
     if (!llapi_connected()) {
       // Handle error case. You don't need to re-initialize subscriber
       // Calling llapi_send_command will keep low level api open
@@ -1254,7 +1147,7 @@ MatrixXd get_B(VectorXd q){
   d << 0.003154, 0.9416, 0.2848, -0.1133, -0.1315, 0.06146;
 
   // Replace left_J and right_J with left_J2 and right_J2 for a better approximation
-  /* e.resize(15);
+  /*e.resize(15);
   f.resize(15);
   g.resize(15);
   h.resize(15);
@@ -1266,7 +1159,7 @@ MatrixXd get_B(VectorXd q){
 
   MatrixXd left_J2 = get_pr2m_jaco(e,f,q(11),q(12));
   MatrixXd right_J2 = get_pr2m_jaco(g,h,q(18),q(19));
-   */
+  */
   VectorXd left_toe_j = VectorXd::Zero(2,1);
   MatrixXd left_J = MatrixXd::Zero(2,2);
   left_toe_j << q(11) , q(12);
@@ -1321,6 +1214,7 @@ MatrixXd get_fric_constraint(double mu){
   }
   return fric_cons;
 }
+
 VectorXd ToEulerAngle(VectorXd q){
     VectorXd theta = VectorXd::Zero(3,1);
     double w,x,y,z;

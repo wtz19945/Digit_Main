@@ -93,6 +93,9 @@ ${Digit_Source})
 set(digit_main_source src/digit_main.cpp src/input_listener.cpp
 ${Digit_Source})
 
+set(digit_main_sourceV2 src/digit_mainV2.cpp src/input_listener.cpp
+${Digit_Source})
+
 set(mpc_main_source src/mpc_main.cpp ${Digit_Source})
 set(mpc_main_sourceV2 src/mpc_mainV2.cpp ${Digit_Source})
 set(mpc_lib libcasadi.so)
@@ -137,6 +140,11 @@ add_dependencies(standing_controlV2 Digit_Ros_generate_messages_cpp)
 add_executable(digit_main ${digit_main_source})
 target_link_libraries(digit_main OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib mpc_cmd_lib ${catkin_LIBRARIES})
 add_dependencies(digit_main Digit_Ros_generate_messages_cpp)
+
+# walking controllerV2
+add_executable(digit_mainV2 ${digit_main_sourceV2})
+target_link_libraries(digit_mainV2 OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib mpc_cmd_lib ${catkin_LIBRARIES})
+add_dependencies(digit_mainV2 Digit_Ros_generate_messages_cpp)
 
 # mpc controller
 add_executable(mpc_main ${mpc_main_source})
