@@ -3,9 +3,10 @@ PLATFORM := LINUX # Set to WIN for a windows build (requires mingw-w64)
 USE_SYSTEM_ZSTD := # Set to 1 to use system zstd library
 
 # Compilation settings
-CFLAGS  := -O2 -Wall -Wextra
-INC     :=
-LIBS    :=
+CFLAGS    := -O2 -Wall
+INC       :=
+LIBS      :=
+DLINKOPTS := -shared
 
 # Output library names
 LDLIBOUT := libartl.so
@@ -21,10 +22,11 @@ LIBS    += -Wl,-Bstatic -lpthread -Wl,-Bdynamic -lws2_32
 DLIBOUT := $(WDLIBOUT)
 SLIBOUT := $(WSLIBOUT)
 else
-CC      := gcc
-CFLAGS  += -fPIC
-DLIBOUT := $(LDLIBOUT)
-SLIBOUT := $(LSLIBOUT)
+CC        := gcc
+CFLAGS    += -fPIC -ffunction-sections -fdata-sections
+DLIBOUT   := $(LDLIBOUT)
+SLIBOUT   := $(LSLIBOUT)
+DLINKOPTS += -Wl,--version-script,exports.ld -Wl,--gc-sections
 endif
 
 # Find all .c files used to create the library
@@ -54,8 +56,7 @@ all: $(DLIBOUT) $(SLIBOUT)
 
 # Dynamic library
 $(DLIBOUT): $(OBJ)
-	$(CC) $(OBJ) -shared $(LIBS) -o $(DLIBOUT)
-	strip $(DLIBOUT)
+	$(CC) $(OBJ) $(DLINKOPTS) $(LIBS) -o $(DLIBOUT)
 
 # Static library
 $(SLIBOUT): $(OBJ)
@@ -79,7 +80,7 @@ clean: cleanobj
 # Note: Tests are linux-only
 test: $(TESTS)
 
-$(TESTS): %: tests/%.c $(DLIBOUT) Makefile
+$(TESTS): %: test/%.c $(DLIBOUT) Makefile
 	$(CC) $< $(DLIBOUT) -g -I. -lpthread -Wl,--rpath='$$ORIGIN' -o $@
 	./$@
 

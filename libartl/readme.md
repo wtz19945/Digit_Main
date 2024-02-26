@@ -1,6 +1,6 @@
 # The Agility Real-Time Log Format
 
-The Agility Real-Time Log (ARTL) format is used to encode data-intensive time series logs on Agility Robotics machines. It is also used in some cases for real-time communication over a network link.
+The Agility Real-Time Log (ARTL) format is used to encode data-intensive time series logs on Agility Robotics systems. It is also used in some cases for real-time communication over a network link.
 
 
 ## Building the library
@@ -8,6 +8,11 @@ The Agility Real-Time Log (ARTL) format is used to encode data-intensive time se
 On a Unix-like system, run `make` to build the ARTL library code as both a static and dynamic library. Either of these libraries can then be used with just the `artl.h` header. This library has been tested on Ubuntu 18.04. A Windows build can be produced by having `mingw-w64` installed and running `make PLATFORM=WIN`.
 
 The rest of this document discusses details of the log format and is not required reading for using the library.
+
+
+### Zstandard
+
+A single-file version of the [Zstandard](https://github.com/facebook/zstd) library is bundled with the ARTL source to facilitate creating a mostly-static ARTL library. A distribution-provided zstd package (e.g. libzstd-dev on Debian/Ubuntu) can be used instead; see the [Makefile](Makefile) for details. The bundled single-file `zstd.c` was produced using the `single_file_libs/` scripts in the Zstandard repository.
 
 
 ## Goals
@@ -20,9 +25,7 @@ We wanted the following attributes:
 - Maximal space efficiency for highly-compressible time series data
 - Less than a second of data lost if power is cut without warning
 
-Together these attributes disqualified many common log formats (including CSV, SQLite, LCM, raw binary dumps, Protocol Buffers, HDF5), so we developed the ARTL format to support our use case. Most users of the robot will not need to directly interact with logs in this format, but the code and format description is provided in case it becomes useful.
-
-When we needed to implement a low-latency network communication channel for sending raw torque commands to the robot, we found that ARTL over UDP worked adequately for this purpose. Hopefully the provided sample code makes working with a proprietary format in this context relatively painless.
+Together these attributes disqualified many common log formats (including CSV, SQLite, LCM, raw binary dumps, Protocol Buffers, HDF5), so we developed the ARTL format to support our use case. Most users of our robots will not need to directly interact with logs in this format, but the code and format description is provided in case it becomes useful.
 
 
 ## Type names
@@ -43,6 +46,7 @@ This document describes parts of the ARTL format as ordered lists of fields with
 An ARTL log file is organized into chunks, which are contiguous binary sections of varying size, with no padding between chunks. The first chunk is always a single STRT chunk, signifying the start of the data format description. Any number of ENUM, DESC, and CMNT chunks may follow. A single DEND chunk must follow, signifying the end of the description. Any number of UDAT and CDAT chunks may follow until the end of the file.
 
 ARTL logs and streams are usually used to store or communicate tabular data, consisting of a series of fixed-length and fixed-format table rows (referred to as "messages"). The format of the message is described by the DESC chunks as if the message was a packed C struct. The boundaries between separate UDAT or CDAT chunks should be ignored and all of the data in the file should be treated as a contiguous block. The message format is fixed for the entirety of a file or stream.
+
 
 ### Non-tabular data files
 

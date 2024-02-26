@@ -255,6 +255,7 @@ int main(int argc, char* argv[])
   double dzend = config->get_qualified_as<double>("Walk-Params.end_vel").value_or(0);
   double ddzend = config->get_qualified_as<double>("Walk-Params.end_acc").value_or(0);
   double ds_time = config->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
+  double qp_rate = config->get_qualified_as<double>("QP-Params.qp_rate").value_or(0);
 
   // Weight Matrix and Gain Vector
   MatrixXd Weight_ToeF = Wff*MatrixXd::Identity(6,6);
@@ -312,7 +313,7 @@ int main(int argc, char* argv[])
   }
 
   // Set ROS params
-  ros::Rate control_loop_rate(1000);
+  ros::Rate control_loop_rate(qp_rate);
   ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("digit_state", 10);
   int count = 0;
   double key_time_tracker, key_time_tracker_c, conduct_time_prev = 0; // time log helper for key input, might remove in the future
@@ -371,7 +372,7 @@ int main(int argc, char* argv[])
 
     // get contact trajectory
     if(key_mode == 2 || stepping > 0){
-      traj_time = traj_time + 0.001;
+      traj_time = traj_time + .001;
       if(traj_time > step_time){
         traj_time = 0;
         change_state = 1;
@@ -452,7 +453,6 @@ int main(int argc, char* argv[])
     dtheta = OmegaToDtheta * dtheta; */
     OmegaToDtheta << cos(theta(2)) * cos(theta(1)), -sin(theta(2)), 0, sin(theta(2)) *cos(theta(1)), cos(theta(2)), 0, -sin(theta(1)), 0, 1;
     dtheta = OmegaToDtheta.transpose() * dtheta;
-
     MatrixXd rotZ = MatrixXd::Zero(3,3);
     rotZ << cos(yaw_des),-sin(yaw_des),0,sin(yaw_des),cos(yaw_des),0,0,0,1;
 
@@ -572,7 +572,7 @@ int main(int argc, char* argv[])
         b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
     }
     else{
-        pel_pos(0) -= pos_avg(0) + 0.0; 
+        pel_pos(0) -= pos_avg(0) + 0.03; 
         pel_pos(1) -= pos_avg(1);
     }
     
@@ -855,11 +855,7 @@ int main(int argc, char* argv[])
     for(int i = 0;i<12;i++)
       torque(i) = QPSolution(20+i);
     
-    cout << "left torque" << endl;
-    cout << torque.block(0,0,6,1) << endl;
-    cout << "right torque" << endl;
-    cout << torque.block(6,0,6,1) << endl;
-    
+
     // OSC on leg, PD on arm
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + QP formulation + Solving: " << elapsed_time.count() << endl;
@@ -893,6 +889,7 @@ int main(int argc, char* argv[])
     wb_dq_next(10) = 0;
     wb_dq_next(11) = 0;
     
+    /*
     // IK arm control for conducting, trial implementation. Incorporate to analytical_expressions class in the future
     VectorXd ql = VectorXd::Zero(10,1);
     VectorXd p_lh = VectorXd::Zero(3,1);
@@ -1021,10 +1018,11 @@ int main(int argc, char* argv[])
     else{
       qr = qr_last;
     }
+    */
     // safety check
     safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-    //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
+    cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
 
     for (int i = 0; i < NUM_MOTORS; ++i) {
       if(safe_check.checkSafety()){ // safety check

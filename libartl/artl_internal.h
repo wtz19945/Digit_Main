@@ -210,7 +210,6 @@ int64_t artl_get_data_size(artl_chunk_type_t chunk_type,
 // Structure for artl_read_stream output options.
 // If desc is provided, it will be filled out until complete.
 // Data outputs can be:
-//   buffer alone, which will not check for overflow.
 //   buffer and buffer_size, which errors if the write would overflow.
 //   buffer_ptr and buffer_size, which allocates a buffer and returns its size.
 // map and mapfun require each other along with desc and a data output.

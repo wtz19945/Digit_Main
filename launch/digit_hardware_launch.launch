@@ -11,8 +11,4 @@
   
   <node name="keyboard_control" pkg="Digit_Ros" type="keyinput.py"  output="screen"></node>
   
-  <include file="$(find Digit_Ros)/launch/mpc_main_launch.launch">
-	<arg name="run_sim" value="$(arg run_sim_global)" /> 
-  </include>
-  
 </launch>

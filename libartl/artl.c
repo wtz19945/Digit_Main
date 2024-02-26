@@ -28,6 +28,9 @@
  *
  * 1.1 (7/27/2020)
  *   Fixed an issue that prevented reconnecting to subscribers on some systems
+ *
+ * 1.2 (4/25/2022)
+ *   Fixed compatibility with newer versions of zstd
  */
 
 #include "artl.h"
@@ -38,9 +41,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <zstd.h>
 #include "artl_internal.h"
 #include "crc32c.h"
+#include "zstd.h"
 
 
 /*******************************************************************************
@@ -106,8 +109,10 @@ int artl_read(const void *artl_data, size_t artl_data_size,
             *data = realloc(*data, *data_size + buffer_size_required);
 
             // Parse chunk again
+            size_t buffer_size = *data_size;
             memset(&out, 0, sizeof out);
             out.buffer = *data + *data_size;
+            out.buffer_size = &buffer_size;
             if (artl_read_stream(chunk_type, chunk_data,
                                  chunk_data_size, &out) < 0) {
                 return -1;
@@ -1586,5 +1591,5 @@ void artl_free(void *p)
  ******************************************************************************/
 
 const int artl_version_major = 1;
-const int artl_version_minor = 1;
+const int artl_version_minor = 2;
 const char artl_version_extra[] = "";

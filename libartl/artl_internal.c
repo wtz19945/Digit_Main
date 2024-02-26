@@ -25,8 +25,8 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <zstd.h>
 #include "crc32c.h"
+#include "zstd.h"
 
 
 /*******************************************************************************
@@ -503,7 +503,7 @@ int artl_read_stream(artl_chunk_type_t chunk_type, const void *chunk_data,
 
     // Validate output options
     const bool malloc_output = buffer_ptr && buffer_size;
-    const bool direct_output = buffer && !malloc_output;
+    const bool direct_output = buffer && buffer_size && !malloc_output;
     const bool has_output = direct_output || malloc_output;
     const bool has_map = mapfun && map && has_output && desc;
     if ((malloc_output && buffer) ||
@@ -524,9 +524,6 @@ int artl_read_stream(artl_chunk_type_t chunk_type, const void *chunk_data,
         *buffer_size_required = 0;
 
     // Set pointers for missing outputs used by state machine
-    size_t buffer_size_default = INT64_MAX;
-    if (!buffer_size)
-        buffer_size = &buffer_size_default;
     size_t buffer_size_required_default = 0;
     if (!buffer_size_required)
         buffer_size_required = &buffer_size_required_default;
@@ -1186,4 +1183,3 @@ void artl_chunk_writer_free(artl_chunk_writer_t *writer)
     // Free writer struct
     free(writer);
 }
-
