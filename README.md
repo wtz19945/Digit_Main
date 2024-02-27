@@ -1,5 +1,5 @@
 
-# A Digit standing controller implementation with ROS
+# A Digit controller implementation
 
 ## Compiler Requirements 
 Compiling the code requires an updated of version of gcc (version 7.5 at least) and Cmake (version 3.14 as least). If you have issues, please check the following link:
