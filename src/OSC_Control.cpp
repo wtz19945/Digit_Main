@@ -263,10 +263,18 @@ void OSC_Control::updateQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, Ma
     constraint_full.block(50+Vars_Num,0,4,20) = right_toe_rot_jaco_fa;
 
     // Speed up setting constraint matrix by assuming all non-zeros' indexes are fixed
-    int coeff_iter = 0;
+/*     int coeff_iter = 0;
     for (int k=0; k<linearMatrix.outerSize(); ++k){
         for (SparseMatrix<double>::InnerIterator it(linearMatrix,k); it; ++it){
             it.valueRef() = constraint_full(coefficients[coeff_iter].row(),coefficients[coeff_iter].col());
+            coeff_iter++;
+        }
+    }
+     */
+    int coeff_iter = 0;
+    for (int k = 0; k < linearMatrix.outerSize(); ++k) {
+        for (SparseMatrix<double>::InnerIterator it(linearMatrix, k); it; ++it) {
+            linearMatrix.coeffRef(it.row(), it.col()) = constraint_full(coefficients[coeff_iter].row(), coefficients[coeff_iter].col());
             coeff_iter++;
         }
     }

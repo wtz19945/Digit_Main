@@ -38,19 +38,20 @@ public:
   MatrixXd p_left_elbow(VectorXd q);
   MatrixXd Jp_left_elbow(VectorXd q);
   // Tianze Added
-  MatrixXd p_left_toe_front(VectorXd q);
-  MatrixXd p_left_toe_back(VectorXd q);
-  MatrixXd Jp_left_toe_front(VectorXd q);
-  MatrixXd Jp_left_toe_back(VectorXd q);
+  MatrixXd p_left_toe_front(const VectorXd& q);
+  MatrixXd p_left_toe_back(const VectorXd& q);
+  MatrixXd Jp_left_toe_front(const VectorXd& q);
+  MatrixXd Jp_left_toe_back(const VectorXd& q);
+
   MatrixXd dJp_left_toe_front(VectorXd q, VectorXd dq);
   MatrixXd dJp_left_toe_back(VectorXd q, VectorXd dq);
   MatrixXd dJp_right_toe_front(VectorXd q, VectorXd dq);
   MatrixXd dJp_right_toe_back(VectorXd q, VectorXd dq);
 
-  MatrixXd p_right_toe_front(VectorXd q);
-  MatrixXd p_right_toe_back(VectorXd q);
-  MatrixXd Jp_right_toe_front(VectorXd q);
-  MatrixXd Jp_right_toe_back(VectorXd q);
+  MatrixXd p_right_toe_front(const VectorXd& q);
+  MatrixXd p_right_toe_back(const VectorXd& q);
+  MatrixXd Jp_right_toe_front(const VectorXd& q);
+  MatrixXd Jp_right_toe_back(const VectorXd& q);
 
   //--FK for left toe position
   MatrixXd p_left_toe_pitch(VectorXd q);
@@ -101,9 +102,9 @@ public:
   MatrixXd Jp_toe_roll_joint_left(VectorXd q);
   MatrixXd Jp_toe_pitch_joint_right(VectorXd q);
 
-  MatrixXd InertiaMatrix(VectorXd q_fixarm);
+  MatrixXd InertiaMatrix(const VectorXd& q_fixarm);
   MatrixXd CoriolisTerm(VectorXd q_fixarm, VectorXd dq_fixarm);
-  MatrixXd GravityVector(VectorXd q_fixarm);
+  MatrixXd GravityVector(const VectorXd& q_fixarm);
   MatrixXd Jb_LeftToeBottomBack(VectorXd q_fixarm);
   MatrixXd Jb_LeftToeBottom(VectorXd q_fixarm);
   MatrixXd Jb_RightToeBottomBack(VectorXd q_fixarm);

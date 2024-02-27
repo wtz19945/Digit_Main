@@ -10,6 +10,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cmath>
+#include <future>
 
 // OSQP and Eigen
 #include "OsqpEigen/OsqpEigen.h"
@@ -124,6 +125,7 @@ VectorXd ToEulerAngle(VectorXd q);
 MatrixXd get_fric_constraint(double mu);
 MatrixXd get_pr2m_jaco(VectorXd a, VectorXd b, double x, double y);
 VectorXd get_quintic_params(VectorXd x0, VectorXd xT, double T);
+
 
 #define NUM_FROST_STATE 28
 #define NUM_Dyn_STATE 20
@@ -348,7 +350,48 @@ int main(int argc, char* argv[])
   double traj_time = 0;
   VectorXd pos_avg = VectorXd::Zero(3,1);
 
-  // computation time tracker
+  // Define lambda functions to perform each computation
+  auto computeInertiaMatrix = [&analytical_expressions, &pb_q]() {
+      return analytical_expressions.InertiaMatrix(pb_q);
+  };
+
+  auto computeGravityVector = [&analytical_expressions, &pb_q]() {
+      return analytical_expressions.GravityVector(pb_q);
+  };
+
+  auto computeLeftToeFront = [&analytical_expressions, &wb_q]() {
+      return analytical_expressions.p_left_toe_front(wb_q);
+  };
+
+  auto computeLeftToeFrontJaco = [&analytical_expressions, &wb_q]() {
+      return analytical_expressions.Jp_left_toe_front(wb_q);
+  };
+
+  auto computeRightToeFront = [&analytical_expressions, &wb_q]() {
+      return analytical_expressions.p_right_toe_front(wb_q);
+  };
+
+  auto computeRightToeFrontJaco = [&analytical_expressions, &wb_q]() {
+      return analytical_expressions.Jp_right_toe_front(wb_q);
+  };
+
+  auto computeLeftToeBack = [&analytical_expressions, &wb_q]() {
+      return analytical_expressions.p_left_toe_back(wb_q);
+  };
+
+  auto computeLeftToeBackJaco = [&analytical_expressions, &wb_q]() {
+      return analytical_expressions.Jp_left_toe_back(wb_q);
+  };
+
+  auto computeRightToeBack = [&analytical_expressions, &wb_q]() {
+      return analytical_expressions.p_right_toe_back(wb_q);
+  };
+
+  auto computeRightToeBackJaco = [&analytical_expressions, &wb_q]() {
+      return analytical_expressions.Jp_right_toe_back(wb_q);
+  };
+    
+      // computation time tracker
   auto time_control_start = std::chrono::system_clock::now();
   double digit_time_start = observation.time;
 
@@ -372,7 +415,7 @@ int main(int argc, char* argv[])
 
     // get contact trajectory
     if(key_mode == 2 || stepping > 0){
-      traj_time = traj_time + .001;
+      traj_time = traj_time + 1/qp_rate;
       if(traj_time > step_time){
         traj_time = 0;
         change_state = 1;
@@ -509,10 +552,7 @@ int main(int argc, char* argv[])
       ,dqj(joint::left_tarsus),dqj(joint::left_toe_pitch),dqj(joint::left_toe_roll),dq(joint::right_hip_roll),dq(joint::right_hip_yaw),dq(joint::right_hip_pitch)
       ,dq(joint::right_knee),dqj(joint::right_tarsus),dqj(joint::right_toe_pitch),dqj(joint::right_toe_roll);
       
-    // Compute Dynamics
-    // Need to consider full body dynamics in the future. Arm inertia is not trivial
-    MatrixXd M = analytical_expressions.InertiaMatrix(pb_q);
-    MatrixXd G = analytical_expressions.CoriolisTerm(pb_q,pb_dq) + analytical_expressions.GravityVector(pb_q);
+
 
     // height compensation for drifting assumeing fixed ground height
     if(contact(0) > 0 && contact(1) >0){
@@ -532,6 +572,11 @@ int main(int argc, char* argv[])
     // compute end effector position
     // VectorXd pelvis_pos = analytical_expressions.p_Pelvis(wb_q);
     
+    // Compute Dynamics
+    // Need to consider full body dynamics in the future. Arm inertia is not trivial
+    MatrixXd M = analytical_expressions.InertiaMatrix(pb_q);
+    MatrixXd G = analytical_expressions.GravityVector(pb_q);
+
     // toe front kinematics
     left_toe_pos = analytical_expressions.p_left_toe_front(wb_q);
     MatrixXd left_toe_jaco  = analytical_expressions.Jp_left_toe_front(wb_q);
@@ -546,11 +591,32 @@ int main(int argc, char* argv[])
     //MatrixXd left_toe_back_djaco  = analytical_expressions.dJp_left_toe_back(wb_q,wb_dq);
     right_toe_back_pos = analytical_expressions.p_right_toe_back(wb_q);
     MatrixXd right_toe_back_jaco  = analytical_expressions.Jp_right_toe_back(wb_q);
-    //MatrixXd right_toe_back_djaco  = analytical_expressions.dJp_right_toe_back(wb_q,wb_dq);
+    //MatrixXd right_toe_back_djaco  = analytical_expressions.dJp_right_toe_back(wb_q,wb_dq); 
 
-    elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-    //cout << "time used to compute system dyn and kin is: " << elapsed_time.count() << endl;
-
+    // Launch computations asynchronously
+/*     auto futureM = std::async(std::launch::async, computeInertiaMatrix);
+    auto futureG = std::async(std::launch::async, computeGravityVector);
+    auto futureLeftToeFront = std::async(std::launch::async, computeLeftToeFront);
+    auto futureLeftToeFrontJaco = std::async(std::launch::async, computeLeftToeFrontJaco);
+    auto futureRightToeFront = std::async(std::launch::async, computeRightToeFront);
+    auto futureRightToeFrontJaco = std::async(std::launch::async, computeRightToeFrontJaco);
+    auto futureLeftToeBack = std::async(std::launch::async, computeLeftToeBack);
+    auto futureLeftToeBackJaco = std::async(std::launch::async, computeLeftToeBackJaco);
+    auto futureRightToeBack = std::async(std::launch::async, computeRightToeBack);
+    auto futureRightToeBackJaco = std::async(std::launch::async, computeRightToeBackJaco); */
+    // Wait for computations to finish and retrieve results
+    
+/*     MatrixXd M = futureM.get();
+    MatrixXd G = futureG.get();
+    MatrixXd left_toe_pos = futureLeftToeFront.get();
+    MatrixXd left_toe_jaco = futureLeftToeFrontJaco.get();
+    MatrixXd right_toe_pos = futureRightToeFront.get();
+    MatrixXd right_toe_jaco = futureRightToeFrontJaco.get();
+    MatrixXd left_toe_back_pos = futureLeftToeBack.get();
+    MatrixXd left_toe_back_jaco = futureLeftToeBackJaco.get();
+    MatrixXd right_toe_back_pos = futureRightToeBack.get();
+    MatrixXd right_toe_back_jaco = futureRightToeBackJaco.get(); 
+ */
     // Get fixed arm version
     MatrixXd left_toe_jaco_fa = MatrixXd::Zero(3,20); // fa: fixed arm
     MatrixXd left_toe_back_jaco_fa = MatrixXd::Zero(3,20);
@@ -619,7 +685,9 @@ int main(int argc, char* argv[])
     right_toe_rot(1) = f_vel_fil[10].getData(right_toe_rot(1));
     right_toe_rot(2) = f_vel_fil[11].getData(right_toe_rot(2));
      
-    
+
+    elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
+    cout << "time used to compute system dyn and kin is: " << elapsed_time.count() << endl;
     int use_cap = 1;
     // Compute Desired CoM Traj// Testing use
     if(key_mode == 0){
@@ -827,7 +895,7 @@ int main(int argc, char* argv[])
     
     // Solve OSC QP
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-    //cout << "set up sparse constraint: " << elapsed_time.count() << endl;
+    cout << "set up sparse constraint: " << elapsed_time.count() << endl;
     if(QP_initialized == 0){
       QP_initialized = 1;
       osc.setupQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);
@@ -844,6 +912,8 @@ int main(int argc, char* argv[])
                         B, Spring_Jaco, left_toe_jaco_fa, 
                         left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
                         left_toe_rot_jaco_fa, right_toe_rot_jaco_fa, contact);
+      elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
+      cout << "set up QP matrix: " << elapsed_time.count() << endl;
       osc.updateQP();
     }
 
