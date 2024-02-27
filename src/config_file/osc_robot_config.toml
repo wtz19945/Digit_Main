@@ -57,7 +57,7 @@ com_Wryst = 10050.0
 com_Wrxst = 10050.0
 force_max = 450.0
 mu = 0.6
-qp_rate = 300.0     # update frequency of the OSC 
+qp_rate = 500.0     # update frequency of the OSC 
 
 [Walk-Params]
 step_time = 0.4

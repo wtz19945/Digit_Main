@@ -363,51 +363,10 @@ int main(int argc, char* argv[])
   int change_state = 0;
   double traj_time = 0;
   VectorXd pos_avg = VectorXd::Zero(3,1);
-
-  // Define lambda functions to perform each computation
-  auto computeInertiaMatrix = [&analytical_expressions, &pb_q]() {
-      return analytical_expressions.InertiaMatrix(pb_q);
-  };
-
-  auto computeGravityVector = [&analytical_expressions, &pb_q]() {
-      return analytical_expressions.GravityVector(pb_q);
-  };
-
-  auto computeLeftToeFront = [&analytical_expressions, &wb_q]() {
-      return analytical_expressions.p_left_toe_front(wb_q);
-  };
-
-  auto computeLeftToeFrontJaco = [&analytical_expressions, &wb_q]() {
-      return analytical_expressions.Jp_left_toe_front(wb_q);
-  };
-
-  auto computeRightToeFront = [&analytical_expressions, &wb_q]() {
-      return analytical_expressions.p_right_toe_front(wb_q);
-  };
-
-  auto computeRightToeFrontJaco = [&analytical_expressions, &wb_q]() {
-      return analytical_expressions.Jp_right_toe_front(wb_q);
-  };
-
-  auto computeLeftToeBack = [&analytical_expressions, &wb_q]() {
-      return analytical_expressions.p_left_toe_back(wb_q);
-  };
-
-  auto computeLeftToeBackJaco = [&analytical_expressions, &wb_q]() {
-      return analytical_expressions.Jp_left_toe_back(wb_q);
-  };
-
-  auto computeRightToeBack = [&analytical_expressions, &wb_q]() {
-      return analytical_expressions.p_right_toe_back(wb_q);
-  };
-
-  auto computeRightToeBackJaco = [&analytical_expressions, &wb_q]() {
-      return analytical_expressions.Jp_right_toe_back(wb_q);
-  };
-    
   // computation time tracker
   auto time_control_start = std::chrono::system_clock::now();
   double digit_time_start = observation.time;
+  double digit_time_last = observation.time;
 
   while (ros::ok()) {
     // count running time
@@ -427,7 +386,7 @@ int main(int argc, char* argv[])
 
     // get contact trajectory
     if(key_mode == 2 || stepping > 0){
-      traj_time = traj_time + 1/qp_rate;
+      traj_time = traj_time + (observation.time - digit_time_last);
       if(traj_time > step_time){
         traj_time = 0;
         change_state = 1;
@@ -477,7 +436,7 @@ int main(int argc, char* argv[])
         }
       }
     }
-
+    digit_time_last = observation.time;
 
     // Get state information
     for (int i = 0; i < NUM_MOTORS; i++){
@@ -603,33 +562,9 @@ int main(int argc, char* argv[])
       //MatrixXd left_toe_back_djaco  = analytical_expressions.dJp_left_toe_back(wb_q,wb_dq);
       right_toe_back_pos = analytical_expressions.p_right_toe_back(wb_q);
       right_toe_back_jaco  = analytical_expressions.Jp_right_toe_back(wb_q);
+      //MatrixXd right_toe_back_djaco  = analytical_expressions.dJp_right_toe_back(wb_q,wb_dq); 
     }
-    //MatrixXd right_toe_back_djaco  = analytical_expressions.dJp_right_toe_back(wb_q,wb_dq); 
-
-    // Launch computations asynchronously
-/*     auto futureM = std::async(std::launch::async, computeInertiaMatrix);
-    auto futureG = std::async(std::launch::async, computeGravityVector);
-    auto futureLeftToeFront = std::async(std::launch::async, computeLeftToeFront);
-    auto futureLeftToeFrontJaco = std::async(std::launch::async, computeLeftToeFrontJaco);
-    auto futureRightToeFront = std::async(std::launch::async, computeRightToeFront);
-    auto futureRightToeFrontJaco = std::async(std::launch::async, computeRightToeFrontJaco);
-    auto futureLeftToeBack = std::async(std::launch::async, computeLeftToeBack);
-    auto futureLeftToeBackJaco = std::async(std::launch::async, computeLeftToeBackJaco);
-    auto futureRightToeBack = std::async(std::launch::async, computeRightToeBack);
-    auto futureRightToeBackJaco = std::async(std::launch::async, computeRightToeBackJaco); */
-    // Wait for computations to finish and retrieve results
     
-/*     MatrixXd M = futureM.get();
-    MatrixXd G = futureG.get();
-    MatrixXd left_toe_pos = futureLeftToeFront.get();
-    MatrixXd left_toe_jaco = futureLeftToeFrontJaco.get();
-    MatrixXd right_toe_pos = futureRightToeFront.get();
-    MatrixXd right_toe_jaco = futureRightToeFrontJaco.get();
-    MatrixXd left_toe_back_pos = futureLeftToeBack.get();
-    MatrixXd left_toe_back_jaco = futureLeftToeBackJaco.get();
-    MatrixXd right_toe_back_pos = futureRightToeBack.get();
-    MatrixXd right_toe_back_jaco = futureRightToeBackJaco.get(); 
- */
     // Get fixed arm version
     MatrixXd left_toe_jaco_fa = MatrixXd::Zero(3,20); // fa: fixed arm
     MatrixXd left_toe_back_jaco_fa = MatrixXd::Zero(3,20);
