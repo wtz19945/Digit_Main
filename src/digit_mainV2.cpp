@@ -586,7 +586,7 @@ int main(int argc, char* argv[])
         b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
     }
     else{
-        pel_pos(0) -= pos_avg(0) + 0.0; 
+        pel_pos(0) -= pos_avg(0) + 0.01; 
         pel_pos(1) -= pos_avg(1);
     }
     
@@ -890,8 +890,8 @@ int main(int argc, char* argv[])
     }
     else{
       if(update_mat == -1){
-      D_term = .2 * B * select * Dmat * wb_dq.block(0,0,20,1);
-      M -= 0.2 * B * select2 * Dmat * damping_dt;
+      //D_term = .2 * B * select * Dmat * wb_dq.block(0,0,20,1);
+      //M -= 0.2 * B * select2 * Dmat * damping_dt;
       osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G + D_term, contact);
       osc.updateQPMatrix(Weight_pel, M, 
                         B, Spring_Jaco, left_toe_jaco_fa, 
