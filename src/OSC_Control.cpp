@@ -170,7 +170,7 @@ void OSC_Control::setupQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, Mat
     hessian_full.block(58,58,4,4) = Weight_ToeB.block(4,4,4,4);
     
     for(int i = 0;i<hessian_full.rows();i++){
-        hessian.insert(i,i) = hessian_full(i,i);
+        hessian.insert(i,i) = hessian_full(i,i) + 1e-3;
     }
 
     // Constraint matrix
@@ -192,7 +192,7 @@ void OSC_Control::setupQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, Mat
 
     for(int i = 0;i<constraint_full.cols();i++){
         for(int j = 0;j<constraint_full.rows();j++){
-            if(constraint_full(j,i) != 0){
+            if(abs(constraint_full(j,i)) > 1e-4){
                 coefficients.push_back(Eigen::Triplet<double>(j,i,constraint_full(j,i)));
                 linearMatrix.insert(j,i) = constraint_full(j,i);
             }
@@ -242,7 +242,7 @@ void OSC_Control::updateQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, Ma
     }
 
     for(int i = 0;i<hessian_full.rows();i++){
-      if(i<6||i>48){
+      if(i<6||i>=48){
         hessian.coeffRef(i,i) = hessian_full(i,i);
       }
       else{

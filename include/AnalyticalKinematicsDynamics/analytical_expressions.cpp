@@ -64,7 +64,7 @@ MatrixXd AnalyticalExpressions::Jp_right_toe_front(const VectorXd& q) {
   MatrixXd output(3, 28);
   assert_size_matrix(q, 28, 1);
   //assert_size_matrix(output, 3, 28);
-
+  output.setZero();
   Jp_RightToeBottomFront_src(output.data(), q.data());
   return output;
 }
@@ -73,7 +73,7 @@ MatrixXd AnalyticalExpressions::Jp_right_toe_back(const VectorXd& q) {
   MatrixXd output(3, 28);
   assert_size_matrix(q, 28, 1);
   //assert_size_matrix(output, 3, 28);
-
+  output.setZero();
   Jp_RightToeBottomBack_src(output.data(), q.data());
   return output;
 }
@@ -108,7 +108,7 @@ MatrixXd AnalyticalExpressions::Jp_left_toe_front(const VectorXd& q) {
   MatrixXd output(3, 28);
   assert_size_matrix(q, 28, 1);
   //assert_size_matrix(output, 3, 28);
-
+  output.setZero();
   Jp_LeftToeBottomFront_src(output.data(), q.data());
   return output;
 }
@@ -117,7 +117,7 @@ MatrixXd AnalyticalExpressions::Jp_left_toe_back(const VectorXd& q) {
   MatrixXd output(3, 28);
   assert_size_matrix(q, 28, 1);
   //assert_size_matrix(output, 3, 28);
-
+  output.setZero();
   Jp_LeftToeBottomBack_src(output.data(), q.data());
   return output;
 }
@@ -559,7 +559,7 @@ MatrixXd AnalyticalExpressions::InertiaMatrix(const VectorXd& q) {
   MatrixXd output(20,20);
   assert_size_matrix(q, 20, 1);
   //assert_size_matrix(output, 20, 20);
-
+  output.setZero();
   InertiaMatrix_src(output.data(), q.data());
   return output;
 }
@@ -579,7 +579,7 @@ MatrixXd AnalyticalExpressions::GravityVector(const VectorXd& q) {
   MatrixXd output(20,1);
   assert_size_matrix(q, 20, 1);
   //assert_size_matrix(output, 20, 1);
-
+  output.setZero();
   GravityVector_src(output.data(), q.data());
   return output;
 }
