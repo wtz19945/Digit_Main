@@ -284,6 +284,11 @@ void OSC_Control::updateQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, Ma
 void OSC_Control::setUpQP(bool mute_solver){
     solver.settings()->setVerbosity(mute_solver);
     solver.settings()->setWarmStart(true);
+    solver.settings()->setCheckTermination(10);
+    solver.settings()->setRho(1e-3);
+    solver.settings()->setAlpha(0.6);
+    solver.settings()->setAdaptiveRho(true);
+    //solver.settings()->setMaxIteration(20);
     solver.data()->setHessianMatrix(hessian);
     solver.data()->setGradient(gradient);
     solver.data()->setLinearConstraintsMatrix(linearMatrix);

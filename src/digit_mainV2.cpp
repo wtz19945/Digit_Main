@@ -586,7 +586,7 @@ int main(int argc, char* argv[])
         b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
     }
     else{
-        pel_pos(0) -= pos_avg(0) + 0.01; 
+        pel_pos(0) -= pos_avg(0) + 0.0; 
         pel_pos(1) -= pos_avg(1);
     }
     
@@ -885,12 +885,12 @@ int main(int argc, char* argv[])
                         B, Spring_Jaco, left_toe_jaco_fa, 
                         left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
                         left_toe_rot_jaco_fa, right_toe_rot_jaco_fa);
-      bool check_solver = false; // change this to false if you want to check OSQP solver output for debug
+      bool check_solver = true; // change this to false if you want to check OSQP solver output for debug
       osc.setUpQP(check_solver); 
     }
     else{
       if(update_mat == -1){
-      //D_term = .2 * B * select * Dmat * wb_dq.block(0,0,20,1);
+      D_term = .2 * B * select * Dmat * wb_dq.block(0,0,20,1);
       //M -= 0.2 * B * select2 * Dmat * damping_dt;
       osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G + D_term, contact);
       osc.updateQPMatrix(Weight_pel, M, 
@@ -1099,7 +1099,7 @@ int main(int argc, char* argv[])
         }
         else{
           torque *= min((observation.time - digit_time_start)/soft_count,1.0);
-          command.motors[i].torque = 1 * torque(i);
+          command.motors[i].torque = 1 * torque(i) + .2 * limits->damping_limit[i] * (wb_dq_next(i) - dq(i));
           command.motors[i].velocity = 1 * wb_dq_next(i);
           command.motors[i].damping = .2 * limits->damping_limit[i];
         }
