@@ -278,7 +278,8 @@ int main(int argc, char* argv[])
 
   // Incorporate damping command into OSC
   double damping_dt = 1 / qp_rate;
-  VectorXd damping(20),D_term(20);
+  VectorXd damping = VectorXd::Zero(20,1);
+  VectorXd D_term = VectorXd::Zero(20,1);
   damping << VectorXd::Zero(6,1), 66.849, 26.1129, 38.05, 38.05, 0 , 0, 0, 
               66.849, 26.1129, 38.05, 38.05, 0 , 0, 0;
   MatrixXd Dmat = damping.asDiagonal();
@@ -386,7 +387,8 @@ int main(int argc, char* argv[])
 
     // get contact trajectory
     if(key_mode == 2 || stepping > 0){
-      traj_time = traj_time + (observation.time - digit_time_last);
+      //traj_time = traj_time + (observation.time - digit_time_last); // use this when the simulator time is slow than real-time
+      traj_time = traj_time + 1 / qp_rate; // use this when the simualator is close to real-time
       if(traj_time > step_time){
         traj_time = 0;
         change_state = 1;
@@ -461,7 +463,6 @@ int main(int argc, char* argv[])
     pel_quaternion(3) = observation.base.orientation.z;
     
     theta = ToEulerAngle(pel_quaternion); // transform quaternion in euler roll, pitch, yaw order
-    VectorXd theta_copy = theta;
     MatrixXd OmegaToDtheta = MatrixXd::Zero(3,3);
 /*     OmegaToDtheta << 0 , -sin(theta(2)), cos(theta(2)) * cos(theta(1)), 0, cos(theta(2)), cos(theta(1)) * sin(theta(2)), 1, 0, -sin(theta(1));
     dtheta = OmegaToDtheta * dtheta; */
@@ -891,7 +892,7 @@ int main(int argc, char* argv[])
     else{
       if(update_mat == -1){
       D_term = .2 * B * select * Dmat * wb_dq.block(0,0,20,1);
-      //M -= 0.2 * B * select2 * Dmat * damping_dt;
+      M -= 0.2 * B * select2 * Dmat * damping_dt;
       osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G + D_term, contact);
       osc.updateQPMatrix(Weight_pel, M, 
                         B, Spring_Jaco, left_toe_jaco_fa, 
@@ -1191,7 +1192,7 @@ MatrixXd get_Spring_Jaco(){
 MatrixXd get_B(VectorXd q){
   // map: motor torque to joint torque
   MatrixXd B = MatrixXd::Zero(20,12);
-  VectorXd a,b,c,d,e,f,g,h;
+  VectorXd a,b,c,d;
   a.resize(6);
   b.resize(6);
   c.resize(6);
