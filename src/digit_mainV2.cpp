@@ -778,20 +778,20 @@ int main(int argc, char* argv[])
     }
 
     VectorXd des_acc = VectorXd::Zero(6,1);
-    des_acc << -KP_ToeF(0) * (left_toe_pos(0) - left_toe_pos_ref(0)   - 0.0) - KD_ToeF(0) * (left_toe_vel(0) - left_toe_vel_ref(0)) + left_toe_acc_ref(0),
+    des_acc << -KP_ToeF(0) * (left_toe_pos(0) - left_toe_pos_ref(0)   - 0.05) - KD_ToeF(0) * (left_toe_vel(0) - left_toe_vel_ref(0)) + left_toe_acc_ref(0),
                -KP_ToeF(1) * (left_toe_pos(1) - left_toe_pos_ref(1))  - KD_ToeF(1) * (left_toe_vel(1) - left_toe_vel_ref(1)) + left_toe_acc_ref(1), 
                -KP_ToeF(2) * (left_toe_pos(2) - left_toe_pos_ref(2))  - KD_ToeF(2) * (left_toe_vel(2) - left_toe_vel_ref(2)) + left_toe_acc_ref(2),
-               -KP_ToeF(3) * (right_toe_pos(0) - right_toe_pos_ref(0) - 0.0) - KD_ToeF(3) * (right_toe_vel(0) - right_toe_vel_ref(0)) + right_toe_acc_ref(0),
+               -KP_ToeF(3) * (right_toe_pos(0) - right_toe_pos_ref(0) - 0.05) - KD_ToeF(3) * (right_toe_vel(0) - right_toe_vel_ref(0)) + right_toe_acc_ref(0),
                -KP_ToeF(4) * (right_toe_pos(1) - right_toe_pos_ref(1))- KD_ToeF(4) * (right_toe_vel(1) - right_toe_vel_ref(1)) + right_toe_acc_ref(1), 
                -KP_ToeF(5) * (right_toe_pos(2) - right_toe_pos_ref(2))- KD_ToeF(5) * (right_toe_vel(2) - right_toe_vel_ref(2)) + right_toe_acc_ref(2);
 
     VectorXd des_acc_toe = VectorXd::Zero(8,1);
     // Currently, need the forth dimension to control leg yaw rotation
-    des_acc_toe << -KP_ToeB(0) * (left_toe_rot(0) - left_toe_pos_ref(0) + 0.17) - KD_ToeB(0) * (left_toe_drot(0) - left_toe_vel_ref(0)) + left_toe_acc_ref(0),
+    des_acc_toe << -KP_ToeB(0) * (left_toe_rot(0) - left_toe_pos_ref(0) + 0.12) - KD_ToeB(0) * (left_toe_drot(0) - left_toe_vel_ref(0)) + left_toe_acc_ref(0),
                    -KP_ToeB(1) * (left_toe_rot(1) - left_toe_pos_ref(1)) - KD_ToeB(1) * (left_toe_drot(1) - left_toe_vel_ref(1)) + left_toe_acc_ref(1),
                    -KP_ToeB(2) * (left_toe_rot(2) - left_toe_pos_ref(2)) - KD_ToeB(2) * (left_toe_drot(2) - left_toe_vel_ref(2)) + left_toe_acc_ref(2),
                    -cphy * (left_toe_rot(3) - 0) - cdhy * (left_toe_drot(3) - 0),
-                   -KP_ToeB(3) * (right_toe_rot(0) - right_toe_pos_ref(0) + 0.17) - KD_ToeB(3) * (right_toe_drot(0) - right_toe_vel_ref(0)) + right_toe_acc_ref(0),
+                   -KP_ToeB(3) * (right_toe_rot(0) - right_toe_pos_ref(0) + 0.12) - KD_ToeB(3) * (right_toe_drot(0) - right_toe_vel_ref(0)) + right_toe_acc_ref(0),
                    -KP_ToeB(4) * (right_toe_rot(1) - right_toe_pos_ref(1)) - KD_ToeB(4) * (right_toe_drot(1) - right_toe_vel_ref(1)) + right_toe_acc_ref(1),
                    -KP_ToeB(5) * (right_toe_rot(2) - right_toe_pos_ref(2)) - KD_ToeB(5) * (right_toe_drot(2) - right_toe_vel_ref(2)) + right_toe_acc_ref(2),
                    -cphy * (right_toe_rot(3) - 0) - cdhy * (right_toe_drot(3) - 0);
