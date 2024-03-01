@@ -26,6 +26,7 @@ cd src
 git clone <git-address-to-thisrepo>.git
 
 sudo pip3 install ws4py
+sudo apt install ros-$ROS_DISTRO-plotjuggler-ros
 ```
 
 ## Compile the code
@@ -46,7 +47,7 @@ chmod +x ar-control # you only need this command for the first time
 ```
 
 Notice: The simulator has been upgraded to ar-control-2023. However, the new simulator is too large to be uploaded to github. 
-Make sure you use the correct simulator since there is significant refactor of the simulator and the walking controller will not work for current version.
+Make sure you use the correct simulator since there is significant refactor of the simulator and the walking controller might not work for current version.
 
 This will start a webpage at localhost:8080. Open this link with your browser. You can read the detailed Digit documentation or simulate Digit robot in this webpage.
 
@@ -64,13 +65,13 @@ Disclaimer: this repository is in development and not liable for any damage caus
 For hardware test, 
 - 1 Start Digit with Agility controller and make it stand up or start it hanging from the gantry.
 - 2 Connect Digit and controller PC with an Ethernet cable.
-- 3 Run `roslaunch Digit_ROS hardware_launch.launch` instead. This will launch the controller and switch to the low-level-api on hardware.
+- 3 Run `roslaunch Digit_ROS digit_hardware_launch.launch` instead. This will launch the controller and switch to the low-level-api on hardware.
 
 To visualize Digit, use the gamepad or check the following IP address "10.10.1.1"
 
 ## Notice
 - [ ] This repo is actively updated. Walking controller with obstacle avoidance MPC will be released next.
-- [ ] If you install OSQP with the conda method, you might need to run the following command or add it to ~/.bashrc
+- [ ] If you install OSQP with the conda method, you might need to add the following command to ~/.bashrc
 ``` bash 
 export PATH="/home/username/miniconda/bin:$PATH". # Remember to chagne the path to your actual conbda path.
 ```

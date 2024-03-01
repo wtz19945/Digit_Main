@@ -34,7 +34,7 @@ foot_D_z = 15
 hip_yaw_P = 250
 hip_yaw_D = 25
 
-arm_P = 150.0
+arm_P = 150.0    
 cp_P  = 1.8        # capture point gains
 
 
@@ -49,20 +49,20 @@ com_Wrz = 1050.0
 com_Wry = 1050.0
 com_Wrx = 1050.0
 
-com_Wxst = 750.0
+com_Wxst = 750.0     # stepping weights
 com_Wyst = 50.0
 com_Wzst = 1350.0
 com_Wrzst = 10050.0
 com_Wryst = 10050.0
 com_Wrxst = 10050.0
 force_max = 450.0
-mu = 0.6
+mu = 0.6             # friction coefficient
 qp_rate = 1000.0     # update frequency of the OSC 
 osc_version = 1      # 0 for c++ eigen osqp wrapper, 1 for osqp c implementation
 
 [Walk-Params]
 step_time = 0.4
-step_height = 0.3
+step_height = 0.2
 end_vel = -0.5     # velocity when foot hit ground 
 end_acc = -5       # Acceleration when foot hig ground
 ds_time = 0.05     # Time duration for double support phase

@@ -249,15 +249,19 @@ int main(int argc, char* argv[])
   double init_count = config->get_qualified_as<double>("Start.init_count").value_or(0);
   double soft_count = config->get_qualified_as<double>("Start.soft_count").value_or(0);
 
+  // Arm params
   double arm_z_int = config->get_qualified_as<double>("Arm-IK.z_int").value_or(0);
   double arm_z_mag = config->get_qualified_as<double>("Arm-IK.z_mag").value_or(0);
   double arm_z_prd = config->get_qualified_as<double>("Arm-IK.z_prd").value_or(0);
 
+  // swing foot profile
   double step_time = config->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
   double zh = config->get_qualified_as<double>("Walk-Params.step_height").value_or(0);
   double dzend = config->get_qualified_as<double>("Walk-Params.end_vel").value_or(0);
   double ddzend = config->get_qualified_as<double>("Walk-Params.end_acc").value_or(0);
   double ds_time = config->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
+
+  // osc qp rate and version
   double qp_rate = config->get_qualified_as<double>("QP-Params.qp_rate").value_or(0);
   int osc_version = config->get_qualified_as<double>("QP-Params.osc_version").value_or(0);
 
@@ -466,6 +470,7 @@ int main(int argc, char* argv[])
     pel_quaternion(2) = observation.base.orientation.y;
     pel_quaternion(3) = observation.base.orientation.z;
     
+    // Frame transformation
     theta = ToEulerAngle(pel_quaternion); // transform quaternion in euler roll, pitch, yaw order
     MatrixXd OmegaToDtheta = MatrixXd::Zero(3,3);
 /*     OmegaToDtheta << 0 , -sin(theta(2)), cos(theta(2)) * cos(theta(1)), 0, cos(theta(2)), cos(theta(1)) * sin(theta(2)), 1, 0, -sin(theta(1));
@@ -623,7 +628,7 @@ int main(int argc, char* argv[])
     right_toe_rot_jaco_fa.block(0,0,3,20) = right_toe_back_jaco_fa;
     right_toe_rot_jaco_fa(3,wbc::right_hip_yaw) = 1;
 
-     
+    // Filter foot velocity
     left_toe_vel(0) = f_vel_fil[0].getData(left_toe_vel(0));
     left_toe_vel(1) = f_vel_fil[1].getData(left_toe_vel(1));
     left_toe_vel(2) = f_vel_fil[2].getData(left_toe_vel(2));
@@ -666,7 +671,7 @@ int main(int argc, char* argv[])
        pel_vel_des(1) = .06 * traj_time;
     }
 
-    // transit command
+    // Stepping direction command
     if(stepping == 2 && use_cap == 0){
       pel_pos_des.block(0,0,2,1) = mpc_cmd_listener.get_pel_pos_cmd().block(0,0,2,1);
       pel_vel_des.block(0,0,2,1) = mpc_cmd_listener.get_pel_vel_cmd().block(0,0,2,1);
@@ -834,6 +839,7 @@ int main(int argc, char* argv[])
                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
     }
     else{
+      // reduce base gains during stepping
       des_acc_pel << -.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 1 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
                     -.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 1 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
                     -1 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 1 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
@@ -844,6 +850,8 @@ int main(int argc, char* argv[])
     
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
+
+    // select matrix for swing foot (only swing foot has non-zero joint velocity commands)
     MatrixXd select = MatrixXd::Zero(12,20);
     if(contact(0) > 0){
       select(0,6) = 1;
