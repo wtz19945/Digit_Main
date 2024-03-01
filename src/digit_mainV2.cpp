@@ -25,6 +25,7 @@
 #include "cpptoml/include/cpptoml.h"
 #include "Digit_safety.hpp"
 #include "OSC_Control.hpp"
+#include "OSC_ControlV2.hpp"
 #include "Filter.hpp"
 #include "mpc_listener.hpp"
 
@@ -258,6 +259,7 @@ int main(int argc, char* argv[])
   double ddzend = config->get_qualified_as<double>("Walk-Params.end_acc").value_or(0);
   double ds_time = config->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
   double qp_rate = config->get_qualified_as<double>("QP-Params.qp_rate").value_or(0);
+  int osc_version = config->get_qualified_as<double>("QP-Params.osc_version").value_or(0);
 
   // Weight Matrix and Gain Vector
   MatrixXd Weight_ToeF = Wff*MatrixXd::Identity(6,6);
@@ -342,6 +344,8 @@ int main(int argc, char* argv[])
 
   // OSC and Walking Variables
   OSC_Control osc(config);
+  OSC_ControlV2 oscV2(config);
+
   VectorXd QPSolution = VectorXd::Zero(20,1);
 
   VectorXd pel_pos_des = VectorXd::Zero(3,1);
@@ -668,10 +672,13 @@ int main(int argc, char* argv[])
       pel_vel_des.block(0,0,2,1) = mpc_cmd_listener.get_pel_vel_cmd().block(0,0,2,1);
     }
 
-    double vel_des = 0.0;
+    double vel_des_x = -0.0;
+    double vel_des_y = -0.0;
     if(stepping == 2 && use_cap == 1){
-      pel_pos_des(0) = vel_des * global_time;
-      pel_vel_des(0) = vel_des;
+      pel_pos_des(0) = vel_des_x * global_time;
+      pel_vel_des(0) = vel_des_x;
+      pel_pos_des(1) = vel_des_y * global_time;
+      pel_vel_des(1) = vel_des_y;
     }
 
     // Compute Desired Foot Traj
@@ -685,12 +692,12 @@ int main(int argc, char* argv[])
 
     if(contact(0) == 0){
       // temporally use capture point
-      double x_goal = pel_pos(0) - 0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des * traj_time;
-      double dx_goal = pel_vel(0) + vel_des;
+      double x_goal = pel_pos(0) - 0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des_x * 0;
+      double dx_goal = pel_vel(0) + vel_des_x;
       double ddx_goal = 0;
 
       double y_goal = max(pel_pos(1) + 0.1 + cp_py * sqrt(.9/9.81) * pel_vel(1), (right_toe_pos(2) + right_toe_back_pos(2))/2 + 0.03);
-      double dy_goal = pel_vel(1);
+      double dy_goal = pel_vel(1) + vel_des_y;
       double ddy_goal = 0;
 
       double w = M_PI / (step_time - ds_time);
@@ -733,12 +740,12 @@ int main(int argc, char* argv[])
 
     if(contact(1) == 0){
       // temporally use capture point
-      double x_goal = pel_pos(0) + -0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des * traj_time;
-      double dx_goal = pel_vel(0) + vel_des;
+      double x_goal = pel_pos(0) + -0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des_x * 0;
+      double dx_goal = pel_vel(0) + vel_des_x;
       double ddx_goal = 0;
 
       double y_goal = min(pel_pos(1) - 0.1 + cp_py * sqrt(.9/9.81) * pel_vel(1), (left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.05);
-      double dy_goal = pel_vel(1);
+      double dy_goal = pel_vel(1) + vel_des_y;
       double ddy_goal = 0;
 
       double w = M_PI / (step_time - ds_time);
@@ -814,7 +821,6 @@ int main(int argc, char* argv[])
     MatrixXd Spring_Jaco = get_Spring_Jaco();
 
     // For pelvis control in standing OSC
-    // For pelvis control in standing OSC
     VectorXd des_acc_pel = VectorXd::Zero(6,1);
     MatrixXd pel_jaco = MatrixXd::Zero(6,20);
     pel_jaco.block(0,0,6,6) = MatrixXd::Identity(6,6);
@@ -881,33 +887,60 @@ int main(int argc, char* argv[])
     cout << "set up sparse constraint: " << elapsed_time.count() << endl;
     if(QP_initialized == 0){
       QP_initialized = 1;
-      osc.setupQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);
-      osc.setupQPMatrix(Weight_pel, M, 
-                        B, Spring_Jaco, left_toe_jaco_fa, 
-                        left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
-                        left_toe_rot_jaco_fa, right_toe_rot_jaco_fa);
       bool check_solver = true; // change this to false if you want to check OSQP solver output for debug
-      osc.setUpQP(check_solver); 
+      if(osc_version == 0){
+        osc.setupQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);
+        osc.setupQPMatrix(Weight_pel, M, 
+                          B, Spring_Jaco, left_toe_jaco_fa, 
+                          left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
+                          left_toe_rot_jaco_fa, right_toe_rot_jaco_fa);
+        osc.setUpQP(check_solver); 
+      }
+      else{
+        oscV2.setupQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);
+        oscV2.setupQPMatrix(Weight_pel, M, 
+                          B, Spring_Jaco, left_toe_jaco_fa, 
+                          left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
+                          left_toe_rot_jaco_fa, right_toe_rot_jaco_fa);
+        oscV2.setUpQP(check_solver); 
+      }
     }
     else{
       if(update_mat == -1){
-      D_term = .2 * B * select * Dmat * wb_dq.block(0,0,20,1);
-      M -= 0.2 * B * select2 * Dmat * damping_dt;
-      osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G + D_term, contact);
-      osc.updateQPMatrix(Weight_pel, M, 
-                        B, Spring_Jaco, left_toe_jaco_fa, 
-                        left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
-                        left_toe_rot_jaco_fa, right_toe_rot_jaco_fa, contact);
-      elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-      cout << "set up QP matrix: " << elapsed_time.count() << endl;
-      osc.updateQP();
+        D_term = .2 * B * select * Dmat * wb_dq.block(0,0,20,1);
+        M -= 0.2 * B * select2 * Dmat * damping_dt;
+        if(osc_version == 0){
+          osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G + D_term, contact);
+          osc.updateQPMatrix(Weight_pel, M, 
+                            B, Spring_Jaco, left_toe_jaco_fa, 
+                            left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
+                            left_toe_rot_jaco_fa, right_toe_rot_jaco_fa, contact);
+          elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
+          cout << "set up QP matrix: " << elapsed_time.count() << endl;
+          osc.updateQP();
+        }
+        else{
+          oscV2.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G + D_term, contact);
+          oscV2.updateQPMatrix(Weight_pel, M, 
+                            B, Spring_Jaco, left_toe_jaco_fa, 
+                            left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
+                            left_toe_rot_jaco_fa, right_toe_rot_jaco_fa, contact);
+          elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
+          cout << "set up QP matrix: " << elapsed_time.count() << endl;
+          oscV2.updateQP();
+        }
       }
     }
 
     //solver.solveProblem();
     //QPSolution = solver.getSolution();
     if(update_mat == -1){
-      QPSolution = osc.solveQP();
+      if(osc_version == 0){
+        QPSolution = osc.solveQP();
+      }
+      else{
+        QPSolution = oscV2.solveQP();
+      }
     }
     update_mat *= -1;
     VectorXd torque = VectorXd::Zero(12,1);

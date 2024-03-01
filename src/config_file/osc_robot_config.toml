@@ -50,7 +50,7 @@ com_Wry = 1050.0
 com_Wrx = 1050.0
 
 com_Wxst = 750.0
-com_Wyst = 750.0
+com_Wyst = 50.0
 com_Wzst = 1350.0
 com_Wrzst = 10050.0
 com_Wryst = 10050.0
@@ -58,10 +58,11 @@ com_Wrxst = 10050.0
 force_max = 450.0
 mu = 0.6
 qp_rate = 1000.0     # update frequency of the OSC 
+osc_version = 1      # 0 for c++ eigen osqp wrapper, 1 for osqp c implementation
 
 [Walk-Params]
 step_time = 0.4
-step_height = 0.2
+step_height = 0.3
 end_vel = -0.5     # velocity when foot hit ground 
 end_acc = -5       # Acceleration when foot hig ground
 ds_time = 0.05     # Time duration for double support phase

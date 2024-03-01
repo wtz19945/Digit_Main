@@ -16,7 +16,7 @@ send-port = 25501
 
 [[model-list]]
 model = "robot"
-pose = {rpyxyz = [0, 0, 2.8, 0, 0, 1]}
+pose = {rpyxyz = [0, 0, 2.8, 5, 5, 1]}
 
 
 [logging]

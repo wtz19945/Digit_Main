@@ -29,6 +29,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(OsqpEigen REQUIRED)
 find_package(casadi REQUIRED)
+find_package(osqp REQUIRED)
 
 add_message_files(
   FILES
@@ -112,6 +113,12 @@ target_include_directories(osc_lib
     ${Home_Dir}/include)
 target_link_libraries(osc_lib OsqpEigen::OsqpEigen)
 
+add_library(osc_libV2 STATIC src/OSC_ControlV2.cpp)
+target_include_directories(osc_libV2 
+    PUBLIC 
+    ${Home_Dir}/include)
+target_link_libraries(osc_libV2 OsqpEigen::OsqpEigen)
+
 add_library(filter_lib STATIC src/Filter.cpp)
 target_include_directories(filter_lib 
     PUBLIC 
@@ -143,17 +150,17 @@ add_dependencies(digit_main Digit_Ros_generate_messages_cpp)
 
 # walking controllerV2
 add_executable(digit_mainV2 ${digit_main_sourceV2})
-target_link_libraries(digit_mainV2 OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib mpc_cmd_lib ${catkin_LIBRARIES})
+target_link_libraries(digit_mainV2 OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib osc_libV2 filter_lib mpc_cmd_lib ${catkin_LIBRARIES})
 add_dependencies(digit_mainV2 Digit_Ros_generate_messages_cpp)
 
 # mpc controller
 add_executable(mpc_main ${mpc_main_source})
-target_link_libraries(mpc_main OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib mpc_solver_lib ${catkin_LIBRARIES} ${mpc_lib})
+target_link_libraries(mpc_main OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib filter_lib mpc_solver_lib ${catkin_LIBRARIES} ${mpc_lib})
 add_dependencies(mpc_main Digit_Ros_generate_messages_cpp)
 
 # mpc controller
 add_executable(mpc_mainV2 ${mpc_main_sourceV2})
-target_link_libraries(mpc_mainV2 OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib filter_lib mpc_solver_lib ${catkin_LIBRARIES} ${mpc_lib})
+target_link_libraries(mpc_mainV2 OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib filter_lib mpc_solver_lib ${catkin_LIBRARIES} ${mpc_lib})
 add_dependencies(mpc_mainV2 Digit_Ros_generate_messages_cpp)
 
 
