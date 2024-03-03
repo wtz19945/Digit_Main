@@ -373,6 +373,8 @@ void OSC_ControlV2::updateQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, 
     if (settings) {
         settings -> warm_start = true;
         settings -> verbose = mute_solver;
+        settings -> rho = 1e-3;
+        settings -> alpha = 0.6;
     }
     else{
         return 0;
@@ -390,9 +392,9 @@ void OSC_ControlV2::updateQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, 
 
 void OSC_ControlV2::updateQP(){
     // update vector
-    std::copy(lowerBound.data(), lowerBound.data() + lowerBound.size(), losqp);
-    std::copy(upperBound.data(), upperBound.data() + upperBound.size(), uosqp);
-    std::copy(gradient.data(), gradient.data() + gradient.size(), qosqp);
+    //std::copy(lowerBound.data(), lowerBound.data() + lowerBound.size(), losqp);
+    //std::copy(upperBound.data(), upperBound.data() + upperBound.size(), uosqp);
+    //std::copy(gradient.data(), gradient.data() + gradient.size(), qosqp);
 
     // update matrix
     std::vector<double>    P_new_value;
@@ -419,13 +421,12 @@ void OSC_ControlV2::updateQP(){
         }
         outer_count++;
     }
-
     if(P_new_index.size() > 0)
         osqp_update_P(work, P_new_value.data(), P_new_index.data(), P_new_index.size());
     if(A_new_index.size() > 0)
         osqp_update_A(work, A_new_value.data(), A_new_index.data(), A_new_value.size());
-    osqp_update_lin_cost(work, qosqp);
-    osqp_update_bounds(work, losqp, uosqp);
+    osqp_update_lin_cost(work, gradient.data());
+    osqp_update_bounds(work, lowerBound.data(), upperBound.data());
 }
 
 

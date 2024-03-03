@@ -29,7 +29,7 @@ foot_P_y = 155
 foot_P_z = 152.5
 foot_D_x = 10
 foot_D_y = 10
-foot_D_z = 15
+foot_D_z = 18
 
 hip_yaw_P = 250
 hip_yaw_D = 25
@@ -50,15 +50,15 @@ com_Wry = 1050.0
 com_Wrx = 1050.0
 
 com_Wxst = 750.0     # stepping weights
-com_Wyst = 50.0
+com_Wyst = 750.0
 com_Wzst = 1350.0
 com_Wrzst = 10050.0
 com_Wryst = 10050.0
 com_Wrxst = 10050.0
 force_max = 450.0
 mu = 0.6             # friction coefficient
-qp_rate = 1000.0     # update frequency of the OSC 
-osc_version = 1      # 0 for c++ eigen osqp wrapper, 1 for osqp c implementation
+qp_rate = 500.0     # update frequency of the OSC 
+osc_version = 0      # 0 for c++ eigen osqp wrapper, 1 for osqp c implementation
 
 [Walk-Params]
 step_time = 0.4

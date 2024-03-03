@@ -395,8 +395,8 @@ int main(int argc, char* argv[])
 
     // get contact trajectory
     if(key_mode == 2 || stepping > 0){
-      //traj_time = traj_time + (observation.time - digit_time_last); // use this when the simulator time is slow than real-time
-      traj_time = traj_time + 1 / qp_rate; // use this when the simualator is close to real-time
+      traj_time = traj_time + (observation.time - digit_time_last); // use this when the simulator time is slow than real-time
+      //traj_time = traj_time + 1 / qp_rate; // use this when the simualator is close to real-time
       if(traj_time > step_time){
         traj_time = 0;
         change_state = 1;
@@ -497,7 +497,7 @@ int main(int argc, char* argv[])
 
     // pelvis states in the base frame
     pel_pos = rotZ.transpose() * pel_pos; 
-    pel_vel = rotZ.transpose() * pel_vel;
+    //pel_vel = rotZ.transpose() * pel_vel; // hardware: use body or world frame??? Both seems working
 
     if(theta(2) > M_PI){
         theta(2) -= 2 * M_PI; 
@@ -591,12 +591,12 @@ int main(int argc, char* argv[])
         pos_avg = (left_toe_pos + right_toe_pos + left_toe_back_pos + right_toe_back_pos) / 4;
         fzint << pos_avg(2),0,0;
         fzmid << pos_avg(2) + zh,0,0;
-        fzend << pos_avg(2) - 0.08,dzend,ddzend;
+        fzend << pos_avg(2) - 0.04,dzend,ddzend;
         a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
         b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
     }
     else{
-        pel_pos(0) -= pos_avg(0) + 0.0; 
+        pel_pos(0) -= pos_avg(0) + 0.01; 
         pel_pos(1) -= pos_avg(1);
     }
     
@@ -915,8 +915,8 @@ int main(int argc, char* argv[])
     }
     else{
       if(update_mat == -1){
-        D_term = .2 * B * select * Dmat * wb_dq.block(0,0,20,1);
-        M -= 0.2 * B * select2 * Dmat * damping_dt;
+        //D_term = .2 * B * select * Dmat * wb_dq.block(0,0,20,1);
+        //M -= 0.2 * B * select2 * Dmat * damping_dt;
         if(osc_version == 0){
           osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G + D_term, contact);
           osc.updateQPMatrix(Weight_pel, M, 
@@ -972,9 +972,9 @@ int main(int argc, char* argv[])
     }
 
     
-    wb_dq_next(2) = 1*wb_dq_next(2);
+    wb_dq_next(2) = 0*wb_dq_next(2);
     wb_dq_next(3) = 1*wb_dq_next(3);
-    wb_dq_next(8) = 1*wb_dq_next(8);
+    wb_dq_next(8) = 0*wb_dq_next(8);
     wb_dq_next(9) = 1*wb_dq_next(9);
 
     if(contact(0) != 0){
@@ -1141,7 +1141,7 @@ int main(int argc, char* argv[])
         }
         else{
           torque *= min((observation.time - digit_time_start)/soft_count,1.0);
-          command.motors[i].torque = 1 * torque(i) + .2 * limits->damping_limit[i] * (wb_dq_next(i) - dq(i));
+          command.motors[i].torque = 1 * torque(i) ;
           command.motors[i].velocity = 1 * wb_dq_next(i);
           command.motors[i].damping = .2 * limits->damping_limit[i];
         }
