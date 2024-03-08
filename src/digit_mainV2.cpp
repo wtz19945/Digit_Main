@@ -166,7 +166,8 @@ int main(int argc, char* argv[])
   pel_quaternion = VectorXd::Zero(4,1);
   theta = VectorXd::Zero(3,1);
   dtheta = VectorXd::Zero(3,1);
-
+  double pos_des_x = 0;
+  double pos_des_y = 0;
   double soft_start = 1;
 
   // initialize ros
@@ -337,8 +338,9 @@ int main(int argc, char* argv[])
   ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("digit_state", 10);
 
   // keyboard input time tracker
-  double key_time_tracker, key_time_tracker_c, conduct_time_prev = 0; // time log helper for key input, might remove in the future
+  double key_time_tracker = 0; // time log helper for key input, might remove in the future
   int key_mode = -1;
+  int key_mode_prev = -1;
   InputListener input_listener(&key_mode);
   MPC_CMD_Listener mpc_cmd_listener;
 
@@ -376,6 +378,7 @@ int main(int argc, char* argv[])
   auto time_control_start = std::chrono::system_clock::now();
   double digit_time_start = observation.time;
   double digit_time_last = observation.time;
+  double circle_time = 0;
 
   while (ros::ok()) {
     // count running time
@@ -393,9 +396,10 @@ int main(int argc, char* argv[])
       // No new data
     }
 
+    circle_time = (observation.time - digit_time_last);
     // get contact trajectory
-    if(key_mode == 2 || stepping > 0){
-      traj_time = traj_time + (observation.time - digit_time_last); // use this when the simulator time is slow than real-time
+    if(key_mode == 4 || stepping > 0){
+      traj_time = traj_time + circle_time; // use this when the simulator time is slow than real-time
       //traj_time = traj_time + 1 / qp_rate; // use this when the simualator is close to real-time
       if(traj_time > step_time){
         traj_time = 0;
@@ -497,7 +501,7 @@ int main(int argc, char* argv[])
 
     // pelvis states in the base frame
     pel_pos = rotZ.transpose() * pel_pos; 
-    //pel_vel = rotZ.transpose() * pel_vel; // hardware: use body or world frame??? Both seems working
+    pel_vel = rotZ.transpose() * pel_vel; // hardware: use body or world frame??? Both seems working
 
     if(theta(2) > M_PI){
         theta(2) -= 2 * M_PI; 
@@ -574,7 +578,7 @@ int main(int argc, char* argv[])
       right_toe_back_jaco  = analytical_expressions.Jp_right_toe_back(wb_q);
       //MatrixXd right_toe_back_djaco  = analytical_expressions.dJp_right_toe_back(wb_q,wb_dq); 
     }
-    
+
     // Get fixed arm version
     MatrixXd left_toe_jaco_fa = MatrixXd::Zero(3,20); // fa: fixed arm
     MatrixXd left_toe_back_jaco_fa = MatrixXd::Zero(3,20);
@@ -645,7 +649,7 @@ int main(int argc, char* argv[])
      
 
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-    cout << "time used to compute system dyn and kin is: " << elapsed_time.count() << endl;
+    //cout << "time used to compute system dyn and kin is: " << elapsed_time.count() << endl;
     int use_cap = 1;
     // Compute Desired CoM Traj// Testing use
     if(key_mode == 0){
@@ -680,11 +684,34 @@ int main(int argc, char* argv[])
     double vel_des_x = -0.0;
     double vel_des_y = -0.0;
     if(stepping == 2 && use_cap == 1){
-      pel_pos_des(0) = vel_des_x * global_time;
+      // reset position command when walking direction is changed
+      if(key_mode_prev != key_mode){
+          pos_des_x = pel_pos(0);
+          pos_des_y = pel_pos(1);
+      }
+      if(key_mode == 5){
+        vel_des_x = 0.2;
+        pos_des_x += 0.2 * circle_time;
+      }
+      if(key_mode == 6){
+        vel_des_x = -0.2;
+        pos_des_x += -0.2 * circle_time; 
+      }
+      if(key_mode == 7){
+        vel_des_y = 0.2;
+        pos_des_y += 0.2 * circle_time;
+      }
+      if(key_mode == 8){
+        vel_des_y = -0.2;
+        pos_des_y += -0.2 * circle_time;
+      }
+      
+      pel_pos_des(0) = pos_des_x;
       pel_vel_des(0) = vel_des_x;
-      pel_pos_des(1) = vel_des_y * global_time;
+      pel_pos_des(1) = pos_des_y;
       pel_vel_des(1) = vel_des_y;
     }
+    key_mode_prev = key_mode;
 
     // Compute Desired Foot Traj
     VectorXd left_toe_pos_ref = VectorXd::Zero(3,1);
@@ -892,10 +919,10 @@ int main(int argc, char* argv[])
 
     // Solve OSC QP
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-    cout << "set up sparse constraint: " << elapsed_time.count() << endl;
+    //cout << "set up sparse constraint: " << elapsed_time.count() << endl;
     if(QP_initialized == 0){
       QP_initialized = 1;
-      bool check_solver = true; // change this to false if you want to check OSQP solver output for debug
+      bool check_solver = false; // change this to false if you want to check OSQP solver output for debug
       if(osc_version == 0){
         osc.setupQPVector(des_acc_pel, des_acc, des_acc_toe, G, contact);
         osc.setupQPMatrix(Weight_pel, M, 
@@ -924,7 +951,7 @@ int main(int argc, char* argv[])
                             left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
                             left_toe_rot_jaco_fa, right_toe_rot_jaco_fa, contact);
           elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-          cout << "set up QP matrix: " << elapsed_time.count() << endl;
+          //cout << "set up QP matrix: " << elapsed_time.count() << endl;
           osc.updateQP();
         }
         else{
@@ -934,7 +961,7 @@ int main(int argc, char* argv[])
                             left_toe_back_jaco_fa, right_toe_jaco_fa, right_toe_back_jaco_fa,
                             left_toe_rot_jaco_fa, right_toe_rot_jaco_fa, contact);
           elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-          cout << "set up QP matrix: " << elapsed_time.count() << endl;
+          //cout << "set up QP matrix: " << elapsed_time.count() << endl;
           oscV2.updateQP();
         }
       }
@@ -989,7 +1016,7 @@ int main(int argc, char* argv[])
     wb_dq_next(10) = 0;
     wb_dq_next(11) = 0;
     
-    /*
+    
     // IK arm control for conducting, trial implementation. Incorporate to analytical_expressions class in the future
     VectorXd ql = VectorXd::Zero(10,1);
     VectorXd p_lh = VectorXd::Zero(3,1);
@@ -1005,36 +1032,21 @@ int main(int argc, char* argv[])
 
     double cur_time = (observation.time - digit_time_start);
     double period = arm_z_prd;
-    if(key_mode == 4){
-      if((observation.time - digit_time_start - key_time_tracker_c) > 1)
-        cur_time -= key_time_tracker_c + floor((cur_time - key_time_tracker_c)/period) * period;
-      else
-        cur_time = 0;
 
-      conduct_time_prev = cur_time;
-    }
-    else{
-      if(conduct_time_prev < cur_time<period/2 && conduct_time_prev > 0.1){
-        cur_time = 0.95 * conduct_time_prev;
-        conduct_time_prev = cur_time;
-      }
-      else if(conduct_time_prev > cur_time<period/2 && conduct_time_prev < period - 0.1){
-        cur_time = 1.05 * conduct_time_prev;
-        conduct_time_prev = cur_time;
+    if(stepping == 2){
+      if(stance_leg == 1){
+        p_lh_ref << pel_pos(0) + 0.02 + 0.1 * sin(M_PI * traj_time/step_time), pel_pos(1) + 0.25, pel_pos(2) + arm_z_int;
+        p_rh_ref << pel_pos(0) + 0.02 - 0.1 * sin(M_PI * traj_time/step_time), pel_pos(1) - 0.25, pel_pos(2) + arm_z_int;
       }
       else{
-        cur_time = 0;
+        p_lh_ref << pel_pos(0) + 0.02 - 0.1 * sin(M_PI * traj_time/step_time), pel_pos(1) + 0.25, pel_pos(2) + arm_z_int;
+        p_rh_ref << pel_pos(0) + 0.02 + 0.1 * sin(M_PI * traj_time/step_time), pel_pos(1) - 0.25, pel_pos(2) + arm_z_int;
       }
-      key_time_tracker_c = (observation.time - digit_time_start);
-    }
 
-    if(cur_time< (period/2)){
-      p_lh_ref << 0.4, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag * sin(cur_time/period*2*3.14);
-      p_rh_ref << 0.4,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int - arm_z_mag* sin(cur_time/period*2*3.14);
     }
     else{
-      p_lh_ref << 0.4, 0.2 - .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
-      p_rh_ref << 0.4,-0.2 + .1 * cos(cur_time/period*2*3.14),pel_pos(2) + arm_z_int + arm_z_mag * sin(cur_time/period*2*3.14);
+      p_lh_ref << pel_pos(0) + 0.02, pel_pos(1) + 0.25, pel_pos(2) + arm_z_int;
+      p_rh_ref << pel_pos(0) + 0.02, pel_pos(1) - 0.25, pel_pos(2) + arm_z_int;
     }
 
     // initialize q with current pose
@@ -1049,6 +1061,7 @@ int main(int argc, char* argv[])
     kin_right_arm(qr.data(),p_rh.data(), J_rh.data());
     J_lh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
     J_rh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
+     
     
     // left arm IK
     double error;
@@ -1061,13 +1074,7 @@ int main(int argc, char* argv[])
         // solve for new joint
         ql += J_lh.colPivHouseholderQr().solve(p_lh_ref - p_lh);
         // Clip joints
-        //ql(6) = max(min(ql(6),deg2rad(75)),deg2rad(-75));
-        if(cur_time<period/2){
-          ql(6) = -0.3 - cur_time/(period/2) * .2;
-        }
-        else{
-          ql(6) = -0.5 + cur_time/(period/2) * .2;
-        }
+        ql(6) = max(min(ql(6),deg2rad(75)),deg2rad(-75));
         ql(7) = max(min(ql(7),deg2rad(145)),deg2rad(-145));
         ql(8) = max(min(ql(8),deg2rad(100)),deg2rad(-100));
         ql(9) = max(min(ql(9),deg2rad(77.5)),deg2rad(-77.5));
@@ -1077,10 +1084,10 @@ int main(int argc, char* argv[])
         error = (p_lh - p_lh_ref).norm();
         iter++;
       }
-      //target_position[12] = ql(6);
-      //target_position[13] = ql(7);
-      //target_position[14] = ql(8);
-      //target_position[15] = ql(9); 
+      target_position[12] = ql(6);
+      target_position[13] = ql(7);
+      target_position[14] = ql(8);
+      target_position[15] = ql(9); 
       ql_last = ql;
     }
     else{
@@ -1093,13 +1100,7 @@ int main(int argc, char* argv[])
       while(error > 0.01 && iter<2){
         qr += J_rh.colPivHouseholderQr().solve(p_rh_ref - p_rh);
         // Clip joints
-        //qr(6) = max(min(qr(6),deg2rad(75)),deg2rad(-75));
-        if(cur_time<period/2){
-          qr(6) = 0.3 + cur_time/(period/2) * .2;
-        }
-        else{
-          qr(6) = 0.5 - cur_time/(period/2) * .2;
-        }
+        qr(6) = max(min(qr(6),deg2rad(75)),deg2rad(-75));
         qr(7) = max(min(qr(7),deg2rad(145)),deg2rad(-145));
         qr(8) = max(min(qr(8),deg2rad(100)),deg2rad(-100));
         qr(9) = max(min(qr(9),deg2rad(77.5)),deg2rad(-77.5));
@@ -1109,20 +1110,21 @@ int main(int argc, char* argv[])
         error = (p_rh - p_rh_ref).norm();
         iter++;
       }
-      //target_position[16] = qr(6);
-      //target_position[17] = qr(7);
-      //target_position[18] = qr(8);
-      //target_position[19] = qr(9); 
+      target_position[16] = qr(6);
+      target_position[17] = qr(7);
+      target_position[18] = qr(8);
+      target_position[19] = qr(9); 
       qr_last = qr;
     }
     else{
       qr = qr_last;
     }
-    */
+    
+
     // safety check
     safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
-    cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
+    //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
 
     for (int i = 0; i < NUM_MOTORS; ++i) {
       if(safe_check.checkSafety()){ // safety check

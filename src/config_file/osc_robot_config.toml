@@ -34,7 +34,7 @@ foot_D_z = 18
 hip_yaw_P = 250
 hip_yaw_D = 25
 
-arm_P = 150.0    
+arm_P = 250.0    
 cp_P  = 1.8        # capture point gains
 
 
@@ -75,6 +75,6 @@ init_count = 0.3 # Time to record robot's initial configuration
 soft_count = 0.2  # Time to soft start motor torques
 
 [Arm-IK]
-z_int = 0.4  # initial height for the arm
+z_int = -0.1  # initial height for the arm
 z_mag = 0.3  # range of arm motion height
 z_prd = 1    # period of arm motion

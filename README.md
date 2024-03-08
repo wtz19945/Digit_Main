@@ -58,6 +58,7 @@ cd ~/catkin_ws
 roslaunch Digit_ROS digit_main_launch.launch 
 ```
 Now you should see the solver info, ros outputs, and etc in the terminal. Make sure run `source devel/setup.bash` everytime you launch a new terminal.
+Currently, only keyboard commands are implemented. Available commands are: space to start walking, WASD to change walking direction, up/down arrows to change height 
 
 ## Hardware Test
 Disclaimer: this repository is in development and not liable for any damage caused by the hardware experiment.

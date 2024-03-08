@@ -14,20 +14,24 @@ enum class TkKeys {
   right = 65363,
   down = 65364,
   space = 32,
+  W = 119,
+  S = 115,
+  A = 97,
+  D = 100,
 };
 
 void InputListener::keyInputCallback(const std_msgs::Int32::ConstPtr& msg) {
   TkKeys key = (TkKeys) msg->data;
-  // ROS_INFO("I heard: [%i]", msg->data);
+  //ROS_INFO("I heard: [%i]", msg->data);
   //==============Keyboard input=========//
   switch (key) {
     case TkKeys::up:
         *key_mode = 0;
-        std::cout << "increasing standing height: " << std::endl;
+        std::cout << "increase height: " << std::endl;
         break;
     case TkKeys::down:
         *key_mode = 1;
-        std::cout << "decreasing standing height: " << std::endl;
+        std::cout << "decrease height: " << std::endl;
         break;
     case TkKeys::left:
         *key_mode = 2;
@@ -39,8 +43,24 @@ void InputListener::keyInputCallback(const std_msgs::Int32::ConstPtr& msg) {
         break;
     case TkKeys::space:
         *key_mode = 4;
-        std::cout << "start conducting: " << std::endl;
+        std::cout << "start walking: " << std::endl;
         break;
+    case TkKeys::W:
+        *key_mode = 5;
+        std::cout << "walking forward: " << std::endl;
+        break;
+    case TkKeys::S:
+        *key_mode = 6;
+        std::cout << "walking backward: " << std::endl;
+        break;
+    case TkKeys::A:
+        *key_mode = 7;
+        std::cout << "walking left: " << std::endl;
+        break;
+    case TkKeys::D:
+        *key_mode = 8;
+        std::cout << "walking right: " << std::endl;
+        break;        
     default:
         *key_mode = -1;
         break;
