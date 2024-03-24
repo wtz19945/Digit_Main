@@ -13,7 +13,19 @@ To run the code, you need to install the following libraries
 
 - [ ] ROS                     : Install ROS melodic (Ubuntu 18.04) or ROS noetic (Ubuntu 20.04) in your system.
 - [ ] OSQP-Eigen Github       : https://github.com/robotology/osqp-eigen
+- [ ] Casadi Library          : https://github.com/casadi/casadi
 
+For ROS and OSQP-Eigen, simply follow the instructions on their website.
+
+For Casadi, download the source code and use the following command to 
+```
+sudo apt-get install gcc g++ gfortran git cmake liblapack-dev pkg-config --install-recommends
+mkdir build
+cd build
+cmake ..
+make
+sudo make install
+```
 
 ## Prepare ROS catkin_ws
 - [ ] Download this repository within "catkin_ws/src" directory in your system. In the following examples, we assume the catkin workspace is installed in your home directory, i.e., you catkin workspace is "~/catkin_ws".
@@ -72,7 +84,8 @@ To visualize Digit, use the gamepad or check the following IP address "10.10.1.1
 
 ## Notice
 - [ ] This repo is actively updated. Walking controller with obstacle avoidance MPC will be released next.
-- [ ] If you install OSQP with the conda method, you might need to add the following command to ~/.bashrc
+- [ ] You might need to add the following command to ~/.bashrc
 ``` bash 
+export LD_LIBRARY_PATH=LD_LIBRARY_PATH:/usr/local/lib
 export PATH="/home/username/miniconda/bin:$PATH". # Remember to chagne the path to your actual conbda path.
 ```
