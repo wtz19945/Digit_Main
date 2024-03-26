@@ -54,7 +54,7 @@ Digit_MPC::Digit_MPC()
   double r1 = config->get_qualified_as<double>("MPC-Params.obs_rad1").value_or(0);
   double r2 = config->get_qualified_as<double>("MPC-Params.obs_rad2").value_or(0);
 
-  std::shared_ptr<cpptoml::table> config_osc = cpptoml::parse_file(package_path + "/src/config_file/osc_robot_config.toml");
+  std::shared_ptr<cpptoml::table> config_osc = cpptoml::parse_file(package_path + "/src/config_file/oscmpc_robot_config.toml");
   step_time_ = config_osc->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
   ds_time_ = config_osc->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
   f_length_ = {flx, fly};

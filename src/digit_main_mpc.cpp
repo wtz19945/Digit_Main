@@ -208,7 +208,7 @@ int main(int argc, char* argv[])
     std::cerr << "package not found\n";
     return 0;
   }
-  std::shared_ptr<cpptoml::table> config = cpptoml::parse_file(package_path + "/src/config_file/osc_robot_config.toml");
+  std::shared_ptr<cpptoml::table> config = cpptoml::parse_file(package_path + "/src/config_file/oscmpc_robot_config.toml");
 
   // OSC base gain
   double cpx = config->get_qualified_as<double>("PD-Gains.com_P_gain_x").value_or(0);
@@ -650,7 +650,7 @@ int main(int argc, char* argv[])
 
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin is: " << elapsed_time.count() << endl;
-    int use_cap = 1;
+    int use_cap = 0;
     // Compute Desired CoM Traj// Testing use
     if(key_mode == 0){
       z_off = min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.3);
@@ -732,6 +732,12 @@ int main(int argc, char* argv[])
       double dy_goal = pel_vel(1) + vel_des_y;
       double ddy_goal = 0;
 
+      if(use_cap == 0){
+        VectorXd foot_cmd = mpc_cmd_listener.get_left_foot_cmd();
+        x_goal = foot_cmd(0) - 0.07;
+        y_goal = foot_cmd(1);
+      }
+      
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
       if(traj_time - ds_time/2 < 0.002)
@@ -739,11 +745,11 @@ int main(int argc, char* argv[])
       
       dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      y_goal   = .5 * y_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(1);
+      //y_goal   = .5 * y_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(1);
 
       dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(0);
+      //x_goal   = .5 * x_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(0);
 
       left_toe_pos_ref << x_goal,y_goal,0;
       left_toe_vel_ref << dx_goal, dy_goal, 0;
@@ -780,6 +786,12 @@ int main(int argc, char* argv[])
       double dy_goal = pel_vel(1) + vel_des_y;
       double ddy_goal = 0;
 
+      if(use_cap == 0){
+        VectorXd foot_cmd = mpc_cmd_listener.get_right_foot_cmd();
+        x_goal = foot_cmd(0) - 0.07;
+        y_goal = foot_cmd(1);
+      }
+      
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
       if(traj_time - ds_time/2 < 0.002){
@@ -787,10 +799,10 @@ int main(int argc, char* argv[])
       }
       dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      y_goal   = .5 * y_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(1);
+      //y_goal   = .5 * y_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(1);
       dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(0);
+      //x_goal   = .5 * x_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(0);
 
       right_toe_pos_ref << x_goal, y_goal, 0;
       right_toe_vel_ref << dx_goal, dy_goal, 0;
@@ -867,8 +879,8 @@ int main(int argc, char* argv[])
     }
     else{
       // reduce base gains during stepping
-      des_acc_pel << -.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 1 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
-                    -.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 1 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
+      des_acc_pel << -2.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 1 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
+                    -2.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 1 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
                     -1 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 1 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
@@ -1033,16 +1045,16 @@ int main(int argc, char* argv[])
     double cur_time = (observation.time - digit_time_start);
     double period = arm_z_prd;
 
+    // The IK is always in the base frame
     if(stepping == 2){
       if(stance_leg == 1){
-        p_lh_ref << pel_pos(0) + 0.02 + 0.1 * sin(M_PI * traj_time/step_time), pel_pos(1) + 0.25, pel_pos(2) + arm_z_int;
-        p_rh_ref << pel_pos(0) + 0.02 - 0.1 * sin(M_PI * traj_time/step_time), pel_pos(1) - 0.25, pel_pos(2) + arm_z_int;
+        p_lh_ref << 0.02 + 0.1 * sin(M_PI * traj_time/step_time), + 0.25,  + arm_z_int;
+        p_rh_ref << 0.02 - 0.1 * sin(M_PI * traj_time/step_time), - 0.25,  + arm_z_int;
       }
       else{
-        p_lh_ref << pel_pos(0) + 0.02 - 0.1 * sin(M_PI * traj_time/step_time), pel_pos(1) + 0.25, pel_pos(2) + arm_z_int;
-        p_rh_ref << pel_pos(0) + 0.02 + 0.1 * sin(M_PI * traj_time/step_time), pel_pos(1) - 0.25, pel_pos(2) + arm_z_int;
+        p_lh_ref << 0.02 - 0.1 * sin(M_PI * traj_time/step_time), + 0.25,  + arm_z_int;
+        p_rh_ref << 0.02 + 0.1 * sin(M_PI * traj_time/step_time), - 0.25,  + arm_z_int;
       }
-
     }
     else{
       p_lh_ref << pel_pos(0) + 0.02, pel_pos(1) + 0.25, pel_pos(2) + arm_z_int;
@@ -1050,13 +1062,8 @@ int main(int argc, char* argv[])
     }
 
     // initialize q with current pose
-    for(int i = 0;i<6;i++){
-      ql(i) = wb_q(i);
-      qr(i) = wb_q(i);
-    }
     ql.block(6,0,4,1) = wb_q.block(20,0,4,1);
     qr.block(6,0,4,1) = wb_q.block(24,0,4,1);
-
     kin_left_arm(ql.data(),p_lh.data(), J_lh.data());
     kin_right_arm(qr.data(),p_rh.data(), J_rh.data());
     J_lh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
@@ -1157,15 +1164,19 @@ int main(int argc, char* argv[])
     }
     command.apply_command = true;
     llapi_send_command(&command);
-    VectorXd pel_ref(4), foot_pos(2), obs_info(4);
-    pel_ref << 0.0, 0.3, 0.0, 0.0; // pel_pos_des.block(0,0,2,1), pel_vel_des.block(0,0,2,1);
-    obs_info << -10.4, 0.0, 1.0, -0.0;
+
+    // send mpc state info
+    VectorXd pel_ref = VectorXd::Zero(4,1);      // x,y reference
+    VectorXd st_foot_pos = VectorXd::Zero(2,1);  // stance foot position
+    VectorXd obs_info = VectorXd::Zero(4,1);     // obstacle info
+    pel_ref << 0.0, 0.3, 0.0, 0.0;              
+    obs_info << -10.4, 0.0, 1.0, -0.0;           
 
     if(contact(0) == 0){
-      foot_pos << (right_toe_pos(0) + right_toe_back_pos(0))/2, (right_toe_pos(1) + right_toe_back_pos(1))/2;
+      st_foot_pos << (right_toe_pos(0) + right_toe_back_pos(0))/2, (right_toe_pos(1) + right_toe_back_pos(1))/2;
     }
     if(contact(1) == 0){
-      foot_pos << (left_toe_pos(0) + left_toe_back_pos(0))/2, (left_toe_pos(1) + left_toe_back_pos(1))/2;
+      st_foot_pos << (left_toe_pos(0) + left_toe_back_pos(0))/2, (left_toe_pos(1) + left_toe_back_pos(1))/2;
     }
 
     Digit_Ros::digit_state msg;
@@ -1175,10 +1186,10 @@ int main(int argc, char* argv[])
     std::copy(theta.data(),theta.data() + 3,msg.pel_rot.begin());
     std::copy(dtheta.data(),dtheta.data() + 3,msg.pel_omg.begin());
     std::copy(pel_ref.data(),pel_ref.data() + 4, msg.pel_ref.begin());
-    std::copy(foot_pos.data(),foot_pos.data() + 2,msg.foot_pos.begin());
+    std::copy(st_foot_pos.data(),st_foot_pos.data() + 2,msg.foot_pos.begin());
     std::copy(obs_info.data(),obs_info.data() + 4,msg.obs_info.begin());
 
-    // OSC data
+    // OSC data for visualization
     std::copy(pel_pos_des.data(), pel_pos_des.data() + pel_pos_des.size(), msg.pel_pos_des.begin());
     std::copy(pel_vel_des.data(), pel_vel_des.data() + pel_vel_des.size(), msg.pel_vel_des.begin());
     std::copy(left_toe_pos.data(), left_toe_pos.data() + left_toe_pos.size(), msg.left_toe_pos.begin());

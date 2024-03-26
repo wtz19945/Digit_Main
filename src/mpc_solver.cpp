@@ -16,9 +16,11 @@ MPC_Solver::MPC_Solver(int Cons_Num, int Vars_Num){
 }
 
 VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq, casadi::DM biq,casadi::DM H, casadi::DM f){
+    // copy data
     std::memcpy(gradient_.data(), f.ptr(), sizeof(double)*Vars_Num_);
     std::memcpy(lowerBound_.data(), beq.ptr(), sizeof(double)*Aeq.size1());
     std::memcpy(upperBound_.data(), beq.ptr(), sizeof(double)*Aeq.size1());
+
     std::memcpy(upperBound_.data() + Aeq.size1(), biq.ptr(), sizeof(double)*Aiq.size1());
     for(int i=0;i<Aiq.size1();i++){
         lowerBound_(i + Aeq.size1()) = -OsqpEigen::INFTY;

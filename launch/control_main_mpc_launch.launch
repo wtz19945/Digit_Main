@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- declare arg to be passed in -->
+    <arg name="run_sim"/> 
+
+    <!-- Websockets Node -->
+    <node pkg="Digit_Ros" type="digit_main_mpc" name="control_node" output="screen"></node>
+    <!-- read value of arg -->
+    <param name="sim_mode" value="$(arg run_sim)"/>
+</launch>
