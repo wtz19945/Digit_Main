@@ -1,5 +1,5 @@
-#ifndef MPCV2_MAIN_H
-#define MPCV2_MAIN_H
+#ifndef MPC_MAINV2_H
+#define MPC_MAINV2_H
 /*
 MPC block
 Input : Digit state   (current CoM info)
@@ -33,10 +33,10 @@ Output: Digit command (target CoM and Foot Position)
 // custom pack
 #include "mpc_solver.hpp"
 
-class Digit_MPCV2 {
+class Digit_MPC {
 
 public:
-  Digit_MPCV2();
+  Digit_MPC();
   Eigen::VectorXd get_pel_pos() {return pel_pos_;};
   Eigen::VectorXd get_pel_vel() {return pel_vel_;};
   Eigen::VectorXd get_theta()   {return theta_;};
@@ -46,6 +46,8 @@ public:
   Eigen::VectorXd get_obs_info()  {return obs_info_;};
   double get_traj_time()  {return traj_time_;};
   double get_foot_wdith() {return f_width_;};
+  double get_steptime() {return step_time_;};
+  double get_dstime() {return ds_time_;};
   int get_stance_leg() {return stance_leg_;};
   int get_Var_Num() {return Vars_Num_;};
   Eigen::VectorXd Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input);
@@ -70,10 +72,12 @@ private:
   casadi::Function left_step0_matrix_; 
   casadi::Function left_step1_matrix_;
   casadi::Function left_step2_matrix_;
+  casadi::Function left_step3_matrix_;
 
   casadi::Function right_step0_matrix_;
   casadi::Function right_step1_matrix_;
   casadi::Function right_step2_matrix_;
+  casadi::Function right_step3_matrix_;
 
   // Conversion between casadi DM and Eigen is not available. Use cpp vector instead
   // QP Parameters
@@ -82,20 +86,22 @@ private:
   std::vector<double> Weights_ds_; // double support
   std::vector<double> r_;          // obstacle radius
   double f_width_;
-
+  
   // MPC
   int Nodes_;
   int nx_;
   int NPred_;
-
+  double ds_time_;
+  double step_time_;
   // OSQP Solver
   MPC_Solver mpc_solver0_;
   MPC_Solver mpc_solver1_;
   MPC_Solver mpc_solver2_;
+  MPC_Solver mpc_solver3_;
 
   std::vector<int> Cons_Num_;
   int Vars_Num_;
   // QP solution
   std::vector<double> sol_;
 };
-#endif //MPCV2_MAIN_H
+#endif //MPC_MAINV2_H

@@ -745,11 +745,11 @@ int main(int argc, char* argv[])
       
       dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      //y_goal   = .5 * y_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(min(2 * w * n,M_PI))) + .5 * (1 + cos(min(2 * w * n,M_PI))) * foot_start(1);
 
       dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      //x_goal   = .5 * x_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(min(2 * w * n,M_PI))) + .5 * (1 + cos(min(2 * w * n,M_PI))) * foot_start(0);
 
       left_toe_pos_ref << x_goal,y_goal,0;
       left_toe_vel_ref << dx_goal, dy_goal, 0;
@@ -799,10 +799,10 @@ int main(int argc, char* argv[])
       }
       dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      //y_goal   = .5 * y_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(min(2 * w * n,M_PI))) + .5 * (1 + cos(min(2 * w * n,M_PI))) * foot_start(1);
       dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      //x_goal   = .5 * x_goal * (1 - cos(w * n)) + .5 * (1 + cos(w * n)) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(min(2 * w * n,M_PI))) + .5 * (1 + cos(min(2 * w * n,M_PI))) * foot_start(0);
 
       right_toe_pos_ref << x_goal, y_goal, 0;
       right_toe_vel_ref << dx_goal, dy_goal, 0;
@@ -1169,7 +1169,7 @@ int main(int argc, char* argv[])
     VectorXd pel_ref = VectorXd::Zero(4,1);      // x,y reference
     VectorXd st_foot_pos = VectorXd::Zero(2,1);  // stance foot position
     VectorXd obs_info = VectorXd::Zero(4,1);     // obstacle info
-    pel_ref << 0.0, 0.3, 0.0, 0.0;              
+    pel_ref << 0.0, 0.3, 0.0, -pel_pos(1);              
     obs_info << -10.4, 0.0, 1.0, -0.0;           
 
     if(contact(0) == 0){
