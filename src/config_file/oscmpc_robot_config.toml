@@ -14,12 +14,13 @@ name = "digit"
 com_P_gain_x = 35.0
 com_P_gain_y = 35.0
 com_P_gain_z = 40.0
-com_P_gain_rz = 150.0
-com_P_gain_ry = 150.0
-com_P_gain_rx = 150.0
 com_D_gain_x = 5.0
 com_D_gain_y = 5.0
 com_D_gain_z = 5.0
+
+com_P_gain_rz = 150.0
+com_P_gain_ry = 150.0
+com_P_gain_rx = 150.0
 com_D_gain_rz = 5.0
 com_D_gain_ry = 5.0
 com_D_gain_rx = 5.0
@@ -49,9 +50,9 @@ com_Wrz = 1050.0
 com_Wry = 1050.0
 com_Wrx = 1050.0
 
-com_Wxst = 750.0     # stepping weights
-com_Wyst = 750.0
-com_Wzst = 1350.0
+com_Wxst = 11050.0     # stepping weights
+com_Wyst = 11050.0
+com_Wzst = 11350.0
 com_Wrzst = 10050.0
 com_Wryst = 10050.0
 com_Wrxst = 10050.0
@@ -65,7 +66,7 @@ step_time = 0.4
 step_height = 0.2
 end_vel = -0.5     # velocity when foot hit ground 
 end_acc = -5       # Acceleration when foot hig ground
-ds_time = 0.1     # Time duration for double support phase
+ds_time = 0.0     # Time duration for double support phase
 
 [Filter]
 wd_sz = 5000      # number of the consecutive safety violation to trigger safe controller. Control frequency is 1kHz, so 0.5s safe window

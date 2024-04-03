@@ -21,15 +21,15 @@ Digit_MPC::Digit_MPC()
 
   // MPC QP Matrix
   std::string prefix_lib = fs::current_path().parent_path().string();
-  left_step0_matrix_ = casadi::external("LeftStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step0_04.so");
-  left_step1_matrix_ = casadi::external("LeftStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step1_04.so");
-  left_step2_matrix_ = casadi::external("LeftStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step2_04.so");
-  left_step3_matrix_ = casadi::external("LeftStart_Step3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step3_04.so");
+  left_step0_matrix_ = casadi::external("LeftStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step0_04Tra.so");
+  left_step1_matrix_ = casadi::external("LeftStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step1_04Tra.so");
+  left_step2_matrix_ = casadi::external("LeftStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step2_04Tra.so");
+  left_step3_matrix_ = casadi::external("LeftStart_Step3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step3_04Tra.so");
 
-  right_step0_matrix_ = casadi::external("RightStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step0_04.so");
-  right_step1_matrix_ = casadi::external("RightStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step1_04.so");
-  right_step2_matrix_ = casadi::external("RightStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step2_04.so");
-  right_step3_matrix_ = casadi::external("RightStart_Step3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step3_04.so");
+  right_step0_matrix_ = casadi::external("RightStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step0_04Tra.so");
+  right_step1_matrix_ = casadi::external("RightStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step1_04Tra.so");
+  right_step2_matrix_ = casadi::external("RightStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step2_04Tra.so");
+  right_step3_matrix_ = casadi::external("RightStart_Step3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step3_04Tra.so");
 
   // read control parameters
   std::string package_path; 
@@ -118,18 +118,18 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input)
 
   if(stance_leg_ == -1){
       switch(mpc_in){
-        case 0: res = left_step1_matrix_(MPC_arg); break;
-        case 1: res = left_step2_matrix_(MPC_arg); break;
-        case 2: res = left_step3_matrix_(MPC_arg); break;
+        case 0: res = left_step0_matrix_(MPC_arg); break;
+        case 1: res = left_step1_matrix_(MPC_arg); break;
+        case 2: res = left_step2_matrix_(MPC_arg); break;
         case 3: res = left_step3_matrix_(MPC_arg); break;
         default: ;
       }
   }
   else{
       switch(mpc_in){
-        case 0: res = right_step1_matrix_(MPC_arg); break;
-        case 1: res = right_step2_matrix_(MPC_arg); break;
-        case 2: res = right_step3_matrix_(MPC_arg); break;
+        case 0: res = right_step0_matrix_(MPC_arg); break;
+        case 1: res = right_step1_matrix_(MPC_arg); break;
+        case 2: res = right_step2_matrix_(MPC_arg); break;
         case 3: res = right_step3_matrix_(MPC_arg); break;
         default: ;
       }
@@ -143,9 +143,9 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input)
   casadi::DM f = res.at(5);
 
   switch(mpc_in){
-    case 0: QPSolution = mpc_solver1_.Update_Solver(Aeq,beq,Aiq,biq,H,f); break;
-    case 1: QPSolution = mpc_solver2_.Update_Solver(Aeq,beq,Aiq,biq,H,f); break;
-    case 2: QPSolution = mpc_solver3_.Update_Solver(Aeq,beq,Aiq,biq,H,f); break;
+    case 0: QPSolution = mpc_solver0_.Update_Solver(Aeq,beq,Aiq,biq,H,f); break;
+    case 1: QPSolution = mpc_solver1_.Update_Solver(Aeq,beq,Aiq,biq,H,f); break;
+    case 2: QPSolution = mpc_solver2_.Update_Solver(Aeq,beq,Aiq,biq,H,f); break;
     case 3: QPSolution = mpc_solver3_.Update_Solver(Aeq,beq,Aiq,biq,H,f); break;
     default: ;
   }  
@@ -160,7 +160,7 @@ int main(int argc, char **argv){
   Digit_MPC digit_mpc;
 
   ros::NodeHandle n;
-  ros::Rate loop_rate(50);
+  ros::Rate loop_rate(200);
   ros::Publisher mpc_res_pub = n.advertise<Digit_Ros::mpc_info>("mpc_res", 1000);
   int count = 0;
 
@@ -193,7 +193,9 @@ int main(int argc, char **argv){
         std::vector<double> f_param = {0, 0, mpc_pel_ref(1) * (digit_mpc.get_steptime() - digit_mpc.get_dstime()), 0, 0, digit_mpc.get_foot_wdith()};
         std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
         std::vector<double> qo_tan(mpc_obs_info.data() + 2, mpc_obs_info.data() + mpc_obs_info.size());
-        std::vector<double> rt = {traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1};
+        std::vector<double> rt = {0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1)};
+        if(mpc_index > 2)
+          rt[0] = 0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1);
 
         vector<vector<double>> mpc_input;
         mpc_input.push_back(q_init);
@@ -220,9 +222,8 @@ int main(int argc, char **argv){
         cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
         cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl; */
       }
-
-      double dt = (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1) / 0.1;
-      //dt = 1;
+      double dt = (traj_time - digit_mpc.get_dstime()/2) / (digit_mpc.get_steptime() - digit_mpc.get_dstime()/2);
+      dt = 1;
       cmd_pel_pos << (1 - dt) * QPSolution(0) + dt * QPSolution(2), (1 - dt) * QPSolution(55) + dt * QPSolution(57), 1;
       cmd_pel_vel << (1 - dt) * QPSolution(1) + dt * QPSolution(3), (1 - dt) * QPSolution(56) + dt * QPSolution(58), 0;
       cmd_left_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
@@ -238,9 +239,6 @@ int main(int argc, char **argv){
     mpc_res_pub.publish(msg);
     ros::spinOnce();
     loop_rate.sleep();
-    ++count;
-    if(count >=3)
-      count = 0;
   }
   //ros::Subscriber sub = n.subscribe("/digit_state", 100, chatterCallback);
   ros::spin();
