@@ -33,7 +33,7 @@ foot_D_y = 10
 foot_D_z = 18
 
 hip_yaw_P = 250
-hip_yaw_D = 25
+hip_yaw_D = 15
 
 arm_P = 250.0    
 cp_P  = 1.8        # capture point gains
@@ -50,15 +50,15 @@ com_Wrz = 1050.0
 com_Wry = 1050.0
 com_Wrx = 1050.0
 
-com_Wxst = 11050.0     # stepping weights
-com_Wyst = 11050.0
+com_Wxst = 10550.0     # stepping weights
+com_Wyst = 10550.0
 com_Wzst = 11350.0
 com_Wrzst = 10050.0
 com_Wryst = 10050.0
 com_Wrxst = 10050.0
 force_max = 450.0
 mu = 0.6             # friction coefficient
-qp_rate = 1000.0     # update frequency of the OSC 
+qp_rate = 500.0     # update frequency of the OSC 
 osc_version = 0      # 0 for c++ eigen osqp wrapper, 1 for osqp c implementation
 
 [Walk-Params]

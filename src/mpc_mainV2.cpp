@@ -160,13 +160,13 @@ int main(int argc, char **argv){
   Digit_MPC digit_mpc;
 
   ros::NodeHandle n;
-  ros::Rate loop_rate(200);
+  ros::Rate loop_rate(100);
   ros::Publisher mpc_res_pub = n.advertise<Digit_Ros::mpc_info>("mpc_res", 1000);
   int count = 0;
 
   VectorXd QPSolution = VectorXd::Zero(digit_mpc.get_Var_Num(),1);
-  VectorXd cmd_pel_pos = VectorXd::Zero(3,1);
-  VectorXd cmd_pel_vel = VectorXd::Zero(3,1); 
+  VectorXd cmd_pel_pos = VectorXd::Zero(4,1);
+  VectorXd cmd_pel_vel = VectorXd::Zero(4,1); 
   VectorXd cmd_left_foot = VectorXd::Zero(3,1);
   VectorXd cmd_right_foot = VectorXd::Zero(3,1);
   VectorXd foot_change = VectorXd::Zero(2,1);
@@ -187,10 +187,11 @@ int main(int argc, char **argv){
         VectorXd mpc_f_init = digit_mpc.get_foot_pos();
         VectorXd mpc_obs_info = digit_mpc.get_obs_info();
 
+        double foot_width = abs(mpc_pel_vel(1)) * sqrt(.9/9.81) * 1.8 + digit_mpc.get_foot_width();
         std::vector<double> q_init = {mpc_pel_pos(0), mpc_pel_vel(0), mpc_pel_pos(1), mpc_pel_vel(1)};
         std::vector<double> q_ref(mpc_pel_ref.data(), mpc_pel_ref.data() + mpc_pel_ref.size());
         std::vector<double> f_init(mpc_f_init.data(), mpc_f_init.data() + mpc_f_init.size());
-        std::vector<double> f_param = {0, 0, mpc_pel_ref(1) * (digit_mpc.get_steptime() - digit_mpc.get_dstime()), 0, 0, digit_mpc.get_foot_wdith()};
+        std::vector<double> f_param = {0, 0, mpc_pel_ref(1) * (digit_mpc.get_steptime() - digit_mpc.get_dstime()), 0, 0, foot_width};
         std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
         std::vector<double> qo_tan(mpc_obs_info.data() + 2, mpc_obs_info.data() + mpc_obs_info.size());
         std::vector<double> rt = {0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1)};
@@ -224,16 +225,16 @@ int main(int argc, char **argv){
       }
       double dt = (traj_time - digit_mpc.get_dstime()/2) / (digit_mpc.get_steptime() - digit_mpc.get_dstime()/2);
       dt = 1;
-      cmd_pel_pos << (1 - dt) * QPSolution(0) + dt * QPSolution(2), (1 - dt) * QPSolution(55) + dt * QPSolution(57), 1;
-      cmd_pel_vel << (1 - dt) * QPSolution(1) + dt * QPSolution(3), (1 - dt) * QPSolution(56) + dt * QPSolution(58), 0;
+      cmd_pel_pos << QPSolution(0), QPSolution(2), QPSolution(55), QPSolution(57);
+      cmd_pel_vel << QPSolution(1), QPSolution(3), QPSolution(56), QPSolution(58);
       cmd_left_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
       cmd_right_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
     }
     
     // interpolates result
     Digit_Ros::mpc_info msg;
-    std::copy(cmd_pel_pos.data(),cmd_pel_pos.data() + 3,msg.pel_pos_cmd.begin());
-    std::copy(cmd_pel_vel.data(),cmd_pel_vel.data() + 3,msg.pel_vel_cmd.begin());
+    std::copy(cmd_pel_pos.data(),cmd_pel_pos.data() + 4,msg.pel_pos_cmd.begin());
+    std::copy(cmd_pel_vel.data(),cmd_pel_vel.data() + 4,msg.pel_vel_cmd.begin());
     std::copy(cmd_left_foot.data(),cmd_left_foot.data() + 3,msg.foot_left_cmd.begin());
     std::copy(cmd_right_foot.data(),cmd_right_foot.data() + 3,msg.foot_right_cmd.begin());
     mpc_res_pub.publish(msg);

@@ -45,7 +45,7 @@ public:
   Eigen::VectorXd get_foot_pos()  {return foot_pos_;};
   Eigen::VectorXd get_obs_info()  {return obs_info_;};
   double get_traj_time()  {return traj_time_;};
-  double get_foot_wdith() {return f_width_;};
+  double get_foot_width() {return f_width_;};
   double get_steptime() {return step_time_;};
   double get_dstime() {return ds_time_;};
   int get_stance_leg() {return stance_leg_;};

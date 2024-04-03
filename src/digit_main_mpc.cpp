@@ -399,8 +399,8 @@ int main(int argc, char* argv[])
     circle_time = (observation.time - digit_time_last);
     // get contact trajectory
     if(key_mode == 4 || stepping > 0){
-      //traj_time = traj_time + circle_time; // use this when the simulator time is slow than real-time
-      traj_time = traj_time + 1 / qp_rate; // use this when the simualator is close to real-time
+      traj_time = traj_time + circle_time; // use this when the simulator time is slow than real-time
+      //traj_time = traj_time + 1 / qp_rate; // use this when the simualator is close to real-time
       if(traj_time > step_time){
         traj_time = 0;
         change_state = 1;
@@ -677,8 +677,19 @@ int main(int argc, char* argv[])
 
     // Stepping direction command
     if(stepping == 2 && use_cap == 0){
-      pel_pos_des.block(0,0,2,1) = mpc_cmd_listener.get_pel_pos_cmd().block(0,0,2,1);
-      pel_vel_des.block(0,0,2,1) = mpc_cmd_listener.get_pel_vel_cmd().block(0,0,2,1);
+      VectorXd mpc_cmd_pel_pos = mpc_cmd_listener.get_pel_pos_cmd();
+      VectorXd mpc_cmd_pel_vel = mpc_cmd_listener.get_pel_vel_cmd();
+
+      int mpc_index = floor((traj_time - ds_time/2) / 0.01);
+      double n = 1 - (traj_time - mpc_index * 0.01) / 0.01;
+      double lam = n;
+      pel_pos_des(0) = lam * mpc_cmd_pel_pos(0) + (1 - lam) * mpc_cmd_pel_pos(1);
+      pel_pos_des(1) = lam * mpc_cmd_pel_pos(2) + (1 - lam) * mpc_cmd_pel_pos(3);
+      pel_vel_des(0) = lam * mpc_cmd_pel_vel(0) + (1 - lam) * mpc_cmd_pel_vel(1);
+      pel_vel_des(1) = lam * mpc_cmd_pel_vel(2) + (1 - lam) * mpc_cmd_pel_vel(3);
+
+      cout << "y pos, des and cur" << pel_pos_des(1) << "    " << pel_pos(1) << endl;
+      cout << "y vel, des and cur" << pel_vel_des(1) << "    " << pel_vel(1) << endl;
     }
 
     double vel_des_x = -0.0;
@@ -741,7 +752,7 @@ int main(int argc, char* argv[])
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
       if(traj_time - ds_time/2 < 0.002)
-        foot_start << (left_toe_pos(0) + left_toe_back_pos(0))/2 - 0.07, (left_toe_pos(1) + left_toe_back_pos(1))/2;
+        foot_start << (left_toe_pos(0) + left_toe_back_pos(0))/2, (left_toe_pos(1) + left_toe_back_pos(1))/2;
       
       dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
@@ -749,7 +760,7 @@ int main(int argc, char* argv[])
 
       dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(min(2 * w * n,M_PI))) + .5 * (1 + cos(min(2 * w * n,M_PI))) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(min(1.5 * w * n,M_PI))) + .5 * (1 + cos(min(1.5 * w * n,M_PI))) * foot_start(0);
 
       left_toe_pos_ref << x_goal,y_goal,0;
       left_toe_vel_ref << dx_goal, dy_goal, 0;
@@ -795,14 +806,14 @@ int main(int argc, char* argv[])
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
       if(traj_time - ds_time/2 < 0.002)
-        foot_start << (right_toe_pos(0) + right_toe_back_pos(0))/2 - 0.07, (right_toe_pos(1) + right_toe_back_pos(1))/2;
+        foot_start << (right_toe_pos(0) + right_toe_back_pos(0))/2, (right_toe_pos(1) + right_toe_back_pos(1))/2;
       
       dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
       y_goal   = .5 * y_goal * (1 - cos(min(1.5 * w * n,M_PI))) + .5 * (1 + cos(min(1.5 * w * n,M_PI))) * foot_start(1);
       dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(min(2 * w * n,M_PI))) + .5 * (1 + cos(min(2 * w * n,M_PI))) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(min(1.5 * w * n,M_PI))) + .5 * (1 + cos(min(1.5 * w * n,M_PI))) * foot_start(0);
 
       right_toe_pos_ref << x_goal, y_goal, 0;
       right_toe_vel_ref << dx_goal, dy_goal, 0;
@@ -879,7 +890,7 @@ int main(int argc, char* argv[])
     }
     else{
       // reduce base gains during stepping
-      des_acc_pel << -2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 2 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
+      des_acc_pel << -2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) -2 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
                     -2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 2 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
                     -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
@@ -891,7 +902,7 @@ int main(int argc, char* argv[])
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
 
     // select matrix for swing foot (only swing foot has non-zero joint velocity commands)
-/*     MatrixXd select = MatrixXd::Zero(12,20);
+    MatrixXd select = MatrixXd::Zero(12,20);
     if(contact(0) > 0){
       select(0,6) = 1;
       select(1,7) = 1;
@@ -913,7 +924,7 @@ int main(int argc, char* argv[])
     if(contact(0) == 0){
       select2(0,6) = 1;
       select2(1,7) = 1;
-      select2(2,8) = 1;
+      //select2(2,8) = 1;
       select2(3,9) = 1;
       //select(4,11) = 1;
       //select(5,12) = 1;
@@ -921,12 +932,12 @@ int main(int argc, char* argv[])
     if(contact(1) == 0){
       select2(6,13) = 1;
       select2(7,14) = 1;
-      select2(8,15) = 1;
+      //select2(8,15) = 1;
       select2(9,16) = 1;
       //select(10,18) = 1;
       //select(11,19) = 1;
     }
- */
+ 
 
 
     // Solve OSC QP
@@ -954,8 +965,8 @@ int main(int argc, char* argv[])
     }
     else{
       if(update_mat == -1){
-        //D_term = .2 * B * select * Dmat * wb_dq.block(0,0,20,1);
-        //M -= 0.2 * B * select2 * Dmat * damping_dt;
+        //D_term = .3 * B * select * Dmat * wb_dq.block(0,0,20,1);
+        //M -= 0.3 * B * select2 * Dmat * damping_dt;
         if(osc_version == 0){
           osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G + D_term, contact);
           osc.updateQPMatrix(Weight_pel, M, 
@@ -1100,7 +1111,7 @@ int main(int argc, char* argv[])
     else{
       ql = ql_last;
     }
-    // right arm IK
+    // right arm IKpel_pos_des
     error = (p_rh - p_rh_ref).norm();
     iter = 0;
     if(error > 0.01){
@@ -1169,7 +1180,7 @@ int main(int argc, char* argv[])
     VectorXd pel_ref = VectorXd::Zero(4,1);      // x,y reference
     VectorXd st_foot_pos = VectorXd::Zero(2,1);  // stance foot position
     VectorXd obs_info = VectorXd::Zero(4,1);     // obstacle info
-    pel_ref << 0.0, 0.3, 0.0, -1 * pel_pos(1);              
+    pel_ref << 0.0, -pel_pos(0), 0.0, -pel_pos(1);              
     obs_info << -10.4, 0.0, 1.0, -0.0;           
 
     if(contact(0) == 0){
