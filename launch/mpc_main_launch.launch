@@ -4,7 +4,7 @@
     <arg name="run_sim"/> 
 
     <!-- Websockets Node -->
-    <node pkg="Digit_Ros" type="mpc_mainV2" name="mpc_node" output="screen"></node>
+    <node pkg="Digit_Ros" type="mpc_main" name="mpc_node" output="screen"></node>
     <!-- read value of arg -->
     <param name="sim_mode" value="$(arg run_sim)"/>
 </launch>

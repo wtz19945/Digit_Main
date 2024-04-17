@@ -72,10 +72,12 @@ private:
   casadi::Function left_step0_matrix_; 
   casadi::Function left_step1_matrix_;
   casadi::Function left_step2_matrix_;
+  casadi::Function left_step3_matrix_;
 
   casadi::Function right_step0_matrix_;
   casadi::Function right_step1_matrix_;
   casadi::Function right_step2_matrix_;
+  casadi::Function right_step3_matrix_;
 
   // Conversion between casadi DM and Eigen is not available. Use cpp vector instead
   // QP Parameters
@@ -95,10 +97,13 @@ private:
   MPC_Solver mpc_solver0_;
   MPC_Solver mpc_solver1_;
   MPC_Solver mpc_solver2_;
+  MPC_Solver mpc_solver3_;
 
   std::vector<int> Cons_Num_;
   int Vars_Num_;
+  
   // QP solution
   std::vector<double> sol_;
+  std::vector<double> sol_init_;
 };
 #endif //MPC_MAIN_H

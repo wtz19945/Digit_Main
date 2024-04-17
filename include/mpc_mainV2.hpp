@@ -103,5 +103,6 @@ private:
   int Vars_Num_;
   // QP solution
   std::vector<double> sol_;
+  std::vector<double> sol_init_;
 };
 #endif //MPC_MAINV2_H

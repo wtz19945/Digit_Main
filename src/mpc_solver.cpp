@@ -9,23 +9,39 @@ MPC_Solver::MPC_Solver(int Cons_Num, int Vars_Num){
 
     hessian_.resize(Vars_Num_,Vars_Num_);
     linearMatrix_.resize(Cons_Num_,Vars_Num_);
-    gradient_ = VectorXd::Zero(Vars_Num_);
-    lowerBound_ = VectorXd::Zero(Cons_Num_);
-    upperBound_ = VectorXd::Zero(Cons_Num_);
-    sol_ = VectorXd::Zero(Vars_Num_);
+    gradient_ = VectorXd::Zero(Vars_Num_,1);
+    lowerBound_ = VectorXd::Zero(Cons_Num_,1);
+    upperBound_ = VectorXd::Zero(Cons_Num_,1);
+    sol_ = VectorXd::Zero(Vars_Num_,1);
 }
 
 VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq, casadi::DM biq,casadi::DM H, casadi::DM f){
     // copy data
-    std::memcpy(gradient_.data(), f.ptr(), sizeof(double)*Vars_Num_);
+    //std::memcpy(gradient_.data(), f.ptr(), sizeof(double)*Vars_Num_);
+/*     for(int i = 0; i<Vars_Num_; i++)
+        gradient_(i) = (double)f(i);
     std::memcpy(lowerBound_.data(), beq.ptr(), sizeof(double)*Aeq.size1());
     std::memcpy(upperBound_.data(), beq.ptr(), sizeof(double)*Aeq.size1());
-
     std::memcpy(upperBound_.data() + Aeq.size1(), biq.ptr(), sizeof(double)*Aiq.size1());
     for(int i=0;i<Aiq.size1();i++){
         lowerBound_(i + Aeq.size1()) = -OsqpEigen::INFTY;
+    } */
+
+    for(int i = 0; i<Vars_Num_; i++){
+        gradient_(i) = (double)f(i);
     }
 
+    for(int i = 0; i < Cons_Num_; i++){
+        if(i < Aeq.size1()){
+            lowerBound_(i) = (double)beq(i);
+            upperBound_(i) = (double)beq(i);
+        }
+        else{
+            lowerBound_(i) = -OsqpEigen::INFTY;
+            upperBound_(i) = (double)biq(i - Aeq.size1());
+        }
+    }
+    
     if(QP_initialized_ == 0){
         for(int i=0;i<Vars_Num_;i++){
         for(int j=0;j<Vars_Num_;j++){
@@ -89,6 +105,6 @@ VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq
         solver_.updateBounds(lowerBound_,upperBound_);
     }
     solver_.solveProblem();
-    VectorXd QPSolution = solver_.getSolution();
-    return QPSolution;
+    sol_= solver_.getSolution();
+    return sol_;
 }

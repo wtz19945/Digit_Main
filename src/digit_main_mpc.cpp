@@ -503,6 +503,7 @@ int main(int argc, char* argv[])
     pel_pos = rotZ.transpose() * pel_pos; 
     pel_vel = rotZ.transpose() * pel_vel; // hardware: use body or world frame??? Both seems working
 
+    // Wrap theta
     if(theta(2) > M_PI){
         theta(2) -= 2 * M_PI; 
     }
@@ -513,6 +514,11 @@ int main(int argc, char* argv[])
       //;
     }
 
+/*     if((observation.time - digit_time_start) >= init_count){
+      pel_pos(0) -= pos_avg(0); 
+      pel_pos(1) -= pos_avg(1);
+    }
+     */
     // get state vector
     wb_q  << pel_pos, theta(2), theta(1), theta(0), q(joint::left_hip_roll),q(joint::left_hip_yaw),q(joint::left_hip_pitch),q(joint::left_knee)
       ,qj(joint::left_tarsus),qj(joint::left_toe_pitch),qj(joint::left_toe_roll),
@@ -548,11 +554,12 @@ int main(int argc, char* argv[])
         //right_toe_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
         //right_toe_back_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
     }
-    if(contact(0) == 0 && contact(1) >0){
+    if(contact(0) == 0 && contact(1) > 0){
         pel_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
         //left_toe_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
         //left_toe_back_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
     }
+
 
     // compute end effector position
     // VectorXd pelvis_pos = analytical_expressions.p_Pelvis(wb_q);
@@ -599,10 +606,7 @@ int main(int argc, char* argv[])
         a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
         b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
     }
-    else{
-        pel_pos(0) -= pos_avg(0) + 0.01; 
-        pel_pos(1) -= pos_avg(1);
-    }
+
     
     // End effector velocity
     VectorXd  left_toe_vel = left_toe_jaco * wb_dq;
@@ -662,7 +666,7 @@ int main(int argc, char* argv[])
       key_time_tracker = observation.time;
       z_off_track = z_off;
     }
-    pel_pos_des << 0,0,pel_z + z_off;
+    pel_pos_des << 0, 0, pel_z + z_off;
 
     // saturate position command
     if(abs(pel_pos(2) - pel_pos_des(2)) > 0.04){
@@ -680,47 +684,29 @@ int main(int argc, char* argv[])
       VectorXd mpc_cmd_pel_pos = mpc_cmd_listener.get_pel_pos_cmd();
       VectorXd mpc_cmd_pel_vel = mpc_cmd_listener.get_pel_vel_cmd();
 
-      int mpc_index = floor((traj_time - ds_time/2) / 0.01);
-      double n = 1 - (traj_time - mpc_index * 0.01) / 0.01;
-      double lam = n;
-      pel_pos_des(0) = lam * mpc_cmd_pel_pos(0) + (1 - lam) * mpc_cmd_pel_pos(1);
-      pel_pos_des(1) = lam * mpc_cmd_pel_pos(2) + (1 - lam) * mpc_cmd_pel_pos(3);
-      pel_vel_des(0) = lam * mpc_cmd_pel_vel(0) + (1 - lam) * mpc_cmd_pel_vel(1);
-      pel_vel_des(1) = lam * mpc_cmd_pel_vel(2) + (1 - lam) * mpc_cmd_pel_vel(3);
-
-      cout << "y pos, des and cur" << pel_pos_des(1) << "    " << pel_pos(1) << endl;
-      cout << "y vel, des and cur" << pel_vel_des(1) << "    " << pel_vel(1) << endl;
+      double lam = 0.5 + .5 * (traj_time - ds_time/2) / (step_time - ds_time/2);
+      pel_pos_des(0) = (1 - lam) * mpc_cmd_pel_pos(0) + lam * mpc_cmd_pel_pos(1);
+      pel_pos_des(1) = (1 - lam) * mpc_cmd_pel_pos(2) + lam  * mpc_cmd_pel_pos(3);
+      pel_vel_des(0) = (1 - lam) * mpc_cmd_pel_vel(0) + lam  * mpc_cmd_pel_vel(1);
+      pel_vel_des(1) = (1 - lam) * mpc_cmd_pel_vel(2) + lam  * mpc_cmd_pel_vel(3);
     }
 
     double vel_des_x = -0.0;
     double vel_des_y = -0.0;
-    if(stepping == 2 && use_cap == 1){
+    if(stepping == 2){
       // reset position command when walking direction is changed
-      if(key_mode_prev != key_mode){
-          pos_des_x = pel_pos(0);
-          pos_des_y = pel_pos(1);
-      }
       if(key_mode == 5){
-        vel_des_x = 0.2;
-        pos_des_x += 0.2 * circle_time;
+        vel_des_x = 0.3 + min(0.7, global_time * 0.05);
       }
       if(key_mode == 6){
-        vel_des_x = -0.2;
-        pos_des_x += -0.2 * circle_time; 
+        vel_des_x = -0.3;
       }
       if(key_mode == 7){
-        vel_des_y = 0.2;
-        pos_des_y += 0.2 * circle_time;
+        vel_des_y = 0.3;
       }
       if(key_mode == 8){
-        vel_des_y = -0.2;
-        pos_des_y += -0.2 * circle_time;
-      }
-      
-      pel_pos_des(0) = pos_des_x;
-      pel_vel_des(0) = vel_des_x;
-      pel_pos_des(1) = pos_des_y;
-      pel_vel_des(1) = vel_des_y;
+        vel_des_y = -0.3;
+      }      
     }
     key_mode_prev = key_mode;
 
@@ -733,36 +719,33 @@ int main(int argc, char* argv[])
     VectorXd right_toe_vel_ref = VectorXd::Zero(3,1);
     VectorXd right_toe_acc_ref = VectorXd::Zero(3,1);
 
+    double temp_x = 1.5;
+    double temp_y = 1.6;
     if(contact(0) == 0){
       // temporally use capture point
       double x_goal = pel_pos(0) - 0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des_x * 0;
-      double dx_goal = pel_vel(0) + vel_des_x;
-      double ddx_goal = 0;
-
-      double y_goal = max(pel_pos(1) + 0.1 + cp_py * sqrt(.9/9.81) * pel_vel(1), (right_toe_pos(2) + right_toe_back_pos(2))/2 + 0.03);
-      double dy_goal = pel_vel(1) + vel_des_y;
-      double ddy_goal = 0;
+      double y_goal = max(pel_pos(1) + 0.1 + cp_py * sqrt(.9/9.81) * pel_vel(1), (right_toe_pos(1) + right_toe_back_pos(1))/2 + 0.03);
 
       if(use_cap == 0){
         VectorXd foot_cmd = mpc_cmd_listener.get_left_foot_cmd();
-        x_goal = foot_cmd(0) - 0.07;
+        x_goal = foot_cmd(0);
         y_goal = foot_cmd(1);
       }
       
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
-      if(traj_time - ds_time/2 < 0.002)
+      if(traj_time - ds_time/2 < 0.005)
         foot_start << (left_toe_pos(0) + left_toe_back_pos(0))/2, (left_toe_pos(1) + left_toe_back_pos(1))/2;
       
-      dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
-      ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      y_goal   = .5 * y_goal * (1 - cos(min(1.5 * w * n,M_PI))) + .5 * (1 + cos(min(1.5 * w * n,M_PI))) * foot_start(1);
+      double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
+      double ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(min(temp_y * w * n,M_PI))) + .5 * (1 + cos(min(temp_y * w * n,M_PI))) * foot_start(1);
 
-      dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
-      ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(min(1.5 * w * n,M_PI))) + .5 * (1 + cos(min(1.5 * w * n,M_PI))) * foot_start(0);
+      double dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
+      double ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(min(temp_x * w * n,M_PI))) + .5 * (1 + cos(min(temp_x * w * n,M_PI))) * foot_start(0);
 
-      left_toe_pos_ref << x_goal,y_goal,0;
+      left_toe_pos_ref << x_goal,max(y_goal,(right_toe_pos(1) + right_toe_back_pos(1))/2 + 0.05),0;
       left_toe_vel_ref << dx_goal, dy_goal, 0;
       left_toe_acc_ref << ddx_goal,ddy_goal,0;
 
@@ -790,32 +773,28 @@ int main(int argc, char* argv[])
     if(contact(1) == 0){
       // temporally use capture point
       double x_goal = pel_pos(0) + -0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des_x * 0;
-      double dx_goal = pel_vel(0) + vel_des_x;
-      double ddx_goal = 0;
-
-      double y_goal = min(pel_pos(1) - 0.1 + cp_py * sqrt(.9/9.81) * pel_vel(1), (left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.05);
-      double dy_goal = pel_vel(1) + vel_des_y;
-      double ddy_goal = 0;
+      double y_goal = min(pel_pos(1) - 0.1 + cp_py * sqrt(.9/9.81) * pel_vel(1), (left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.02);
 
       if(use_cap == 0){
         VectorXd foot_cmd = mpc_cmd_listener.get_right_foot_cmd();
-        x_goal = foot_cmd(0) - 0.07;
+        x_goal = foot_cmd(0);
         y_goal = foot_cmd(1);
       }
       
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
-      if(traj_time - ds_time/2 < 0.002)
+      if(traj_time - ds_time/2 < 0.005)
         foot_start << (right_toe_pos(0) + right_toe_back_pos(0))/2, (right_toe_pos(1) + right_toe_back_pos(1))/2;
       
-      dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
-      ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      y_goal   = .5 * y_goal * (1 - cos(min(1.5 * w * n,M_PI))) + .5 * (1 + cos(min(1.5 * w * n,M_PI))) * foot_start(1);
-      dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
-      ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(min(1.5 * w * n,M_PI))) + .5 * (1 + cos(min(1.5 * w * n,M_PI))) * foot_start(0);
+      double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
+      double ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(min(temp_y * w * n,M_PI))) + .5 * (1 + cos(min(temp_y * w * n,M_PI))) * foot_start(1);
 
-      right_toe_pos_ref << x_goal, y_goal, 0;
+      double dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
+      double ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(min(temp_x * w * n,M_PI))) + .5 * (1 + cos(min(temp_x * w * n,M_PI))) * foot_start(0);
+
+      right_toe_pos_ref << x_goal, min(y_goal,(left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.05), 0;
       right_toe_vel_ref << dx_goal, dy_goal, 0;
       right_toe_acc_ref << ddx_goal,ddy_goal,0;
 
@@ -840,20 +819,20 @@ int main(int argc, char* argv[])
     }
 
     VectorXd des_acc = VectorXd::Zero(6,1);
-    des_acc << -KP_ToeF(0) * (left_toe_pos(0) - left_toe_pos_ref(0)   - 0.05) - KD_ToeF(0) * (left_toe_vel(0) - left_toe_vel_ref(0)) + left_toe_acc_ref(0),
+    des_acc << -KP_ToeF(0) * (left_toe_pos(0) - left_toe_pos_ref(0)   - 0.08) - KD_ToeF(0) * (left_toe_vel(0) - left_toe_vel_ref(0)) + left_toe_acc_ref(0),
                -KP_ToeF(1) * (left_toe_pos(1) - left_toe_pos_ref(1))  - KD_ToeF(1) * (left_toe_vel(1) - left_toe_vel_ref(1)) + left_toe_acc_ref(1), 
                -KP_ToeF(2) * (left_toe_pos(2) - left_toe_pos_ref(2))  - KD_ToeF(2) * (left_toe_vel(2) - left_toe_vel_ref(2)) + left_toe_acc_ref(2),
-               -KP_ToeF(3) * (right_toe_pos(0) - right_toe_pos_ref(0) - 0.05) - KD_ToeF(3) * (right_toe_vel(0) - right_toe_vel_ref(0)) + right_toe_acc_ref(0),
+               -KP_ToeF(3) * (right_toe_pos(0) - right_toe_pos_ref(0) - 0.08) - KD_ToeF(3) * (right_toe_vel(0) - right_toe_vel_ref(0)) + right_toe_acc_ref(0),
                -KP_ToeF(4) * (right_toe_pos(1) - right_toe_pos_ref(1))- KD_ToeF(4) * (right_toe_vel(1) - right_toe_vel_ref(1)) + right_toe_acc_ref(1), 
                -KP_ToeF(5) * (right_toe_pos(2) - right_toe_pos_ref(2))- KD_ToeF(5) * (right_toe_vel(2) - right_toe_vel_ref(2)) + right_toe_acc_ref(2);
 
     VectorXd des_acc_toe = VectorXd::Zero(8,1);
     // Currently, need the forth dimension to control leg yaw rotation
-    des_acc_toe << -KP_ToeB(0) * (left_toe_rot(0) - left_toe_pos_ref(0) + 0.12) - KD_ToeB(0) * (left_toe_drot(0) - left_toe_vel_ref(0)) + left_toe_acc_ref(0),
+    des_acc_toe << -KP_ToeB(0) * (left_toe_rot(0) - left_toe_pos_ref(0) + 0.08) - KD_ToeB(0) * (left_toe_drot(0) - left_toe_vel_ref(0)) + left_toe_acc_ref(0),
                    -KP_ToeB(1) * (left_toe_rot(1) - left_toe_pos_ref(1)) - KD_ToeB(1) * (left_toe_drot(1) - left_toe_vel_ref(1)) + left_toe_acc_ref(1),
                    -KP_ToeB(2) * (left_toe_rot(2) - left_toe_pos_ref(2)) - KD_ToeB(2) * (left_toe_drot(2) - left_toe_vel_ref(2)) + left_toe_acc_ref(2),
                    -cphy * (left_toe_rot(3) - 0) - cdhy * (left_toe_drot(3) - 0),
-                   -KP_ToeB(3) * (right_toe_rot(0) - right_toe_pos_ref(0) + 0.12) - KD_ToeB(3) * (right_toe_drot(0) - right_toe_vel_ref(0)) + right_toe_acc_ref(0),
+                   -KP_ToeB(3) * (right_toe_rot(0) - right_toe_pos_ref(0) + 0.08) - KD_ToeB(3) * (right_toe_drot(0) - right_toe_vel_ref(0)) + right_toe_acc_ref(0),
                    -KP_ToeB(4) * (right_toe_rot(1) - right_toe_pos_ref(1)) - KD_ToeB(4) * (right_toe_drot(1) - right_toe_vel_ref(1)) + right_toe_acc_ref(1),
                    -KP_ToeB(5) * (right_toe_rot(2) - right_toe_pos_ref(2)) - KD_ToeB(5) * (right_toe_drot(2) - right_toe_vel_ref(2)) + right_toe_acc_ref(2),
                    -cphy * (right_toe_rot(3) - 0) - cdhy * (right_toe_drot(3) - 0);
@@ -882,27 +861,31 @@ int main(int argc, char* argv[])
 
     if(contact(0) == 1 && contact(1) == 1){
       des_acc_pel << -KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
-                    -KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
-                    -KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
-                    -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
-                    -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
-                    -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
+                     -KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
+                     -KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
+                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
+                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
+                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
     }
     else{
-      // reduce base gains during stepping
-      des_acc_pel << -2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) -2 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
-                    -2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 2 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
-                    -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
-                    -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
-                    -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
-                    -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
+      VectorXd foot = pel_pos;
+      if(contact(0) == 0)
+        foot = .5 * (right_toe_back_pos + right_toe_pos);
+      if(contact(1) == 0)
+        foot = .5 * (left_toe_back_pos + left_toe_pos);
+      des_acc_pel << -2.0 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 2.0 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) + 1 * 9.81/1 * (pel_pos(0) - foot(0) + 0.05) - 10 * (pel_vel(0) - vel_des_x),
+                     -2.0 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 2.0 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) + 1 * 9.81/1 * (pel_pos(1) - foot(1) + 0.002),
+                     -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
+                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
+                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
+                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
     }
     
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
 
     // select matrix for swing foot (only swing foot has non-zero joint velocity commands)
-    MatrixXd select = MatrixXd::Zero(12,20);
+/*     MatrixXd select = MatrixXd::Zero(12,20);
     if(contact(0) > 0){
       select(0,6) = 1;
       select(1,7) = 1;
@@ -937,7 +920,7 @@ int main(int argc, char* argv[])
       //select(10,18) = 1;
       //select(11,19) = 1;
     }
- 
+  */
 
 
     // Solve OSC QP
@@ -1030,9 +1013,11 @@ int main(int argc, char* argv[])
     if(contact(0) != 0){
       wb_dq_next.block(0,0,6,1) = VectorXd::Zero(6,1);
     }
+
     if(contact(1) != 0){
       wb_dq_next.block(6,0,6,1) = VectorXd::Zero(6,1);
     }
+
     // Foot joint velocity command
     wb_dq_next(4) = 0;
     wb_dq_next(5) = 0;
@@ -1068,8 +1053,8 @@ int main(int argc, char* argv[])
       }
     }
     else{
-      p_lh_ref << pel_pos(0) + 0.02, pel_pos(1) + 0.25, pel_pos(2) + arm_z_int;
-      p_rh_ref << pel_pos(0) + 0.02, pel_pos(1) - 0.25, pel_pos(2) + arm_z_int;
+      p_lh_ref << + 0.02, + 0.25, + arm_z_int;
+      p_rh_ref << + 0.02, - 0.25, + arm_z_int;
     }
 
     // initialize q with current pose
@@ -1180,7 +1165,7 @@ int main(int argc, char* argv[])
     VectorXd pel_ref = VectorXd::Zero(4,1);      // x,y reference
     VectorXd st_foot_pos = VectorXd::Zero(2,1);  // stance foot position
     VectorXd obs_info = VectorXd::Zero(4,1);     // obstacle info
-    pel_ref << 0.0, -pel_pos(0), 0.0, -pel_pos(1);              
+    pel_ref << 0.0, vel_des_x, 0.0, vel_des_y;              
     obs_info << -10.4, 0.0, 1.0, -0.0;           
 
     if(contact(0) == 0){

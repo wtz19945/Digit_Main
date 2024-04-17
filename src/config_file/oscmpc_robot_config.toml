@@ -26,7 +26,7 @@ com_D_gain_ry = 5.0
 com_D_gain_rx = 5.0
 
 foot_P_x = 155
-foot_P_y = 155
+foot_P_y = 125
 foot_P_z = 152.5
 foot_D_x = 10
 foot_D_y = 10
@@ -40,8 +40,10 @@ cp_P  = 1.8        # capture point gains
 
 
 [QP-Params]
-st_foot_W = 1350.0
-sw_foot_W = 1350.0
+st_foot_W = 10350.0
+sw_foot_W = 1350.0   # foot z weight
+sw_foot_Wx = 1350.0
+sw_foot_Wy = 1350.0
 com_W = 1050.0
 com_Wx = 3050.0
 com_Wy = 3050.0
@@ -50,13 +52,13 @@ com_Wrz = 1050.0
 com_Wry = 1050.0
 com_Wrx = 1050.0
 
-com_Wxst = 10550.0     # stepping weights
-com_Wyst = 10550.0
-com_Wzst = 11350.0
+com_Wxst = 5550.0     # stepping weights
+com_Wyst = 5550.0
+com_Wzst = 21350.0
 com_Wrzst = 10050.0
 com_Wryst = 10050.0
 com_Wrxst = 10050.0
-force_max = 450.0
+force_max = 650.0
 mu = 0.6             # friction coefficient
 qp_rate = 500.0     # update frequency of the OSC 
 osc_version = 0      # 0 for c++ eigen osqp wrapper, 1 for osqp c implementation
@@ -69,7 +71,7 @@ end_acc = -5       # Acceleration when foot hig ground
 ds_time = 0.0     # Time duration for double support phase
 
 [Filter]
-wd_sz = 5000      # number of the consecutive safety violation to trigger safe controller. Control frequency is 1kHz, so 0.5s safe window
+wd_sz = 25000      # number of the consecutive safety violation to trigger safe controller. Control frequency is 1kHz, so 0.5s safe window
 
 [Start]
 init_count = 0.3 # Time to record robot's initial configuration
