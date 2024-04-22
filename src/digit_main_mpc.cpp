@@ -166,9 +166,6 @@ int main(int argc, char* argv[])
   pel_quaternion = VectorXd::Zero(4,1);
   theta = VectorXd::Zero(3,1);
   dtheta = VectorXd::Zero(3,1);
-  double pos_des_x = 0;
-  double pos_des_y = 0;
-  double soft_start = 1;
 
   // initialize ros
   ros::init(argc, argv, "sample_node");
@@ -353,6 +350,7 @@ int main(int argc, char* argv[])
   OSC_ControlV2 oscV2(config);
 
   VectorXd QPSolution = VectorXd::Zero(20,1);
+  VectorXd last_QPSolution = VectorXd::Zero(20,1);
 
   VectorXd pel_pos_des = VectorXd::Zero(3,1);
   VectorXd pel_vel_des = VectorXd::Zero(3,1);
@@ -684,7 +682,7 @@ int main(int argc, char* argv[])
       VectorXd mpc_cmd_pel_pos = mpc_cmd_listener.get_pel_pos_cmd();
       VectorXd mpc_cmd_pel_vel = mpc_cmd_listener.get_pel_vel_cmd();
 
-      double lam = 0.5 + .5 * (traj_time - ds_time/2) / (step_time - ds_time/2);
+      double lam = 0.5 + 0.5 * (traj_time - ds_time/2) / (step_time - ds_time/2);
       pel_pos_des(0) = (1 - lam) * mpc_cmd_pel_pos(0) + lam * mpc_cmd_pel_pos(1);
       pel_pos_des(1) = (1 - lam) * mpc_cmd_pel_pos(2) + lam  * mpc_cmd_pel_pos(3);
       pel_vel_des(0) = (1 - lam) * mpc_cmd_pel_vel(0) + lam  * mpc_cmd_pel_vel(1);
@@ -696,7 +694,7 @@ int main(int argc, char* argv[])
     if(stepping == 2){
       // reset position command when walking direction is changed
       if(key_mode == 5){
-        vel_des_x = 0.3 + min(0.7, global_time * 0.05);
+        vel_des_x = 0.3;
       }
       if(key_mode == 6){
         vel_des_x = -0.3;
@@ -880,6 +878,7 @@ int main(int argc, char* argv[])
                      -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
                      -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
     }
+
     
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
@@ -997,12 +996,13 @@ int main(int argc, char* argv[])
     VectorXd wb_dq_next = VectorXd::Zero(12,1);
     for(int i=0;i<12;i++){
       if(i<4) 
-        wb_dq_next(i) = wb_dq(6+i) + damping_dt * QPSolution(6+i); // skip passive joint tarsus
+        wb_dq_next(i) = wb_dq(6+i) + damping_dt * 0.5 * (QPSolution(6+i) + last_QPSolution(6+i)); // skip passive joint tarsus
       else if(i<10)
-        wb_dq_next(i) = wb_dq(7+i) + damping_dt * QPSolution(7+i);
+        wb_dq_next(i) = wb_dq(7+i) + damping_dt * 0.5 * (QPSolution(7+i) + last_QPSolution(6+i));
       else
-        wb_dq_next(i) = wb_dq(8+i) + damping_dt * QPSolution(8+i);
+        wb_dq_next(i) = wb_dq(8+i) + damping_dt * 0.5 * (QPSolution(8+i) + last_QPSolution(6+i));
     }
+    last_QPSolution = QPSolution;
 
     
     wb_dq_next(2) = 0*wb_dq_next(2);
@@ -1148,7 +1148,18 @@ int main(int argc, char* argv[])
           torque *= min((observation.time - digit_time_start)/soft_count,1.0);
           command.motors[i].torque = 1 * torque(i) ;
           command.motors[i].velocity = 1 * wb_dq_next(i);
-          command.motors[i].damping = .2 * limits->damping_limit[i];
+          if(i<6){
+            if(contact(0) > 0)
+              command.motors[i].damping = .2 * limits->damping_limit[i];
+            else
+              command.motors[i].damping = .2 * limits->damping_limit[i];
+          }
+          else{
+            if(contact(1) > 0)
+              command.motors[i].damping = .2 * limits->damping_limit[i];
+            else
+              command.motors[i].damping = .2 * limits->damping_limit[i];
+          }
         }
       }
     }

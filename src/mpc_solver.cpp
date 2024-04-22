@@ -44,12 +44,12 @@ VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq
     
     if(QP_initialized_ == 0){
         for(int i=0;i<Vars_Num_;i++){
-        for(int j=0;j<Vars_Num_;j++){
-            if((double)H(j,i) != 0){
-            hessian_.insert(j,i) = (double)H(j,i);
-            hessian_coeff_.push_back(Eigen::Triplet<double>(j,i,(double)H(j,i)));
+            for(int j=0;j<Vars_Num_;j++){
+                if((double)H(j,i) != 0){
+                    hessian_.insert(j,i) = (double)H(j,i);
+                    hessian_coeff_.push_back(Eigen::Triplet<double>(j,i,(double)H(j,i))); // create 
+                }
             }
-        }
         }
 
         for(int i=0;i<Vars_Num_;i++){
