@@ -1005,18 +1005,18 @@ int main(int argc, char* argv[])
     last_QPSolution = QPSolution;
 
     
-    wb_dq_next(2) = 0*wb_dq_next(2);
+    wb_dq_next(2) = 1*wb_dq_next(2);
     wb_dq_next(3) = 1*wb_dq_next(3);
-    wb_dq_next(8) = 0*wb_dq_next(8);
+    wb_dq_next(8) = 1*wb_dq_next(8);
     wb_dq_next(9) = 1*wb_dq_next(9);
 
-    if(contact(0) != 0){
+/*     if(contact(0) != 0){
       wb_dq_next.block(0,0,6,1) = VectorXd::Zero(6,1);
     }
 
     if(contact(1) != 0){
       wb_dq_next.block(6,0,6,1) = VectorXd::Zero(6,1);
-    }
+    } */
 
     // Foot joint velocity command
     wb_dq_next(4) = 0;
