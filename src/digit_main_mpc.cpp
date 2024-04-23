@@ -717,8 +717,8 @@ int main(int argc, char* argv[])
     VectorXd right_toe_vel_ref = VectorXd::Zero(3,1);
     VectorXd right_toe_acc_ref = VectorXd::Zero(3,1);
 
-    double temp_x = 1.5;
-    double temp_y = 1.6;
+    double temp_x = 1.3;
+    double temp_y = 1.3;
     if(contact(0) == 0){
       // temporally use capture point
       double x_goal = pel_pos(0) - 0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des_x * 0;
@@ -884,24 +884,6 @@ int main(int argc, char* argv[])
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
 
     // select matrix for swing foot (only swing foot has non-zero joint velocity commands)
-/*     MatrixXd select = MatrixXd::Zero(12,20);
-    if(contact(0) > 0){
-      select(0,6) = 1;
-      select(1,7) = 1;
-      select(2,8) = 1;
-      select(3,9) = 1;
-      select(4,11) = 1;
-      select(5,12) = 1;
-    }
-    if(contact(1) > 0){
-      select(6,13) = 1;
-      select(7,14) = 1;
-      select(8,15) = 1;
-      select(9,16) = 1;
-      select(10,18) = 1;
-      select(11,19) = 1;
-    }
-    
     MatrixXd select2 = MatrixXd::Zero(12,20);
     if(contact(0) == 0){
       select2(0,6) = 1;
@@ -919,7 +901,7 @@ int main(int argc, char* argv[])
       //select(10,18) = 1;
       //select(11,19) = 1;
     }
-  */
+ 
 
 
     // Solve OSC QP
@@ -947,8 +929,7 @@ int main(int argc, char* argv[])
     }
     else{
       if(update_mat == -1){
-        //D_term = .3 * B * select * Dmat * wb_dq.block(0,0,20,1);
-        //M -= 0.3 * B * select2 * Dmat * damping_dt;
+        M -= 0.2 * B * select2 * Dmat * damping_dt;
         if(osc_version == 0){
           osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G + D_term, contact);
           osc.updateQPMatrix(Weight_pel, M, 
@@ -1005,9 +986,9 @@ int main(int argc, char* argv[])
     last_QPSolution = QPSolution;
 
     
-    wb_dq_next(2) = 1*wb_dq_next(2);
+    wb_dq_next(2) = 0*wb_dq_next(2);
     wb_dq_next(3) = 1*wb_dq_next(3);
-    wb_dq_next(8) = 1*wb_dq_next(8);
+    wb_dq_next(8) = 0*wb_dq_next(8);
     wb_dq_next(9) = 1*wb_dq_next(9);
 
 /*     if(contact(0) != 0){

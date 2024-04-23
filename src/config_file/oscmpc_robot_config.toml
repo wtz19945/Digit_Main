@@ -18,14 +18,14 @@ com_D_gain_x = 5.0
 com_D_gain_y = 5.0
 com_D_gain_z = 5.0
 
-com_P_gain_rz = 150.0
-com_P_gain_ry = 150.0
-com_P_gain_rx = 150.0
+com_P_gain_rz = 350.0
+com_P_gain_ry = 350.0
+com_P_gain_rx = 350.0
 com_D_gain_rz = 5.0
 com_D_gain_ry = 5.0
 com_D_gain_rx = 5.0
 
-foot_P_x = 155
+foot_P_x = 125
 foot_P_y = 125
 foot_P_z = 152.5
 foot_D_x = 10
