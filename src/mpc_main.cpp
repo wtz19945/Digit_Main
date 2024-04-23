@@ -1,4 +1,4 @@
-#include "mpc_mainV2.hpp"
+#include "mpc_main.hpp"
 #include "utilities.hpp"
 
 using namespace Eigen;
@@ -55,6 +55,9 @@ Digit_MPC::Digit_MPC()
   double Wobs = config->get_qualified_as<double>("MPC-Params.W_obs").value_or(0);
   double r1 = config->get_qualified_as<double>("MPC-Params.obs_rad1").value_or(0);
   double r2 = config->get_qualified_as<double>("MPC-Params.obs_rad2").value_or(0);
+  mpc_rate_ = config->get_qualified_as<double>("MPC-Params.mpc_rate").value_or(0);
+  ux_off_ = config->get_qualified_as<double>("MPC-Params.ux_off").value_or(0);
+  uy_off_ = config->get_qualified_as<double>("MPC-Params.uy_off").value_or(0);
 
   std::shared_ptr<cpptoml::table> config_osc = cpptoml::parse_file(package_path + "/src/config_file/oscmpc_robot_config.toml");
   step_time_ = config_osc->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
@@ -165,7 +168,8 @@ int main(int argc, char **argv){
   Digit_MPC digit_mpc;
 
   ros::NodeHandle n;
-  ros::Rate loop_rate(50);
+  cout << digit_mpc.get_mpcrate() << endl;
+  ros::Rate loop_rate(digit_mpc.get_mpcrate());
   ros::Publisher mpc_res_pub = n.advertise<Digit_Ros::mpc_info>("mpc_res", 10);
   int count = 0;
 
@@ -217,7 +221,7 @@ int main(int argc, char **argv){
         std::vector<double> rt = {max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
         if(mpc_index > 2)
           rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
-        std::vector<double> foff = {.02, 0.002};
+        std::vector<double> foff = {digit_mpc.get_uxoff(), digit_mpc.get_uyoff()};
 
         vector<vector<double>> mpc_input;
         mpc_input.push_back(q_init);
@@ -232,23 +236,23 @@ int main(int argc, char **argv){
 
         QPSolution = digit_mpc.Update_MPC_(mpc_index,mpc_input);
         auto mpc_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - mpc_time_start);
-        //cout << "solving time: " << mpc_time.count() << endl;
+        cout << "solving time: " << mpc_time.count() << endl;
       
-      cout << "current state is " << endl;
+/*       cout << "current state is " << endl;
       cout << q_init << endl;
       cout << "goal state is " << endl;
-      cout << dx_des << "    " << dy_des << endl;
+      cout << dx_des << "    " << dy_des << endl; */
       if(digit_mpc.get_stance_leg() == 1){
         foot_change << QPSolution(51), QPSolution(106);
-        cout << "this is a left step, right foot on ground" << endl;
+/*         cout << "this is a left step, right foot on ground" << endl;
         cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
-        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl; 
+        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
       else{
         foot_change << QPSolution(51), QPSolution(106);
-        cout << "this is a right step, left foot on ground" << endl;
+/*         cout << "this is a right step, left foot on ground" << endl;
         cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
-        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl; 
+        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
       int off = 0;
       cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(55), QPSolution(57 + off);

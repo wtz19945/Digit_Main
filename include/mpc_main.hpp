@@ -45,9 +45,12 @@ public:
   Eigen::VectorXd get_foot_pos()  {return foot_pos_;};
   Eigen::VectorXd get_obs_info()  {return obs_info_;};
   double get_traj_time()  {return traj_time_;};
-  double get_foot_wdith() {return f_width_;};
+  double get_foot_width() {return f_width_;};
   double get_steptime() {return step_time_;};
   double get_dstime() {return ds_time_;};
+  double get_mpcrate() {return mpc_rate_;};
+  double get_uxoff() {return ux_off_;};
+  double get_uyoff() {return uy_off_;};
   int get_stance_leg() {return stance_leg_;};
   int get_Var_Num() {return Vars_Num_;};
   Eigen::VectorXd Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input);
@@ -93,6 +96,10 @@ private:
   int NPred_;
   double ds_time_;
   double step_time_;
+  double mpc_rate_;
+  double ux_off_;
+  double uy_off_;
+
   // OSQP Solver
   MPC_Solver mpc_solver0_;
   MPC_Solver mpc_solver1_;

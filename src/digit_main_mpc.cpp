@@ -229,6 +229,9 @@ int main(int argc, char* argv[])
 
   // Foot Params
   double cp_py  = config->get_qualified_as<double>("PD-Gains.cp_P").value_or(0);
+  double mpc_px = config->get_qualified_as<double>("PD-Gains.mpc_px").value_or(0);
+  double mpc_py = config->get_qualified_as<double>("PD-Gains.mpc_py").value_or(0);
+
   double fpx = config->get_qualified_as<double>("PD-Gains.foot_P_x").value_or(0);
   double fpy = config->get_qualified_as<double>("PD-Gains.foot_P_y").value_or(0);
   double fpz = config->get_qualified_as<double>("PD-Gains.foot_P_z").value_or(0);
@@ -717,8 +720,6 @@ int main(int argc, char* argv[])
     VectorXd right_toe_vel_ref = VectorXd::Zero(3,1);
     VectorXd right_toe_acc_ref = VectorXd::Zero(3,1);
 
-    double temp_x = 1.5;
-    double temp_y = 1.6;
     if(contact(0) == 0){
       // temporally use capture point
       double x_goal = pel_pos(0) - 0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des_x * 0;
@@ -737,11 +738,11 @@ int main(int argc, char* argv[])
       
       double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       double ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      y_goal   = .5 * y_goal * (1 - cos(min(temp_y * w * n,M_PI))) + .5 * (1 + cos(min(temp_y * w * n,M_PI))) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(min(mpc_py * w * n,M_PI))) + .5 * (1 + cos(min(mpc_py * w * n,M_PI))) * foot_start(1);
 
       double dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       double ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(min(temp_x * w * n,M_PI))) + .5 * (1 + cos(min(temp_x * w * n,M_PI))) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(min(mpc_px * w * n,M_PI))) + .5 * (1 + cos(min(mpc_px * w * n,M_PI))) * foot_start(0);
 
       left_toe_pos_ref << x_goal,max(y_goal,(right_toe_pos(1) + right_toe_back_pos(1))/2 + 0.05),0;
       left_toe_vel_ref << dx_goal, dy_goal, 0;
@@ -786,11 +787,11 @@ int main(int argc, char* argv[])
       
       double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       double ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      y_goal   = .5 * y_goal * (1 - cos(min(temp_y * w * n,M_PI))) + .5 * (1 + cos(min(temp_y * w * n,M_PI))) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(min(mpc_py * w * n,M_PI))) + .5 * (1 + cos(min(mpc_py * w * n,M_PI))) * foot_start(1);
 
       double dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       double ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(min(temp_x * w * n,M_PI))) + .5 * (1 + cos(min(temp_x * w * n,M_PI))) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(min(mpc_px * w * n,M_PI))) + .5 * (1 + cos(min(mpc_px * w * n,M_PI))) * foot_start(0);
 
       right_toe_pos_ref << x_goal, min(y_goal,(left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.05), 0;
       right_toe_vel_ref << dx_goal, dy_goal, 0;
@@ -882,46 +883,6 @@ int main(int argc, char* argv[])
     
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
-
-    // select matrix for swing foot (only swing foot has non-zero joint velocity commands)
-/*     MatrixXd select = MatrixXd::Zero(12,20);
-    if(contact(0) > 0){
-      select(0,6) = 1;
-      select(1,7) = 1;
-      select(2,8) = 1;
-      select(3,9) = 1;
-      select(4,11) = 1;
-      select(5,12) = 1;
-    }
-    if(contact(1) > 0){
-      select(6,13) = 1;
-      select(7,14) = 1;
-      select(8,15) = 1;
-      select(9,16) = 1;
-      select(10,18) = 1;
-      select(11,19) = 1;
-    }
-    
-    MatrixXd select2 = MatrixXd::Zero(12,20);
-    if(contact(0) == 0){
-      select2(0,6) = 1;
-      select2(1,7) = 1;
-      //select2(2,8) = 1;
-      select2(3,9) = 1;
-      //select(4,11) = 1;
-      //select(5,12) = 1;
-    }
-    if(contact(1) == 0){
-      select2(6,13) = 1;
-      select2(7,14) = 1;
-      //select2(8,15) = 1;
-      select2(9,16) = 1;
-      //select(10,18) = 1;
-      //select(11,19) = 1;
-    }
-  */
-
-
     // Solve OSC QP
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "set up sparse constraint: " << elapsed_time.count() << endl;
@@ -947,8 +908,6 @@ int main(int argc, char* argv[])
     }
     else{
       if(update_mat == -1){
-        //D_term = .3 * B * select * Dmat * wb_dq.block(0,0,20,1);
-        //M -= 0.3 * B * select2 * Dmat * damping_dt;
         if(osc_version == 0){
           osc.updateQPVector(des_acc_pel, des_acc, des_acc_toe, G + D_term, contact);
           osc.updateQPMatrix(Weight_pel, M, 

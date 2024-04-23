@@ -41,6 +41,8 @@ cp_P  = 1.8        # capture point gains
 [QP-Params]
 st_foot_W = 1350.0
 sw_foot_W = 1350.0
+sw_foot_Wx = 1350.0
+sw_foot_Wy = 1350.0
 com_W = 1050.0
 com_Wx = 3050.0
 com_Wy = 3050.0
