@@ -685,9 +685,9 @@ int main(int argc, char* argv[])
       VectorXd mpc_cmd_pel_pos = mpc_cmd_listener.get_pel_pos_cmd();
       VectorXd mpc_cmd_pel_vel = mpc_cmd_listener.get_pel_vel_cmd();
 
-      double lam = 0.5 + 0.5 * (traj_time - ds_time/2) / (step_time - ds_time/2);
-      pel_pos_des(0) = (1 - lam) * mpc_cmd_pel_pos(0) + lam * mpc_cmd_pel_pos(1);
-      pel_pos_des(1) = (1 - lam) * mpc_cmd_pel_pos(2) + lam  * mpc_cmd_pel_pos(3);
+      double lam = 0.0 + 1 * (traj_time - ds_time/2) / (step_time - ds_time/2);
+      pel_pos_des(0) = (1 - lam) * mpc_cmd_pel_pos(0) + lam * mpc_cmd_pel_pos(1) + pel_pos(0);
+      pel_pos_des(1) = (1 - lam) * mpc_cmd_pel_pos(2) + lam  * mpc_cmd_pel_pos(3) + pel_pos(1);
       pel_vel_des(0) = (1 - lam) * mpc_cmd_pel_vel(0) + lam  * mpc_cmd_pel_vel(1);
       pel_vel_des(1) = (1 - lam) * mpc_cmd_pel_vel(2) + lam  * mpc_cmd_pel_vel(3);
     }
@@ -727,8 +727,8 @@ int main(int argc, char* argv[])
 
       if(use_cap == 0){
         VectorXd foot_cmd = mpc_cmd_listener.get_left_foot_cmd();
-        x_goal = foot_cmd(0);
-        y_goal = foot_cmd(1);
+        x_goal = foot_cmd(0) + pel_pos(0);
+        y_goal = foot_cmd(1) + pel_pos(1);
       }
       
       double w = M_PI / (step_time - ds_time);
@@ -776,8 +776,8 @@ int main(int argc, char* argv[])
 
       if(use_cap == 0){
         VectorXd foot_cmd = mpc_cmd_listener.get_right_foot_cmd();
-        x_goal = foot_cmd(0);
-        y_goal = foot_cmd(1);
+        x_goal = foot_cmd(0) + pel_pos(0);
+        y_goal = foot_cmd(1) + pel_pos(1);
       }
       
       double w = M_PI / (step_time - ds_time);
@@ -866,14 +866,22 @@ int main(int argc, char* argv[])
                      -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
                      -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
     }
-    else{
+    else if(contact(0) == 0 || contact(1) == 0){
       VectorXd foot = pel_pos;
       if(contact(0) == 0)
         foot = .5 * (right_toe_back_pos + right_toe_pos);
       if(contact(1) == 0)
         foot = .5 * (left_toe_back_pos + left_toe_pos);
       des_acc_pel << -2.0 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 2.0 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) + 1 * 9.81/1 * (pel_pos(0) - foot(0) + 0.05) - 10 * (pel_vel(0) - vel_des_x),
-                     -2.0 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 2.0 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) + 1 * 9.81/1 * (pel_pos(1) - foot(1) + 0.002),
+                     -2.0 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 2.0 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) + 1 * 9.81/1 * (pel_pos(1) - foot(1) + 0.002) - 0 * (pel_vel(1) - vel_des_y),
+                     -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
+                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
+                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
+                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
+    }
+    else{
+      des_acc_pel << - 10 * (pel_vel(0) - vel_des_x),
+                     - 0 * (pel_vel(1) - vel_des_y),
                      -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                      -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
                      -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
@@ -1139,12 +1147,13 @@ int main(int argc, char* argv[])
     obs_info << -10.4, 0.0, 1.0, -0.0;           
 
     if(contact(0) == 0){
-      st_foot_pos << (right_toe_pos(0) + right_toe_back_pos(0))/2, (right_toe_pos(1) + right_toe_back_pos(1))/2;
+      st_foot_pos << (right_toe_pos(0) + right_toe_back_pos(0))/2 - pel_pos(0), (right_toe_pos(1) + right_toe_back_pos(1))/2 - pel_pos(1);
     }
     if(contact(1) == 0){
-      st_foot_pos << (left_toe_pos(0) + left_toe_back_pos(0))/2, (left_toe_pos(1) + left_toe_back_pos(1))/2;
+      st_foot_pos << (left_toe_pos(0) + left_toe_back_pos(0))/2  - pel_pos(0), (left_toe_pos(1) + left_toe_back_pos(1))/2 - pel_pos(1);
     }
-
+    pel_pos(0) = 0;
+    pel_pos(1) = 0;
     Digit_Ros::digit_state msg;
     // MPC data
     std::copy(pel_pos.data(),pel_pos.data() + 3,msg.pel_pos.begin());

@@ -25,7 +25,7 @@ W_obs = 0.0
 obs_rad1 = 0.0
 obs_rad2 = 0.1
 foot_width = 0.12
-mpc_rate = 50.0       # mpc update rate
+mpc_rate = 150.0       # mpc update rate
 ux_off = 0.02         # mpc input x offset
 uy_off = 0.002        # mpc input y offset
 

@@ -238,10 +238,10 @@ int main(int argc, char **argv){
         auto mpc_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - mpc_time_start);
         cout << "solving time: " << mpc_time.count() << endl;
       
-/*       cout << "current state is " << endl;
+      cout << "current state is " << endl;
       cout << q_init << endl;
       cout << "goal state is " << endl;
-      cout << dx_des << "    " << dy_des << endl; */
+      cout << dx_des << "    " << dy_des << endl;
       if(digit_mpc.get_stance_leg() == 1){
         foot_change << QPSolution(51), QPSolution(106);
 /*         cout << "this is a left step, right foot on ground" << endl;

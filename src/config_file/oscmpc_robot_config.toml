@@ -25,8 +25,8 @@ com_D_gain_rz = 25.0
 com_D_gain_ry = 25.0
 com_D_gain_rx = 25.0
 
-foot_P_x = 205            # foot gain
-foot_P_y = 125
+foot_P_x = 155            # foot gain
+foot_P_y = 155
 foot_P_z = 152.5
 foot_D_x = 10
 foot_D_y = 10
@@ -35,13 +35,13 @@ foot_D_z = 18
 hip_yaw_P = 250
 hip_yaw_D = 15
 
-arm_P = 450.0      # arm gain
+arm_P = 250.0      # arm gain
 cp_P  = 1.8        # capture point gains, only for capture point walking
 mpc_px = 1.5
 mpc_py = 1.5
 
 [QP-Params]
-st_foot_W = 10350.0
+st_foot_W = 1350.0
 sw_foot_W = 1350.0   # foot z weight
 sw_foot_Wx = 1350.0
 sw_foot_Wy = 1350.0
@@ -70,7 +70,7 @@ step_time = 0.4
 step_height = 0.2
 end_vel = -0.5     # velocity when foot hit ground 
 end_acc = -5       # Acceleration when foot hig ground
-ds_time = 0.0    # Time duration for double support phase
+ds_time = 0.02    # Time duration for double support phase
 
 [Filter]
 wd_sz = 25000      # number of the consecutive safety violation to trigger safe controller. Control frequency is 1kHz, so 0.5s safe window
