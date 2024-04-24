@@ -595,7 +595,7 @@ int main(int argc, char* argv[])
         pos_avg = (left_toe_pos + right_toe_pos + left_toe_back_pos + right_toe_back_pos) / 4;
         fzint << pos_avg(2),0,0;
         fzmid << pos_avg(2) + zh,0,0;
-        fzend << pos_avg(2) - 0.04,dzend,ddzend;
+        fzend << pos_avg(2) - 0.08,dzend,ddzend;
         a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
         b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
     }
@@ -734,7 +734,7 @@ int main(int argc, char* argv[])
 
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
-      if(traj_time - ds_time/2 < 0.002)
+      if(traj_time - ds_time/2 < 0.004)
         foot_start << (left_toe_pos(0) + left_toe_back_pos(0))/2, (left_toe_pos(1) + left_toe_back_pos(1))/2;
       
       dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
@@ -782,7 +782,7 @@ int main(int argc, char* argv[])
 
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
-      if(traj_time - ds_time/2 < 0.002){
+      if(traj_time - ds_time/2 < 0.004){
         foot_start << (right_toe_pos(0) + right_toe_back_pos(0))/2, (right_toe_pos(1) + right_toe_back_pos(1))/2;
       }
       dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
