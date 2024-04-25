@@ -697,7 +697,7 @@ int main(int argc, char* argv[])
     if(stepping == 2){
       // reset position command when walking direction is changed
       if(key_mode == 5){
-        vel_des_x = 0.3;
+        vel_des_x = 0.3 + min(0.7, global_time * 0.05);
       }
       if(key_mode == 6){
         vel_des_x = -0.3;
@@ -872,7 +872,7 @@ int main(int argc, char* argv[])
         foot = .5 * (right_toe_back_pos + right_toe_pos);
       if(contact(1) == 0)
         foot = .5 * (left_toe_back_pos + left_toe_pos);
-      des_acc_pel << -2.0 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 2.0 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) + 1 * 9.81/1 * (pel_pos(0) - foot(0) + 0.05) - 10 * (pel_vel(0) - vel_des_x),
+      des_acc_pel << -2.0 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 2.0 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) + 1 * 9.81/1 * (pel_pos(0) - foot(0) + 0.05) - 0 * (pel_vel(0) - vel_des_x),
                      -2.0 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 2.0 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) + 1 * 9.81/1 * (pel_pos(1) - foot(1) + 0.002) - 0 * (pel_vel(1) - vel_des_y),
                      -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                      -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
