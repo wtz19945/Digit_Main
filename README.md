@@ -1,5 +1,5 @@
 
-# A Digit controller implementation
+# Digit Obstacle Avoidance MPC 
 
 ## Compiler Requirements 
 Compiling the code requires an updated of version of gcc (version 7.5 at least) and Cmake (version 3.14 as least). If you have issues, please check the following link:
@@ -17,7 +17,7 @@ To run the code, you need to install the following libraries
 
 For ROS and OSQP-Eigen, simply follow the instructions on their website.
 
-For Casadi, download the source code and use the following command to 
+For Casadi, download the source code and use the following command to install
 ```
 sudo apt-get install gcc g++ gfortran git cmake liblapack-dev pkg-config --install-recommends
 mkdir build
@@ -67,7 +67,7 @@ This will start a webpage at localhost:8080. Open this link with your browser. Y
 Run the following command in another terminal,
 ```bash
 cd ~/catkin_ws
-roslaunch Digit_ROS digit_main_launch.launch 
+roslaunch Digit_ROS digit_main_mpc_launch.launch 
 ```
 Now you should see the solver info, ros outputs, and etc in the terminal. Make sure run `source devel/setup.bash` everytime you launch a new terminal.
 Currently, only keyboard commands are implemented. Available commands are: space to start walking, WASD to change walking direction, up/down arrows to change height 
@@ -78,12 +78,12 @@ Disclaimer: this repository is in development and not liable for any damage caus
 For hardware test, 
 - 1 Start Digit with Agility controller and make it stand up or start it hanging from the gantry.
 - 2 Connect Digit and controller PC with an Ethernet cable.
-- 3 Run `roslaunch Digit_ROS digit_hardware_launch.launch` instead. This will launch the controller and switch to the low-level-api on hardware.
+- 3 Run `roslaunch Digit_ROS digit_hardware_mpc_launch.launch` instead. This will launch the controller and switch to the low-level-api on hardware.
 
 To visualize Digit, use the gamepad or check the following IP address "10.10.1.1"
 
 ## Notice
-- [ ] This repo is actively updated. Walking controller with obstacle avoidance MPC will be released next.
+- [ ] This repo is actively updated.
 - [ ] You might need to add the following command to ~/.bashrc
 ``` bash 
 export LD_LIBRARY_PATH=LD_LIBRARY_PATH:/usr/local/lib

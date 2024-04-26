@@ -36,7 +36,7 @@ Output: Digit command (target CoM and Foot Position)
 class Digit_MPC {
 
 public:
-  Digit_MPC();
+  Digit_MPC(bool run_sim);
   Eigen::VectorXd get_pel_pos() {return pel_pos_;};
   Eigen::VectorXd get_pel_vel() {return pel_vel_;};
   Eigen::VectorXd get_theta()   {return theta_;};
@@ -48,6 +48,10 @@ public:
   double get_foot_width() {return f_width_;};
   double get_steptime() {return step_time_;};
   double get_dstime() {return ds_time_;};
+  double get_mpcrate() {return mpc_rate_;};
+  double get_uxoff() {return ux_off_;};
+  double get_uyoff() {return uy_off_;};
+  double get_Wdu() {return du_cost_;};
   int get_stance_leg() {return stance_leg_;};
   int get_Var_Num() {return Vars_Num_;};
   Eigen::VectorXd Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input);
@@ -86,13 +90,17 @@ private:
   std::vector<double> Weights_ds_; // double support
   std::vector<double> r_;          // obstacle radius
   double f_width_;
-  
+  double du_cost_;
   // MPC
   int Nodes_;
   int nx_;
   int NPred_;
   double ds_time_;
   double step_time_;
+  double mpc_rate_;
+  double ux_off_;
+  double uy_off_;
+
   // OSQP Solver
   MPC_Solver mpc_solver0_;
   MPC_Solver mpc_solver1_;
@@ -101,8 +109,9 @@ private:
 
   std::vector<int> Cons_Num_;
   int Vars_Num_;
+  
   // QP solution
   std::vector<double> sol_;
   std::vector<double> sol_init_;
 };
-#endif //MPC_MAINV2_H
+#endif //MPC_MAIN_H

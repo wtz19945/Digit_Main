@@ -6,7 +6,7 @@ using namespace std;
 namespace fs = std::filesystem;
 using namespace std::chrono;
 
-Digit_MPC::Digit_MPC()
+Digit_MPC::Digit_MPC(bool run_sim)
 {
   mpc_sub_ = node_handler_.subscribe("/digit_state", 10, &Digit_MPC::MPCInputCallback, this);
   pel_pos_ = VectorXd::Zero(3,1);
@@ -19,17 +19,17 @@ Digit_MPC::Digit_MPC()
   traj_time_ = 0;
   stance_leg_ = 1;
 
-  // MPC QP Matrix
+  // Casadi MPC QP Matrix evaluation function
   std::string prefix_lib = fs::current_path().parent_path().string();
-  left_step0_matrix_ = casadi::external("LeftStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step0_04TraV2.so");
-  left_step1_matrix_ = casadi::external("LeftStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step1_04TraV2.so");
-  left_step2_matrix_ = casadi::external("LeftStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step2_04TraV2.so");
-  left_step3_matrix_ = casadi::external("LeftStart_Step3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step3_04TraV2.so");
+  left_step0_matrix_ = casadi::external("LeftStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step0_04V3Tra.so");
+  left_step1_matrix_ = casadi::external("LeftStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step1_04V3Tra.so");
+  left_step2_matrix_ = casadi::external("LeftStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step2_04V3Tra.so");
+  left_step3_matrix_ = casadi::external("LeftStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/LeftStartQP_Step3_04V3Tra.so");
 
-  right_step0_matrix_ = casadi::external("RightStart_Step0", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step0_04TraV2.so");
-  right_step1_matrix_ = casadi::external("RightStart_Step1", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step1_04TraV2.so");
-  right_step2_matrix_ = casadi::external("RightStart_Step2", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step2_04TraV2.so");
-  right_step3_matrix_ = casadi::external("RightStart_Step3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step3_04TraV2.so");
+  right_step0_matrix_ = casadi::external("RightStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step0_04V3Tra.so");
+  right_step1_matrix_ = casadi::external("RightStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step1_04V3Tra.so");
+  right_step2_matrix_ = casadi::external("RightStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step2_04V3Tra.so");
+  right_step3_matrix_ = casadi::external("RightStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib/RightStartQP_Step3_04V3Tra.so");
 
   // read control parameters
   std::string package_path; 
@@ -41,7 +41,7 @@ Digit_MPC::Digit_MPC()
   } catch(...) {
     std::cerr << "package not found\n";
   }
-  std::shared_ptr<cpptoml::table> config = cpptoml::parse_file(package_path + "/src/config_file/mpc_robot_configV2.toml");
+  std::shared_ptr<cpptoml::table> config = cpptoml::parse_file(package_path + "/src/config_file/mpc_robot_config.toml");
   double flx = config->get_qualified_as<double>("MPC-Params.foot_x_max").value_or(0);
   double fly = config->get_qualified_as<double>("MPC-Params.foot_y_max").value_or(0);
   double Wx = config->get_qualified_as<double>("MPC-Params.W_com_x_p").value_or(0);
@@ -53,8 +53,19 @@ Digit_MPC::Digit_MPC()
   double Wdux = config->get_qualified_as<double>("MPC-Params.W_foot_dux").value_or(0);
   double Wduy = config->get_qualified_as<double>("MPC-Params.W_foot_duy").value_or(0);
   double Wobs = config->get_qualified_as<double>("MPC-Params.W_obs").value_or(0);
+  du_cost_ = config->get_qualified_as<double>("MPC-Params.W_du").value_or(0);
   double r1 = config->get_qualified_as<double>("MPC-Params.obs_rad1").value_or(0);
   double r2 = config->get_qualified_as<double>("MPC-Params.obs_rad2").value_or(0);
+  mpc_rate_ = config->get_qualified_as<double>("MPC-Params.mpc_rate").value_or(0);
+  if(run_sim){
+    ux_off_ = config->get_qualified_as<double>("MPC-Params.ux_off_sim").value_or(0);
+    uy_off_ = config->get_qualified_as<double>("MPC-Params.uy_off_sim").value_or(0);
+  }
+  else{
+    ux_off_ = config->get_qualified_as<double>("MPC-Params.ux_off").value_or(0);
+    uy_off_ = config->get_qualified_as<double>("MPC-Params.uy_off").value_or(0);
+  }
+
 
   std::shared_ptr<cpptoml::table> config_osc = cpptoml::parse_file(package_path + "/src/config_file/oscmpc_robot_config.toml");
   step_time_ = config_osc->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
@@ -71,8 +82,8 @@ Digit_MPC::Digit_MPC()
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {200,201,202,203};
-  Vars_Num_ = 144;
+  Cons_Num_ = {187,187,187,187};
+  Vars_Num_ = 127;
   for(int i = 0; i<Vars_Num_;i++){
     sol_.push_back(0);
     sol_init_.push_back(0);
@@ -86,16 +97,13 @@ Digit_MPC::Digit_MPC()
 
 // get mpc inputs (robot foot&base states)
 void Digit_MPC::MPCInputCallback(const Digit_Ros::digit_state& msg) {
-  for(int i = 0;i<3;i++){
-    pel_pos_[i] = msg.pel_pos[i]; 
-    pel_vel_[i] = msg.pel_vel[i];
-    theta_[i]   = msg.pel_rot[i];
-    dtheta_[i]  = msg.pel_omg[i];
-  }
+  std::copy(msg.pel_pos.begin(), msg.pel_pos.begin() + 3, pel_pos_.data());
+  std::copy(msg.pel_vel.begin(), msg.pel_vel.begin() + 3, pel_vel_.data());
+  std::copy(msg.pel_rot.begin(), msg.pel_rot.begin() + 3, theta_.data());
+  std::copy(msg.pel_omg.begin(), msg.pel_omg.begin() + 3, dtheta_.data());
   std::copy(msg.pel_ref.begin(), msg.pel_ref.begin() + 4, pel_ref_.data());
   std::copy(msg.foot_pos.begin(), msg.foot_pos.begin() + 2, foot_pos_.data());
   std::copy(msg.obs_info.begin(), msg.obs_info.begin() + 4, obs_info_.data());
-
 
   traj_time_ = msg.traj_time;
   stance_leg_ = msg.stance_leg;
@@ -108,15 +116,17 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input)
   std::vector<double> input;
   input.insert(input.end(), mpc_input[0].begin(), mpc_input[0].end());
   input.insert(input.end(), mpc_input[1].begin(), mpc_input[1].end());
-  input.insert(input.end(), f_length_.begin(), f_length_.end());
   input.insert(input.end(), mpc_input[2].begin(), mpc_input[2].end());
+  input.insert(input.end(), f_length_.begin(), f_length_.end());
   input.insert(input.end(), mpc_input[3].begin(), mpc_input[3].end());
+  input.insert(input.end(), mpc_input[4].begin(), mpc_input[4].end());
   input.insert(input.end(), Weights_ss_.begin(), Weights_ss_.end());
   input.insert(input.end(), r_.begin(), r_.end());
-  input.insert(input.end(), mpc_input[4].begin(), mpc_input[4].end());
   input.insert(input.end(), mpc_input[5].begin(), mpc_input[5].end());
   input.insert(input.end(), mpc_input[6].begin(), mpc_input[6].end());
   input.insert(input.end(), mpc_input[7].begin(), mpc_input[7].end());
+  input.insert(input.end(), mpc_input[8].begin(), mpc_input[8].end());
+  input.insert(input.end(), mpc_input[9].begin(), mpc_input[9].end());
   std::vector<casadi::DM> MPC_arg = {input,sol_init_};
   std::vector<casadi::DM> res;
 
@@ -157,17 +167,19 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input)
     default: ;
   }  
 
-  vector<double> sol_stdvec(QPSolution.data(),QPSolution.data() + Vars_Num_);
-  sol_ = sol_stdvec;
+  //vector<double> sol_stdvec(QPSolution.data(),QPSolution.data() + Vars_Num_);
+  //sol_ = sol_stdvec;
   return QPSolution;
 }
 
 int main(int argc, char **argv){
   ros::init(argc, argv, "listener");
-  Digit_MPC digit_mpc;
-
+  
   ros::NodeHandle n;
-  ros::Rate loop_rate(70);
+  bool run_sim = true;
+  n.getParam("sim_mode",run_sim);
+  Digit_MPC digit_mpc(run_sim);
+  ros::Rate loop_rate(digit_mpc.get_mpcrate());
   ros::Publisher mpc_res_pub = n.advertise<Digit_Ros::mpc_info>("mpc_res", 10);
   int count = 0;
 
@@ -177,6 +189,12 @@ int main(int argc, char **argv){
   VectorXd cmd_left_foot = VectorXd::Zero(3,1);
   VectorXd cmd_right_foot = VectorXd::Zero(3,1);
   VectorXd foot_change = VectorXd::Zero(2,1);
+
+  // 
+  // LIP params like gravity
+  double g = 9.81;
+  double h = 0.9;
+  double w = sqrt(g/h);
 
   while (ros::ok()){
     double traj_time = 0;
@@ -194,48 +212,62 @@ int main(int argc, char **argv){
         VectorXd mpc_obs_info = digit_mpc.get_obs_info();
 
         double foot_width = digit_mpc.get_foot_width();
+        double dx_des = mpc_pel_ref(1);
+        double dy_des = mpc_pel_ref(3);
+        double dy_offset = 0;
+        double T = digit_mpc.get_steptime() - digit_mpc.get_dstime();
+        if(digit_mpc.get_stance_leg() == 1)
+          dy_offset = w * foot_width * tanh(w * T / 2);
+        else
+          dy_offset = -w * foot_width* tanh(w * T / 2);
+        double fx_offset = dx_des / w * ((2 - exp(w*T) - exp(-w*T)) / (exp(w * T) - exp(-w * T)));
+
         std::vector<double> q_init = {mpc_pel_pos(0), mpc_pel_vel(0), mpc_pel_pos(1), mpc_pel_vel(1)};
-        std::vector<double> q_ref(mpc_pel_ref.data(), mpc_pel_ref.data() + mpc_pel_ref.size());
+        std::vector<double> x_ref = {0, dx_des, dx_des, dx_des, dx_des};
+        std::vector<double> y_ref = {0, dy_offset + dy_des, -dy_offset + dy_des, dy_offset + dy_des, -dy_offset + dy_des};
         std::vector<double> f_init(mpc_f_init.data(), mpc_f_init.data() + mpc_f_init.size());
-        std::vector<double> f_param = {0, 0, mpc_pel_ref(1) * (digit_mpc.get_steptime() - digit_mpc.get_dstime()), 0, 0, foot_width};
+        std::vector<double> f_param = {0, 0, fx_offset, 0, 0, foot_width};
         std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
         std::vector<double> qo_tan(mpc_obs_info.data() + 2, mpc_obs_info.data() + mpc_obs_info.size());
-        std::vector<double> rt = {0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1)};
+        std::vector<double> rt = {max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
         if(mpc_index > 2)
-          rt[0] = 0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1);
-        std::vector<double> foff = {.02, 0.002};
+          rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
+        std::vector<double> foff = {digit_mpc.get_uxoff(), digit_mpc.get_uyoff()};
+        std::vector<double> du_reff = {foot_change(0) , foot_change(1) , digit_mpc.get_Wdu()};
 
         vector<vector<double>> mpc_input;
         mpc_input.push_back(q_init);
-        mpc_input.push_back(q_ref);
+        mpc_input.push_back(x_ref);
+        mpc_input.push_back(y_ref);
         mpc_input.push_back(f_init);
         mpc_input.push_back(f_param);
         mpc_input.push_back(qo_ic);
         mpc_input.push_back(qo_tan);
         mpc_input.push_back(rt);
         mpc_input.push_back(foff);
+        mpc_input.push_back(du_reff);
 
         QPSolution = digit_mpc.Update_MPC_(mpc_index,mpc_input);
         auto mpc_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - mpc_time_start);
-        //cout << "solving time: " << mpc_time.count() << endl;
+/*         cout << "solving time: " << mpc_time.count() << endl;
       
       cout << "current state is " << endl;
       cout << q_init << endl;
       cout << "goal state is " << endl;
-      cout << q_ref << endl;
+      cout << dx_des << "    " << dy_des << endl; */
       if(digit_mpc.get_stance_leg() == 1){
         foot_change << QPSolution(51), QPSolution(106);
-        cout << "this is a left step, right foot on ground" << endl;
+/*         cout << "this is a left step, right foot on ground" << endl;
         cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
-        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl; 
+        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
       else{
         foot_change << QPSolution(51), QPSolution(106);
-        cout << "this is a right step, left foot on ground" << endl;
+/*         cout << "this is a right step, left foot on ground" << endl;
         cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
-        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl; 
+        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
-      int off = 2;
+      int off = 0;
       cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(55), QPSolution(57 + off);
       cmd_pel_vel << QPSolution(1), QPSolution(3 + off), QPSolution(56), QPSolution(58 + off);
       cmd_left_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;

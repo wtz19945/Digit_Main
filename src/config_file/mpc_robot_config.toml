@@ -22,6 +22,7 @@ W_foot_uy = 10000.0
 W_foot_dux = 500.0
 W_foot_duy = 500.0
 W_obs = 0.0
+W_du = 1000.0
 obs_rad1 = 0.0
 obs_rad2 = 0.1
 foot_width = 0.11
@@ -29,5 +30,5 @@ mpc_rate = 500.0      # mpc update rate
 ux_off = 0.01         # mpc input x offset
 uy_off = -0.01        # mpc input y offset
 ux_off_sim = 0.02     # mpc input x offset used in sim
-uy_off_sim = -0.0     # mpc input y offset used in sim
+uy_off_sim = 0.002     # mpc input y offset used in sim
 
