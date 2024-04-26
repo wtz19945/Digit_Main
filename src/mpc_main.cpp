@@ -6,7 +6,7 @@ using namespace std;
 namespace fs = std::filesystem;
 using namespace std::chrono;
 
-Digit_MPC::Digit_MPC()
+Digit_MPC::Digit_MPC(bool run_sim)
 {
   mpc_sub_ = node_handler_.subscribe("/digit_state", 10, &Digit_MPC::MPCInputCallback, this);
   pel_pos_ = VectorXd::Zero(3,1);
@@ -56,9 +56,14 @@ Digit_MPC::Digit_MPC()
   double r1 = config->get_qualified_as<double>("MPC-Params.obs_rad1").value_or(0);
   double r2 = config->get_qualified_as<double>("MPC-Params.obs_rad2").value_or(0);
   mpc_rate_ = config->get_qualified_as<double>("MPC-Params.mpc_rate").value_or(0);
-  ux_off_ = config->get_qualified_as<double>("MPC-Params.ux_off").value_or(0);
-  uy_off_ = config->get_qualified_as<double>("MPC-Params.uy_off").value_or(0);
-
+  if(run_sim){
+    ux_off_ = config->get_qualified_as<double>("MPC-Params.ux_off_sim").value_or(0);
+    uy_off_ = config->get_qualified_as<double>("MPC-Params.uy_off_sim").value_or(0);
+  }
+  else{
+    ux_off_ = config->get_qualified_as<double>("MPC-Params.ux_off").value_or(0);
+    uy_off_ = config->get_qualified_as<double>("MPC-Params.uy_off").value_or(0);
+  }
   std::shared_ptr<cpptoml::table> config_osc = cpptoml::parse_file(package_path + "/src/config_file/oscmpc_robot_config.toml");
   step_time_ = config_osc->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
   ds_time_ = config_osc->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
@@ -165,10 +170,11 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input)
 
 int main(int argc, char **argv){
   ros::init(argc, argv, "listener");
-  Digit_MPC digit_mpc;
-
+  
   ros::NodeHandle n;
-  cout << digit_mpc.get_mpcrate() << endl;
+  bool run_sim = true;
+  n.getParam("sim_mode",run_sim);
+  Digit_MPC digit_mpc(run_sim);
   ros::Rate loop_rate(digit_mpc.get_mpcrate());
   ros::Publisher mpc_res_pub = n.advertise<Digit_Ros::mpc_info>("mpc_res", 10);
   int count = 0;
@@ -236,12 +242,12 @@ int main(int argc, char **argv){
 
         QPSolution = digit_mpc.Update_MPC_(mpc_index,mpc_input);
         auto mpc_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - mpc_time_start);
-        cout << "solving time: " << mpc_time.count() << endl;
+/*         cout << "solving time: " << mpc_time.count() << endl;
       
       cout << "current state is " << endl;
       cout << q_init << endl;
       cout << "goal state is " << endl;
-      cout << dx_des << "    " << dy_des << endl;
+      cout << dx_des << "    " << dy_des << endl; */
       if(digit_mpc.get_stance_leg() == 1){
         foot_change << QPSolution(51), QPSolution(106);
 /*         cout << "this is a left step, right foot on ground" << endl;

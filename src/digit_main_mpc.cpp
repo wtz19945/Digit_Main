@@ -224,6 +224,8 @@ int main(int argc, char* argv[])
   double cdrx = config->get_qualified_as<double>("PD-Gains.com_D_gain_rx").value_or(0);
   double cdhy = config->get_qualified_as<double>("PD-Gains.hip_yaw_D").value_or(0);
 
+  double fcdx = config->get_qualified_as<double>("PD-Gains.crt_com_D_gain_x").value_or(0);
+  double fcdy = config->get_qualified_as<double>("PD-Gains.crt_com_D_gain_y").value_or(0);
   // IK arm gain
   double arm_P = config->get_qualified_as<double>("PD-Gains.arm_P").value_or(0);
 
@@ -258,6 +260,7 @@ int main(int argc, char* argv[])
   // swing foot profile
   double step_time = config->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
   double zh = config->get_qualified_as<double>("Walk-Params.step_height").value_or(0);
+  double zend = config->get_qualified_as<double>("Walk-Params.end_pos").value_or(0);
   double dzend = config->get_qualified_as<double>("Walk-Params.end_vel").value_or(0);
   double ddzend = config->get_qualified_as<double>("Walk-Params.end_acc").value_or(0);
   double ds_time = config->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
@@ -603,7 +606,7 @@ int main(int argc, char* argv[])
         pos_avg = (left_toe_pos + right_toe_pos + left_toe_back_pos + right_toe_back_pos) / 4;
         fzint << pos_avg(2),0,0;
         fzmid << pos_avg(2) + zh,0,0;
-        fzend << pos_avg(2) - 0.04,dzend,ddzend;
+        fzend << pos_avg(2) + zend,dzend,ddzend;
         a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
         b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
     }
@@ -697,10 +700,10 @@ int main(int argc, char* argv[])
     if(stepping == 2){
       // reset position command when walking direction is changed
       if(key_mode == 5){
-        vel_des_x = 0.3;
+        vel_des_x = 0.2;
       }
       if(key_mode == 6){
-        vel_des_x = -0.3;
+        vel_des_x = -0.2;
       }
       if(key_mode == 7){
         vel_des_y = 0.3;
@@ -872,16 +875,16 @@ int main(int argc, char* argv[])
         foot = .5 * (right_toe_back_pos + right_toe_pos);
       if(contact(1) == 0)
         foot = .5 * (left_toe_back_pos + left_toe_pos);
-      des_acc_pel << -2.0 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 2.0 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) + 1 * 9.81/1 * (pel_pos(0) - foot(0) + 0.05) - 10 * (pel_vel(0) - vel_des_x),
-                     -2.0 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 2.0 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) + 1 * 9.81/1 * (pel_pos(1) - foot(1) + 0.002) - 0 * (pel_vel(1) - vel_des_y),
+      des_acc_pel << -2.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 2.2 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) - fcdx * (pel_vel(0) - vel_des_x),
+                     -2.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 2.2 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) - fcdy * (pel_vel(1) - vel_des_y),
                      -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                      -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
                      -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
                      -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
     }
     else{
-      des_acc_pel << - 10 * (pel_vel(0) - vel_des_x),
-                     - 0 * (pel_vel(1) - vel_des_y),
+      des_acc_pel << - fcdx * (pel_vel(0) - vel_des_x),
+                     - fcdy * (pel_vel(1) - vel_des_y),
                      -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                      -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
                      -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
@@ -959,11 +962,11 @@ int main(int argc, char* argv[])
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + QP formulation + Solving: " << elapsed_time.count() << endl;
 
-    // Integrate osc ddq to find velocity command
+    // Integrate osc ddq with trapezoidal rule to find velocity command
     VectorXd wb_dq_next = VectorXd::Zero(12,1);
     for(int i=0;i<12;i++){
       if(i<4) 
-        wb_dq_next(i) = wb_dq(6+i) + damping_dt * 0.5 * (QPSolution(6+i) + last_QPSolution(6+i)); // skip passive joint tarsus
+        wb_dq_next(i) = wb_dq(6+i) + damping_dt * 0.5 * (QPSolution(6+i) + last_QPSolution(6+i)); // skip passive joint
       else if(i<10)
         wb_dq_next(i) = wb_dq(7+i) + damping_dt * 0.5 * (QPSolution(7+i) + last_QPSolution(6+i));
       else
@@ -1080,7 +1083,8 @@ int main(int argc, char* argv[])
         error = (p_rh - p_rh_ref).norm();
         iter++;
       }
-      target_position[16] = qr(6);
+      target_position[16] = qr(6);       pel_vel_des(1) = .06 * traj_time;
+
       target_position[17] = qr(7);
       target_position[18] = qr(8);
       target_position[19] = qr(9); 
@@ -1115,6 +1119,7 @@ int main(int argc, char* argv[])
           torque *= min((observation.time - digit_time_start)/soft_count,1.0);
           command.motors[i].torque = 1 * torque(i) ;
           command.motors[i].velocity = 1 * wb_dq_next(i);
+          // Use different damping or velocity for stance and swing leg (Potentially better)
           if(i<6){
             if(contact(0) > 0)
               command.motors[i].damping = .2 * limits->damping_limit[i];

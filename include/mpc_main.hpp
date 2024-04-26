@@ -36,7 +36,7 @@ Output: Digit command (target CoM and Foot Position)
 class Digit_MPC {
 
 public:
-  Digit_MPC();
+  Digit_MPC(bool run_sim);
   Eigen::VectorXd get_pel_pos() {return pel_pos_;};
   Eigen::VectorXd get_pel_vel() {return pel_vel_;};
   Eigen::VectorXd get_theta()   {return theta_;};

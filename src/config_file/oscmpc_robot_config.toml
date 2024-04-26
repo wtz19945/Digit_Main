@@ -2,7 +2,7 @@
 # Author:       Tianze Wang
 # Email:        tw19j@fsu.edu
 # Modified:     10/29/2023
-# Copyright:    Optimal Robotics Lab@ Florida State University
+# Copyright:    Optimal Robotics Lab @ Florida State University
 ###
 
 title = "Robot Configuration"
@@ -17,6 +17,8 @@ com_P_gain_z = 40.0
 com_D_gain_x = 5.0
 com_D_gain_y = 5.0
 com_D_gain_z = 5.0
+crt_com_D_gain_x = 10.0
+crt_com_D_gain_y = 0.0
 
 com_P_gain_rz = 250.0     # base rotation gain
 com_P_gain_ry = 250.0
@@ -59,15 +61,16 @@ com_Wzst = 21350.0
 com_Wrzst = 10050.0
 com_Wryst = 10050.0
 com_Wrxst = 10050.0
-force_max = 650.0
+force_max = 450.0
 
 mu = 0.6             # friction coefficient
-qp_rate = 500.0     # update frequency of the OSC 
+qp_rate = 1000.0     # update frequency of the OSC 
 osc_version = 0      # 0 for c++ eigen osqp wrapper, 1 for osqp c implementation
 
 [Walk-Params]
 step_time = 0.4
 step_height = 0.2
+end_pos = -0.1
 end_vel = -0.5     # velocity when foot hit ground 
 end_acc = -5       # Acceleration when foot hig ground
 ds_time = 0.02    # Time duration for double support phase
