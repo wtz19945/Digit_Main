@@ -86,3 +86,6 @@ soft_count = 0.2  # Time to soft start motor torques
 z_int = -0.1  # initial height for the arm
 z_mag = 0.3  # range of arm motion height
 z_prd = 1    # period of arm motion
+
+[Other]
+recording = 1.0

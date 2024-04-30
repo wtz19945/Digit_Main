@@ -11,6 +11,8 @@
 #include <iomanip>
 #include <cmath>
 #include <future>
+#include <ctime>
+#include <sstream>
 
 // OSQP and Eigen
 #include "OsqpEigen/OsqpEigen.h"
@@ -35,7 +37,7 @@
 #include <std_msgs/Int8.h>
 #include "Digit_Ros/digit_state.h"
 #include "input_listener.hpp"
-
+#include "rosbag/bag.h"
 //#include "toml.hpp"
 
 // TODO: Move to head file
@@ -268,6 +270,7 @@ int main(int argc, char* argv[])
   // osc qp rate and version
   double qp_rate = config->get_qualified_as<double>("QP-Params.qp_rate").value_or(0);
   int osc_version = config->get_qualified_as<double>("QP-Params.osc_version").value_or(0);
+  int recording = config->get_qualified_as<double>("Other.recording").value_or(0);
 
   // Weight Matrix and Gain Vector
   MatrixXd Weight_ToeF = Wff*MatrixXd::Identity(6,6);
@@ -339,6 +342,13 @@ int main(int argc, char* argv[])
   // Set ROS params
   ros::Rate control_loop_rate(qp_rate);
   ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("digit_state", 10);
+  rosbag::Bag bag;
+
+  std::time_t now = std::time(nullptr);
+  std::stringstream date;
+  date << std::put_time(std::localtime(&now), "%Y_%m_%d_%H_%M_%S");
+  if(recording)
+    bag.open(package_path + "/data/test_" + date.str() + ".bag", rosbag::bagmode::Write);
 
   // keyboard input time tracker
   double key_time_tracker = 0; // time log helper for key input, might remove in the future
@@ -1185,7 +1195,10 @@ int main(int argc, char* argv[])
     std::copy(contact.data(), contact.data() + contact.size(), msg.contact.begin());
     msg.traj_time = traj_time;
     msg.stance_leg = stance_leg;
-  
+
+    if(recording)
+      bag.write("digit_state", ros::Time::now(), msg);
+
       //msg.yaw = yaw_des;
     state_pub.publish(msg);
     ros::spinOnce();
@@ -1193,6 +1206,8 @@ int main(int argc, char* argv[])
     //cout << "Desired yaw angle is: " << msg.yaw << endl;
     // Check if llapi has become disconnected
     if(ros::isShuttingDown()){
+      if(recording)
+        bag.close();
       break;
     }
     if (!llapi_connected()) {
