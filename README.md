@@ -84,11 +84,15 @@ To visualize Digit, use the gamepad or check the following IP address "10.10.1.1
 
 ## Data Visualizer
 Data recording is done through rosbag. To enable data recording, set "recording = 1" in oscmpc_robot_config.toml.
-We use ros-PlotJuggler (https://github.com/facontidavide/PlotJuggler) to visualize the controller-related data in real-time. The bags files are also stored in data folders for later use.
+- 1 We use ros-PlotJuggler (https://github.com/facontidavide/PlotJuggler) to visualize the controller-related data in real-time. 
+- 2 Make sure folders "data/Hard_Data" and "data/Sim_Data" are created before recording.
+- 3 Check Data_Process for a Matlab data visualizer implementation.
+
+The bags files are also stored in data folders for later use.
 MPC command data are include in mpc_info and OSC data are included in digit_state
  
-Check Agility's documentation for details about Agility provided data.
 
+Check Agility's documentation for details about Agility provided data.
 ## Notice
 - [ ] This repo is actively updated.
 - [ ] You might need to add the following command to ~/.bashrc
