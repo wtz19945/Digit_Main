@@ -52,6 +52,7 @@ public:
   double get_uxoff() {return ux_off_;};
   double get_uyoff() {return uy_off_;};
   double get_Wdu() {return du_cost_;};
+  double get_height() {return height_;};
   int get_stance_leg() {return stance_leg_;};
   int get_Var_Num() {return Vars_Num_;};
   Eigen::VectorXd Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input);
@@ -91,6 +92,7 @@ private:
   std::vector<double> r_;          // obstacle radius
   double f_width_;
   double du_cost_;
+  double height_;
   // MPC
   int Nodes_;
   int nx_;

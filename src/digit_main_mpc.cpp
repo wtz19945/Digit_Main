@@ -347,9 +347,13 @@ int main(int argc, char* argv[])
   std::time_t now = std::time(nullptr);
   std::stringstream date;
   date << std::put_time(std::localtime(&now), "%Y_%m_%d_%H_%M_%S");
-  if(recording)
-    bag.open(package_path + "/data/test_" + date.str() + ".bag", rosbag::bagmode::Write);
-
+  if(recording){
+    if(run_sim)
+      bag.open(package_path + "/data/Sim_Data/sim_test_" + date.str() + ".bag", rosbag::bagmode::Write);
+    else
+      bag.open(package_path + "/data/Hard_Data/test_" + date.str() + ".bag", rosbag::bagmode::Write);
+  }
+   
   // keyboard input time tracker
   double key_time_tracker = 0; // time log helper for key input, might remove in the future
   int key_mode = -1;
@@ -579,7 +583,7 @@ int main(int argc, char* argv[])
     // VectorXd pelvis_pos = analytical_expressions.p_Pelvis(wb_q);
     
     // Compute Dynamics and kinematics, partial update???
-    if(update_mat == 1){
+    if(update_mat == -1){
       M = analytical_expressions.InertiaMatrix(pb_q);
       G = analytical_expressions.GravityVector(pb_q);
 
@@ -698,7 +702,7 @@ int main(int argc, char* argv[])
       VectorXd mpc_cmd_pel_pos = mpc_cmd_listener.get_pel_pos_cmd();
       VectorXd mpc_cmd_pel_vel = mpc_cmd_listener.get_pel_vel_cmd();
 
-      double lam = 0.0 + 1 * (traj_time - ds_time/2) / (step_time - ds_time/2);
+      double lam = 0.0 + 1.0 * (traj_time - ds_time/2) / (step_time - ds_time/2);
       pel_pos_des(0) = (1 - lam) * mpc_cmd_pel_pos(0) + lam * mpc_cmd_pel_pos(1) + pel_pos(0);
       pel_pos_des(1) = (1 - lam) * mpc_cmd_pel_pos(2) + lam  * mpc_cmd_pel_pos(3) + pel_pos(1);
       pel_vel_des(0) = (1 - lam) * mpc_cmd_pel_vel(0) + lam  * mpc_cmd_pel_vel(1);
@@ -716,10 +720,10 @@ int main(int argc, char* argv[])
         vel_des_x = -0.2;
       }
       if(key_mode == 7){
-        vel_des_y = 0.3;
+        vel_des_y = 0.2;
       }
       if(key_mode == 8){
-        vel_des_y = -0.3;
+        vel_des_y = -0.2;
       }      
     }
     key_mode_prev = key_mode;
@@ -781,6 +785,11 @@ int main(int argc, char* argv[])
         left_toe_acc_ref(2) = b.dot(ddtvec);
       }
     }
+    else{
+      left_toe_pos_ref = (left_toe_pos + left_toe_back_pos) / 2;
+      left_toe_vel_ref << 0, 0, 0;
+      left_toe_acc_ref << 0, 0, 0;
+    }
 
     if(contact(1) == 0){
       // temporally use capture point
@@ -828,6 +837,11 @@ int main(int argc, char* argv[])
         right_toe_vel_ref(2) = b.dot(dtvec);
         right_toe_acc_ref(2) = b.dot(ddtvec);
       }
+    }
+    else{
+      right_toe_pos_ref = (right_toe_pos + right_toe_back_pos) / 2;
+      right_toe_vel_ref << 0, 0, 0;
+      right_toe_acc_ref << 0, 0, 0;
     }
 
     VectorXd des_acc = VectorXd::Zero(6,1);
@@ -962,7 +976,7 @@ int main(int argc, char* argv[])
         QPSolution = oscV2.solveQP();
       }
     }
-    update_mat *= -1;
+    //update_mat *= -1;
     VectorXd torque = VectorXd::Zero(12,1);
     for(int i = 0;i<12;i++)
       torque(i) = QPSolution(20+i);
@@ -1093,8 +1107,7 @@ int main(int argc, char* argv[])
         error = (p_rh - p_rh_ref).norm();
         iter++;
       }
-      target_position[16] = qr(6);       pel_vel_des(1) = .06 * traj_time;
-
+      target_position[16] = qr(6);     
       target_position[17] = qr(7);
       target_position[18] = qr(8);
       target_position[19] = qr(9); 

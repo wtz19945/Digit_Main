@@ -75,7 +75,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   Weights_ds_ = {0, 2500, 0, 2500, 10000, 10000, 100, 6000, 15000};
   r_ = {r1, r2};
   f_width_ = config->get_qualified_as<double>("MPC-Params.foot_width").value_or(0);
-
+  height_ = config->get_qualified_as<double>("MPC-Params.height").value_or(0);
   // QP variable
   Nodes_ = 17;
   NPred_ = 4;
@@ -193,7 +193,7 @@ int main(int argc, char **argv){
   // 
   // LIP params like gravity
   double g = 9.81;
-  double h = 0.9;
+  double h = digit_mpc.get_height();
   double w = sqrt(g/h);
 
   while (ros::ok()){
@@ -233,7 +233,7 @@ int main(int argc, char **argv){
         if(mpc_index > 2)
           rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
         std::vector<double> foff = {digit_mpc.get_uxoff(), digit_mpc.get_uyoff()};
-        std::vector<double> du_reff = {foot_change(0) , foot_change(1) , digit_mpc.get_Wdu()};
+        std::vector<double> du_reff = {foot_change(0) , foot_change(1) , digit_mpc.get_Wdu(), h};
 
         vector<vector<double>> mpc_input;
         mpc_input.push_back(q_init);
