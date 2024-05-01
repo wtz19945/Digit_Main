@@ -1,5 +1,6 @@
 #include "mpc_mainV2.hpp"
 #include "utilities.hpp"
+#include "input_listener.hpp"
 
 using namespace Eigen;
 using namespace std;
@@ -196,11 +197,43 @@ int main(int argc, char **argv){
   double h = digit_mpc.get_height();
   double w = sqrt(g/h);
 
+  // Keyboard Listener
+  int key_mode = -1;
+  InputListener input_listener(&key_mode);
+
+  double foot_x_offset = 0;
+  double foot_y_offset = 0;
+  int counter = 0;
   while (ros::ok()){
     double traj_time = 0;
     int stance_leg = 1;
     auto mpc_time_start = std::chrono::system_clock::now();
 
+    // tune offset parameters to account for model mismatch and avoid drifting
+    switch(key_mode) {
+      case 9:
+        foot_x_offset += 0.0001;
+        break;
+      case 10:
+        foot_x_offset -= 0.0001;
+        break;
+      case 11:
+        foot_y_offset += 0.00001;
+        break;
+      case 12:
+        foot_y_offset -= 0.00001;
+        break;
+    }
+
+    counter++;
+    if(counter == 10){
+      if(key_mode >=9 && key_mode <=12){
+        cout << "current offset are" << endl;
+        cout << "x direction   " << foot_x_offset << endl;
+        cout << "y direction   " << foot_y_offset << endl;
+      }
+      counter = 0;
+    }
     // solve for results
     traj_time = digit_mpc.get_traj_time();
     if(traj_time >= digit_mpc.get_dstime()/2 && traj_time < digit_mpc.get_steptime() - digit_mpc.get_dstime()/2){
@@ -232,8 +265,8 @@ int main(int argc, char **argv){
         std::vector<double> rt = {max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
         if(mpc_index > 2)
           rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
-        std::vector<double> foff = {digit_mpc.get_uxoff(), digit_mpc.get_uyoff()};
-        std::vector<double> du_reff = {foot_change(0) , foot_change(1) , digit_mpc.get_Wdu(), h};
+        std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset, digit_mpc.get_uyoff() + foot_y_offset};
+        std::vector<double> du_reff = {foot_change(0), foot_change(1), digit_mpc.get_Wdu(), h};
 
         vector<vector<double>> mpc_input;
         mpc_input.push_back(q_init);

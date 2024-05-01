@@ -101,8 +101,8 @@ ${Digit_Source})
 set(digit_main_mpc_source src/digit_main_mpc.cpp src/input_listener.cpp
 ${Digit_Source})
 
-set(mpc_main_source src/mpc_main.cpp ${Digit_Source})
-set(mpc_main_sourceV2 src/mpc_mainV2.cpp ${Digit_Source})
+set(mpc_main_source src/mpc_main.cpp src/input_listener.cpp ${Digit_Source})
+set(mpc_main_sourceV2 src/mpc_mainV2.cpp src/input_listener.cpp ${Digit_Source})
 set(mpc_lib libcasadi.so)
 
 # the followings are the costum libraries used for your controller

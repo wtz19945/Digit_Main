@@ -27,8 +27,8 @@ com_D_gain_rz = 25.0
 com_D_gain_ry = 25.0
 com_D_gain_rx = 25.0
 
-foot_P_x = 255            # foot gain
-foot_P_y = 255
+foot_P_x = 155            # foot gain
+foot_P_y = 155
 foot_P_z = 152.5
 foot_D_x = 10
 foot_D_y = 10

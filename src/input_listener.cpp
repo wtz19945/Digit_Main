@@ -18,6 +18,10 @@ enum class TkKeys {
   S = 115,
   A = 97,
   D = 100,
+  I = 105,
+  K = 107,
+  J = 106,
+  L = 108
 };
 
 void InputListener::keyInputCallback(const std_msgs::Int32::ConstPtr& msg) {
@@ -61,6 +65,27 @@ void InputListener::keyInputCallback(const std_msgs::Int32::ConstPtr& msg) {
         *key_mode = 8;
         std::cout << "walking right: " << std::endl;
         break;        
+
+    case TkKeys::I:
+        *key_mode = 9;
+        std::cout << "drift forward: " << std::endl;
+        break;        
+
+    case TkKeys::K:
+        *key_mode = 10;
+        std::cout << "drift backward: " << std::endl;
+        break;        
+
+    case TkKeys::J:
+        *key_mode = 11;
+        std::cout << "drift left: " << std::endl;
+        break;        
+
+    case TkKeys::L:
+        *key_mode = 12;
+        std::cout << "drift right: " << std::endl;
+        break;
+
     default:
         *key_mode = -1;
         break;
