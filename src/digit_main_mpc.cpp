@@ -168,7 +168,7 @@ int main(int argc, char* argv[])
   pel_quaternion = VectorXd::Zero(4,1);
   theta = VectorXd::Zero(3,1);
   dtheta = VectorXd::Zero(3,1);
-
+  
   // initialize ros
   ros::init(argc, argv, "sample_node");
   ros::NodeHandle n;
@@ -374,6 +374,8 @@ int main(int argc, char* argv[])
 
   VectorXd pel_pos_des = VectorXd::Zero(3,1);
   VectorXd pel_vel_des = VectorXd::Zero(3,1);
+  VectorXd pel_omg_des = VectorXd::Zero(3,1);
+
   VectorXd fzint(3) ; fzint << 0,0,0;
   VectorXd fzmid(3) ; fzmid << zh,0,0;
   VectorXd fzend(3) ; fzend << 0,dzend,ddzend;
@@ -492,6 +494,29 @@ int main(int argc, char* argv[])
     pel_quaternion(2) = observation.base.orientation.y;
     pel_quaternion(3) = observation.base.orientation.z;
     
+    // Cmd
+    if(key_mode == 2){
+      yaw_des += 0.5/qp_rate;
+      pel_omg_des(2) = 0.5/qp_rate;
+    }
+      
+    if(key_mode == 3){
+      yaw_des -= 0.5/qp_rate;
+      pel_omg_des(2) = 0.5/qp_rate;
+    }
+
+    // Wrap theta
+    if(yaw_des> M_PI){
+        yaw_des -= 2 * M_PI; 
+    }
+    else if(yaw_des < -M_PI){
+        yaw_des += 2 * M_PI;
+    }
+    else{
+      //;
+    }
+
+    cout << "yaw angle: " << yaw_des << endl; 
     // Frame transformation
     theta = ToEulerAngle(pel_quaternion); // transform quaternion in euler roll, pitch, yaw order
     MatrixXd OmegaToDtheta = MatrixXd::Zero(3,3);
@@ -563,20 +588,7 @@ int main(int argc, char* argv[])
       
 
 
-    // height compensation for drifting assumeing fixed ground height
-    if(contact(0) > 0 && contact(1) >0){
-        pel_pos(2) += pos_avg(2) - (left_toe_pos(2) + right_toe_pos(2) + left_toe_back_pos(2) + right_toe_back_pos(2)) / 4;
-    }
-    if(contact(0) > 0 && contact(1) == 0){
-        pel_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
-        //right_toe_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
-        //right_toe_back_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
-    }
-    if(contact(0) == 0 && contact(1) > 0){
-        pel_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
-        //left_toe_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
-        //left_toe_back_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
-    }
+
 
 
     // compute end effector position
@@ -603,7 +615,20 @@ int main(int argc, char* argv[])
       right_toe_back_jaco  = analytical_expressions.Jp_right_toe_back(wb_q);
       //MatrixXd right_toe_back_djaco  = analytical_expressions.dJp_right_toe_back(wb_q,wb_dq); 
     }
-
+    // height compensation for drifting assumeing fixed ground height
+    if(contact(0) > 0 && contact(1) > 0){
+        pel_pos(2) += pos_avg(2) - (left_toe_pos(2) + right_toe_pos(2) + left_toe_back_pos(2) + right_toe_back_pos(2)) / 4;
+    }
+    if(contact(0) > 0 && contact(1) == 0){
+        pel_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
+        //right_toe_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
+        //right_toe_back_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
+    }
+    if(contact(0) == 0 && contact(1) > 0){
+        pel_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
+        //left_toe_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
+        //left_toe_back_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
+    }
     // Get fixed arm version
     MatrixXd left_toe_jaco_fa = MatrixXd::Zero(3,20); // fa: fixed arm
     MatrixXd left_toe_back_jaco_fa = MatrixXd::Zero(3,20);
@@ -711,7 +736,7 @@ int main(int argc, char* argv[])
 
     double vel_des_x = -0.0;
     double vel_des_y = -0.0;
-    if(stepping == 2){
+    if(stepping == 3){
       // reset position command when walking direction is changed
       if(key_mode == 5){
         vel_des_x = 0.2;
@@ -857,11 +882,11 @@ int main(int argc, char* argv[])
     des_acc_toe << -KP_ToeB(0) * (left_toe_rot(0) - left_toe_pos_ref(0) + 0.08) - KD_ToeB(0) * (left_toe_drot(0) - left_toe_vel_ref(0)) + left_toe_acc_ref(0),
                    -KP_ToeB(1) * (left_toe_rot(1) - left_toe_pos_ref(1)) - KD_ToeB(1) * (left_toe_drot(1) - left_toe_vel_ref(1)) + left_toe_acc_ref(1),
                    -KP_ToeB(2) * (left_toe_rot(2) - left_toe_pos_ref(2)) - KD_ToeB(2) * (left_toe_drot(2) - left_toe_vel_ref(2)) + left_toe_acc_ref(2),
-                   -cphy * (left_toe_rot(3) - 0) - cdhy * (left_toe_drot(3) - 0),
+                   -cphy * (left_toe_rot(3) - theta(2)) - cdhy * (left_toe_drot(3) - 0),
                    -KP_ToeB(3) * (right_toe_rot(0) - right_toe_pos_ref(0) + 0.08) - KD_ToeB(3) * (right_toe_drot(0) - right_toe_vel_ref(0)) + right_toe_acc_ref(0),
                    -KP_ToeB(4) * (right_toe_rot(1) - right_toe_pos_ref(1)) - KD_ToeB(4) * (right_toe_drot(1) - right_toe_vel_ref(1)) + right_toe_acc_ref(1),
                    -KP_ToeB(5) * (right_toe_rot(2) - right_toe_pos_ref(2)) - KD_ToeB(5) * (right_toe_drot(2) - right_toe_vel_ref(2)) + right_toe_acc_ref(2),
-                   -cphy * (right_toe_rot(3) - 0) - cdhy * (right_toe_drot(3) - 0);
+                   -cphy * (right_toe_rot(3) - theta(2)) - cdhy * (right_toe_drot(3) - 0);
     
     // Zero accelerations for stance foot
     if(contact(0) != 0){
@@ -889,9 +914,9 @@ int main(int argc, char* argv[])
       des_acc_pel << -KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - KD_pel(0) * (pel_vel(0) - pel_vel_des(0)),
                      -KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
                      -KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
-                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
-                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
-                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
+                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - pel_omg_des(2)),
+                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - pel_omg_des(1)),
+                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - pel_omg_des(0));
     }
     else if(contact(0) == 0 || contact(1) == 0){
       VectorXd foot = pel_pos;
@@ -902,17 +927,17 @@ int main(int argc, char* argv[])
       des_acc_pel << -2.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 2.2 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) - fcdx * (pel_vel(0) - vel_des_x),
                      -2.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 2.2 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) - fcdy * (pel_vel(1) - vel_des_y),
                      -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
-                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
-                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
-                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
+                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - pel_omg_des(2)),
+                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - pel_omg_des(1)),
+                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - pel_omg_des(0));
     }
     else{
       des_acc_pel << - fcdx * (pel_vel(0) - vel_des_x),
                      - fcdy * (pel_vel(1) - vel_des_y),
                      -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
-                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - 0),
-                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - 0),
-                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - 0);
+                     -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - pel_omg_des(2)),
+                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - pel_omg_des(1)),
+                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - pel_omg_des(0));
     }
 
     
@@ -1167,12 +1192,33 @@ int main(int argc, char* argv[])
     command.apply_command = true;
     llapi_send_command(&command);
 
+    // Get obstacle info
+    VectorXd obs_pos = VectorXd(2,1);
+    obs_pos << 5,5;
+    VectorXd obs_tan = VectorXd(2,1);
+    if(stepping == 2){
+      // reset position command when walking direction is changed
+      if(key_mode == 5){
+        obs_pos << 0.2, 0.0;
+      }
+      if(key_mode == 6){
+        obs_pos << -0.2, 0.0;
+      }
+      if(key_mode == 7){
+        obs_pos << 0.0, 0.2;
+      }
+      if(key_mode == 8){
+        obs_pos << 0.0, -0.2;
+      }      
+    }
+
+    obs_tan = -obs_pos / obs_pos.norm();
     // send mpc state info
     VectorXd pel_ref = VectorXd::Zero(4,1);      // x,y reference
     VectorXd st_foot_pos = VectorXd::Zero(2,1);  // stance foot position
     VectorXd obs_info = VectorXd::Zero(4,1);     // obstacle info
     pel_ref << 0.0, vel_des_x, 0.0, vel_des_y;              
-    obs_info << -10.4, 0.0, 1.0, -0.0;           
+    obs_info << obs_pos, obs_tan;           
 
     if(contact(0) == 0){
       st_foot_pos << (right_toe_pos(0) + right_toe_back_pos(0))/2 - pel_pos(0), (right_toe_pos(1) + right_toe_back_pos(1))/2 - pel_pos(1);

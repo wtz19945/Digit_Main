@@ -39,11 +39,11 @@ void InputListener::keyInputCallback(const std_msgs::Int32::ConstPtr& msg) {
         break;
     case TkKeys::left:
         *key_mode = 2;
-        std::cout << "moving left: " << std::endl;
+        std::cout << "turning clockwise: " << std::endl;
         break;
     case TkKeys::right: //right arrow
         *key_mode = 3;
-        std::cout << "moving right: " << std::endl;
+        std::cout << "turning counter-clockwise: " << std::endl;
         break;
     case TkKeys::space:
         *key_mode = 4;

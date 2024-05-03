@@ -4,7 +4,7 @@ close all; clear; clc
 addpath('/home/orl/catkin_ws/devel/share');
 
 % Specify the path to your custom ROS bag file
-filename = "../test_2024_05_01_14_45_00.bag";
+filename = "../data/test_2024_05_01_14_45_00.bag";
 
 % Create a rosbag object
 bag = rosbag(filename);
