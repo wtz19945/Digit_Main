@@ -792,7 +792,7 @@ int main(int argc, char* argv[])
         dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
         ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
         
-        left_toe_pos_ref(2) = a.dot(tvec) - (pos_avg(2) -  (right_toe_pos(2) + right_toe_back_pos(2))/2);
+        left_toe_pos_ref(2) = a.dot(tvec) - (pos_avg(2) -  (right_toe_pos(2) + right_toe_back_pos(2))/2) - 0.0; // reset the ground level to current stance foot position
         left_toe_vel_ref(2) = a.dot(dtvec);
         left_toe_acc_ref(2) = a.dot(ddtvec);
       }
@@ -801,7 +801,7 @@ int main(int argc, char* argv[])
         tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
         dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
         ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
-        left_toe_pos_ref(2) = b.dot(tvec) - (pos_avg(2) -  (right_toe_pos(2) + right_toe_back_pos(2))/2);
+        left_toe_pos_ref(2) = b.dot(tvec) - (pos_avg(2) -  (right_toe_pos(2) + right_toe_back_pos(2))/2) - 0.0; // reset the ground level to current stance foot position
         left_toe_vel_ref(2) = b.dot(dtvec);
         left_toe_acc_ref(2) = b.dot(ddtvec);
       }
@@ -845,7 +845,7 @@ int main(int argc, char* argv[])
         tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
         dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
         ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
-        right_toe_pos_ref(2) = a.dot(tvec) - (pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2))/2);
+        right_toe_pos_ref(2) = a.dot(tvec) - (pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2))/2) - 0.0; // reset the ground level to current stance foot position
         right_toe_vel_ref(2) = a.dot(dtvec);
         right_toe_acc_ref(2) = a.dot(ddtvec);
       }
@@ -854,7 +854,7 @@ int main(int argc, char* argv[])
         tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
         dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
         ddtvec << 0,0,2,6*n,12*pow(n,2),20*pow(n,3);
-        right_toe_pos_ref(2) = b.dot(tvec) - (pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2))/2);
+        right_toe_pos_ref(2) = b.dot(tvec) - (pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2))/2) - 0.0; // reset the ground level to current stance foot position
         right_toe_vel_ref(2) = b.dot(dtvec);
         right_toe_acc_ref(2) = b.dot(ddtvec);
       }
