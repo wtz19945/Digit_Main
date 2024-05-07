@@ -496,13 +496,13 @@ int main(int argc, char* argv[])
     
     // Cmd
     if(key_mode == 2){
-      yaw_des += 0.5/qp_rate;
-      pel_omg_des(2) = 0.5/qp_rate;
+      yaw_des += 0.2/qp_rate;
+      pel_omg_des(2) = 0.2/qp_rate;
     }
       
     if(key_mode == 3){
-      yaw_des -= 0.5/qp_rate;
-      pel_omg_des(2) = 0.5/qp_rate;
+      yaw_des -= 0.2/qp_rate;
+      pel_omg_des(2) = 0.2/qp_rate;
     }
 
     // Wrap theta
@@ -516,7 +516,6 @@ int main(int argc, char* argv[])
       //;
     }
 
-    cout << "yaw angle: " << yaw_des << endl; 
     // Frame transformation
     theta = ToEulerAngle(pel_quaternion); // transform quaternion in euler roll, pitch, yaw order
     MatrixXd OmegaToDtheta = MatrixXd::Zero(3,3);
@@ -586,11 +585,21 @@ int main(int argc, char* argv[])
       ,dqj(joint::left_tarsus),dqj(joint::left_toe_pitch),dqj(joint::left_toe_roll),dq(joint::right_hip_roll),dq(joint::right_hip_yaw),dq(joint::right_hip_pitch)
       ,dq(joint::right_knee),dqj(joint::right_tarsus),dqj(joint::right_toe_pitch),dqj(joint::right_toe_roll);
       
-
-
-
-
-
+    // height compensation for drifting assumeing fixed ground height
+    if(contact(0) > 0 && contact(1) > 0){
+        pel_pos(2) += pos_avg(2) - (left_toe_pos(2) + right_toe_pos(2) + left_toe_back_pos(2) + right_toe_back_pos(2)) / 4;
+    }
+    if(contact(0) > 0 && contact(1) == 0){
+        pel_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
+        //right_toe_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
+        //right_toe_back_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
+    }
+    if(contact(0) == 0 && contact(1) > 0){
+        pel_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
+        //left_toe_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
+        //left_toe_back_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
+    }
+ 
     // compute end effector position
     // VectorXd pelvis_pos = analytical_expressions.p_Pelvis(wb_q);
     
@@ -615,20 +624,7 @@ int main(int argc, char* argv[])
       right_toe_back_jaco  = analytical_expressions.Jp_right_toe_back(wb_q);
       //MatrixXd right_toe_back_djaco  = analytical_expressions.dJp_right_toe_back(wb_q,wb_dq); 
     }
-    // height compensation for drifting assumeing fixed ground height
-    if(contact(0) > 0 && contact(1) > 0){
-        pel_pos(2) += pos_avg(2) - (left_toe_pos(2) + right_toe_pos(2) + left_toe_back_pos(2) + right_toe_back_pos(2)) / 4;
-    }
-    if(contact(0) > 0 && contact(1) == 0){
-        pel_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
-        //right_toe_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
-        //right_toe_back_pos(2) += pos_avg(2) - (left_toe_pos(2) + left_toe_back_pos(2)) / 2;
-    }
-    if(contact(0) == 0 && contact(1) > 0){
-        pel_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
-        //left_toe_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
-        //left_toe_back_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
-    }
+
     // Get fixed arm version
     MatrixXd left_toe_jaco_fa = MatrixXd::Zero(3,20); // fa: fixed arm
     MatrixXd left_toe_back_jaco_fa = MatrixXd::Zero(3,20);
@@ -736,7 +732,7 @@ int main(int argc, char* argv[])
 
     double vel_des_x = -0.0;
     double vel_des_y = -0.0;
-    if(stepping == 3){
+    if(stepping == 2){
       // reset position command when walking direction is changed
       if(key_mode == 5){
         vel_des_x = 0.2;
@@ -1196,7 +1192,7 @@ int main(int argc, char* argv[])
     VectorXd obs_pos = VectorXd(2,1);
     obs_pos << 5,5;
     VectorXd obs_tan = VectorXd(2,1);
-    if(stepping == 2){
+    if(stepping == 3){
       // reset position command when walking direction is changed
       if(key_mode == 5){
         obs_pos << 0.2, 0.0;
