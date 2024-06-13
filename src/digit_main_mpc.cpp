@@ -30,6 +30,7 @@
 #include "OSC_ControlV2.hpp"
 #include "Filter.hpp"
 #include "mpc_listener.hpp"
+#include "helper_function.hpp"
 
 // ros part
 #include "ros/ros.h"
@@ -162,9 +163,10 @@ int main(int argc, char* argv[])
   VectorXd pb_dq = VectorXd::Zero(NUM_Dyn_STATE,1);
 
   // Position estimator reading from LLAPI
-  VectorXd pel_pos(3),pel_vel(3),pel_quaternion(4),theta(3),dtheta(3);
+  VectorXd pel_pos(3),pel_vel(3),pel_vel_avg(3),pel_quaternion(4),theta(3),dtheta(3);
   pel_pos = VectorXd::Zero(3,1);
   pel_vel = VectorXd::Zero(3,1);
+  pel_vel_avg = VectorXd::Zero(3,1);
   pel_quaternion = VectorXd::Zero(4,1);
   theta = VectorXd::Zero(3,1);
   dtheta = VectorXd::Zero(3,1);
@@ -328,15 +330,15 @@ int main(int argc, char* argv[])
   Digit_safety safe_check(wd_sz,NUM_LEG_STATE);
 
   // initialize Filter
-  MovingAverageFilter pel_vel_x; 
-  MovingAverageFilter pel_vel_y;
+  MovingAverageFilter pel_vel_x(int (step_time * qp_rate)); 
+  MovingAverageFilter pel_vel_y(int (step_time * qp_rate));
   vector<MovingAverageFilter> wb_dq_fil;
   for(int i = 0;i < NUM_LEG_STATE;i++){
     wb_dq_fil.push_back(MovingAverageFilter(5));
   }
   vector<MovingAverageFilter> f_vel_fil;
   for(int i=0;i<12;i++){
-    f_vel_fil.push_back(MovingAverageFilter(5));
+    f_vel_fil.push_back(MovingAverageFilter(1));
   }
 
   // Set ROS params
@@ -364,6 +366,7 @@ int main(int argc, char* argv[])
   // arm IK tracker
   VectorXd ql_last = VectorXd::Zero(10,1);
   VectorXd qr_last = VectorXd::Zero(10,1);
+  IKArmControl IK_Arm = IKArmControl(step_time, arm_z_int);
 
   // OSC and Walking Variables
   OSC_Control osc(config);
@@ -526,9 +529,6 @@ int main(int argc, char* argv[])
     MatrixXd rotZ = MatrixXd::Zero(3,3);
     rotZ << cos(yaw_des),-sin(yaw_des),0,sin(yaw_des),cos(yaw_des),0,0,0,1;
 
-    //pel_vel(0) = pel_vel_x.getData(pel_vel(0));
-    //pel_vel(1) = pel_vel_y.getData(pel_vel(1));
-
     // Wrap yaw orientation and positions so the desired states are always 0
     if((observation.time - digit_time_start) < init_count){
         yaw_des = theta(2);
@@ -544,6 +544,9 @@ int main(int argc, char* argv[])
     // pelvis states in the base frame
     pel_pos = rotZ.transpose() * pel_pos; 
     pel_vel = rotZ.transpose() * pel_vel; // hardware: use body or world frame??? Both seems working
+
+    pel_vel_avg(0) = pel_vel_x.getData(pel_vel(0));
+    pel_vel_avg(1) = pel_vel_y.getData(pel_vel(1));
 
     // Wrap theta
     if(theta(2) > M_PI){
@@ -674,22 +677,6 @@ int main(int argc, char* argv[])
     right_toe_drot(3) = dq(joint::right_hip_yaw);
     right_toe_rot_jaco_fa.block(0,0,3,20) = right_toe_back_jaco_fa;
     right_toe_rot_jaco_fa(3,wbc::right_hip_yaw) = 1;
-
-    // Filter foot velocity
-    left_toe_vel(0) = f_vel_fil[0].getData(left_toe_vel(0));
-    left_toe_vel(1) = f_vel_fil[1].getData(left_toe_vel(1));
-    left_toe_vel(2) = f_vel_fil[2].getData(left_toe_vel(2));
-    left_toe_rot(0) = f_vel_fil[3].getData(left_toe_rot(0));
-    left_toe_rot(1) = f_vel_fil[4].getData(left_toe_rot(1));
-    left_toe_rot(2) = f_vel_fil[5].getData(left_toe_rot(2));
-
-    right_toe_vel(0) = f_vel_fil[6].getData(right_toe_vel(0));
-    right_toe_vel(1) = f_vel_fil[7].getData(right_toe_vel(1));
-    right_toe_vel(2) = f_vel_fil[8].getData(right_toe_vel(2));
-    right_toe_rot(0) = f_vel_fil[9].getData(right_toe_rot(0));
-    right_toe_rot(1) = f_vel_fil[10].getData(right_toe_rot(1));
-    right_toe_rot(2) = f_vel_fil[11].getData(right_toe_rot(2));
-     
 
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin is: " << elapsed_time.count() << endl;
@@ -889,12 +876,23 @@ int main(int argc, char* argv[])
       des_acc.block(0,0,3,1) = VectorXd::Zero(3,1);
       des_acc_toe.block(0,0,3,1) = VectorXd::Zero(3,1); 
     }
+    else{
+      if(traj_time >= step_time - 0.05){
+        des_acc.block(0,0,2,1) = VectorXd::Zero(2,1);
+        des_acc_toe.block(0,0,2,1) = VectorXd::Zero(2,1); 
+      }
+    }
 
     if(contact(1) != 0){
       des_acc.block(3,0,3,1) = VectorXd::Zero(3,1);
       des_acc_toe.block(4,0,3,1) = VectorXd::Zero(3,1);
     }
-
+    else{
+      if(traj_time >= step_time - 0.05){
+        des_acc.block(3,0,2,1) = VectorXd::Zero(2,1);
+        des_acc_toe.block(4,0,2,1) = VectorXd::Zero(2,1);
+      }
+    }
     // B matrix
     MatrixXd B = get_B(wb_q);
 
@@ -920,7 +918,7 @@ int main(int argc, char* argv[])
         foot = .5 * (right_toe_back_pos + right_toe_pos);
       if(contact(1) == 0)
         foot = .5 * (left_toe_back_pos + left_toe_pos);
-      des_acc_pel << -2.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 2.2 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) - fcdx * (pel_vel(0) - vel_des_x),
+      des_acc_pel << -0.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 0.2 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) - fcdx * (pel_vel(0) - vel_des_x),
                      -2.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 2.2 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) - fcdy * (pel_vel(1) - vel_des_y),
                      -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                      -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - pel_omg_des(2)),
@@ -1025,125 +1023,59 @@ int main(int argc, char* argv[])
     wb_dq_next(8) = 0*wb_dq_next(8);
     wb_dq_next(9) = 1*wb_dq_next(9);
 
+    double ramp_time = 0.05;
     if(contact(0) != 0){
       wb_dq_next.block(0,0,6,1) = VectorXd::Zero(6,1);
+      if(stepping == 2 && traj_time <= ramp_time){
+        torque(4) *= min(traj_time/ramp_time,1.0);
+        torque(5) *= min(traj_time/ramp_time,1.0);
+      }
+    }
+    else{
+      if(stepping == 2 && traj_time >= (step_time - ramp_time)){
+        double n = step_time - traj_time;
+        torque(4) *= max(n/ramp_time,0.0);
+        torque(5) *= max(n/ramp_time,0.0);
+      }
     }
 
     if(contact(1) != 0){
       wb_dq_next.block(6,0,6,1) = VectorXd::Zero(6,1);
+      if(stepping == 2  && traj_time <= ramp_time){
+        torque(10) *= min(traj_time/ramp_time,1.0);
+        torque(11) *= min(traj_time/ramp_time,1.0);
+      }
     }
-
+    else{
+      if(stepping == 2 && traj_time >= (step_time - ramp_time)){
+        double n = step_time - traj_time;
+        torque(10) *= max(n/ramp_time,0.0);
+        torque(11) *= max(n/ramp_time,0.0);
+      }
+    }
     // Foot joint velocity command
     wb_dq_next(4) = 0;
     wb_dq_next(5) = 0;
     wb_dq_next(10) = 0;
     wb_dq_next(11) = 0;
-    
-    
-    // IK arm control for conducting, trial implementation. Incorporate to analytical_expressions class in the future
-    VectorXd ql = VectorXd::Zero(10,1);
-    VectorXd p_lh = VectorXd::Zero(3,1);
-    MatrixXd J_lh = MatrixXd::Zero(3,10);
-    VectorXd p_lh_ref = VectorXd::Zero(3,1);
-    VectorXd p_lh_err = VectorXd::Zero(3,1);
 
-    VectorXd qr = VectorXd::Zero(10,1);
-    VectorXd p_rh = VectorXd::Zero(3,1);
-    MatrixXd J_rh = MatrixXd::Zero(3,10);
-    VectorXd p_rh_ref = VectorXd::Zero(3,1);
-    VectorXd p_rh_err = VectorXd::Zero(3,1);
-
-    double cur_time = (observation.time - digit_time_start);
-    double period = arm_z_prd;
-
-    // The IK is always in the base frame
-    if(stepping == 2){
-      if(stance_leg == 1){
-        p_lh_ref << 0.02 + 0.1 * sin(M_PI * traj_time/step_time), + 0.25,  + arm_z_int;
-        p_rh_ref << 0.02 - 0.1 * sin(M_PI * traj_time/step_time), - 0.25,  + arm_z_int;
-      }
-      else{
-        p_lh_ref << 0.02 - 0.1 * sin(M_PI * traj_time/step_time), + 0.25,  + arm_z_int;
-        p_rh_ref << 0.02 + 0.1 * sin(M_PI * traj_time/step_time), - 0.25,  + arm_z_int;
-      }
-    }
-    else{
-      p_lh_ref << + 0.02, + 0.25, + arm_z_int;
-      p_rh_ref << + 0.02, - 0.25, + arm_z_int;
-    }
-
-    // initialize q with current pose
-    ql.block(6,0,4,1) = wb_q.block(20,0,4,1);
-    qr.block(6,0,4,1) = wb_q.block(24,0,4,1);
-    kin_left_arm(ql.data(),p_lh.data(), J_lh.data());
-    kin_right_arm(qr.data(),p_rh.data(), J_rh.data());
-    J_lh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
-    J_rh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
-     
-    
-    // left arm IK
-    double error;
-    error = (p_lh - p_lh_ref).norm();
-    double iter = 0;
-
-    // IK is warmed started with last solution is goal is close enough. Otherwise initialize with current configuration
-    if(error > 0.01){
-      while(error > 0.01 && iter<2){
-        // solve for new joint
-        ql += J_lh.colPivHouseholderQr().solve(p_lh_ref - p_lh);
-        // Clip joints
-        ql(6) = max(min(ql(6),deg2rad(75)),deg2rad(-75));
-        ql(7) = max(min(ql(7),deg2rad(145)),deg2rad(-145));
-        ql(8) = max(min(ql(8),deg2rad(100)),deg2rad(-100));
-        ql(9) = max(min(ql(9),deg2rad(77.5)),deg2rad(-77.5));
-        // Evaluate new pos
-        kin_left_arm(ql.data(),p_lh.data(), J_lh.data());
-        J_lh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
-        error = (p_lh - p_lh_ref).norm();
-        iter++;
-      }
-      target_position[12] = ql(6);
-      target_position[13] = ql(7);
-      target_position[14] = ql(8);
-      target_position[15] = ql(9); 
-      ql_last = ql;
-    }
-    else{
-      ql = ql_last;
-    }
-    // right arm IKpel_pos_des
-    error = (p_rh - p_rh_ref).norm();
-    iter = 0;
-    if(error > 0.01){
-      while(error > 0.01 && iter<2){
-        qr += J_rh.colPivHouseholderQr().solve(p_rh_ref - p_rh);
-        // Clip joints
-        qr(6) = max(min(qr(6),deg2rad(75)),deg2rad(-75));
-        qr(7) = max(min(qr(7),deg2rad(145)),deg2rad(-145));
-        qr(8) = max(min(qr(8),deg2rad(100)),deg2rad(-100));
-        qr(9) = max(min(qr(9),deg2rad(77.5)),deg2rad(-77.5));
-        // Evaluate new pos
-        kin_right_arm(qr.data(),p_rh.data(), J_rh.data());
-        J_rh.block(0,0,3,7) = MatrixXd::Zero(3,7); // base is fixed for arm IK
-        error = (p_rh - p_rh_ref).norm();
-        iter++;
-      }
-      target_position[16] = qr(6);     
-      target_position[17] = qr(7);
-      target_position[18] = qr(8);
-      target_position[19] = qr(9); 
-      qr_last = qr;
-    }
-    else{
-      qr = qr_last;
-    }
-    
+    // IK arm control
+    VectorXd ql_ref = IK_Arm.update_left_arm(stepping, stance_leg, traj_time, wb_q);
+    VectorXd qr_ref = IK_Arm.update_right_arm(stepping, stance_leg, traj_time, wb_q);
+    target_position[12] = ql_ref(0);
+    target_position[13] = ql_ref(1);
+    target_position[14] = ql_ref(2);
+    target_position[15] = ql_ref(3); 
+    target_position[16] = qr_ref(0);     
+    target_position[17] = qr_ref(1);
+    target_position[18] = qr_ref(2);
+    target_position[19] = qr_ref(3); 
 
     // safety check
     safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
-
+    
     for (int i = 0; i < NUM_MOTORS; ++i) {
       if(safe_check.checkSafety()){ // safety check
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];
@@ -1213,7 +1145,12 @@ int main(int argc, char* argv[])
     VectorXd pel_ref = VectorXd::Zero(4,1);      // x,y reference
     VectorXd st_foot_pos = VectorXd::Zero(2,1);  // stance foot position
     VectorXd obs_info = VectorXd::Zero(4,1);     // obstacle info
-    pel_ref << 0.0, vel_des_x, 0.0, vel_des_y;              
+    pel_ref << 0.0, vel_des_x, 0.0, vel_des_y;           
+    if(vel_des_x == 0)
+       pel_ref(0) = pel_vel_avg(0);   
+    if(vel_des_y == 0)
+       pel_ref(2) = pel_vel_avg(1); 
+
     obs_info << obs_pos, obs_tan;           
 
     if(contact(0) == 0){

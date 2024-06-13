@@ -17,8 +17,8 @@ com_P_gain_z = 40.0
 com_D_gain_x = 5.0
 com_D_gain_y = 5.0
 com_D_gain_z = 5.0
-crt_com_D_gain_x = 15.0
-crt_com_D_gain_y = 5.0
+crt_com_D_gain_x = 10.0
+crt_com_D_gain_y = 0.0
 
 com_P_gain_rz = 250.0     # base rotation gain
 com_P_gain_ry = 250.0
@@ -29,22 +29,22 @@ com_D_gain_rx = 25.0
 
 foot_P_x = 155            # foot gain
 foot_P_y = 155
-foot_P_z = 152.5
+foot_P_z = 252.5
 foot_D_x = 10
 foot_D_y = 10
-foot_D_z = 18
+foot_D_z = 16
 
 hip_yaw_P = 250
 hip_yaw_D = 15
 
-arm_P = 250.0      # arm gain
+arm_P = 550.0      # arm gain
 cp_P  = 1.8        # capture point gains, only for capture point walking
 mpc_px = 1.5
 mpc_py = 1.5
 
 [QP-Params]
 st_foot_W = 1350.0
-sw_foot_W = 1350.0   # foot z weight
+sw_foot_W = 350.0   # foot z weight
 sw_foot_Wx = 1350.0
 sw_foot_Wy = 1350.0
 com_W = 1050.0
@@ -64,7 +64,7 @@ com_Wrxst = 10050.0
 force_max = 450.0
 
 mu = 0.6             # friction coefficient
-qp_rate = 500.0     # update frequency of the OSC 
+qp_rate = 1000.0     # update frequency of the OSC 
 osc_version = 0      # 0 for c++ eigen osqp wrapper, 1 for osqp c implementation
 
 [Walk-Params]

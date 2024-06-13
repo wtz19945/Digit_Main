@@ -139,7 +139,11 @@ target_include_directories(mpc_solver_lib
     ${Home_Dir}/include)
 target_link_libraries(mpc_solver_lib OsqpEigen::OsqpEigen ${mpc_lib})
 
-
+add_library(helper_function STATIC src/helper_function.cpp)
+target_include_directories(helper_function 
+    PUBLIC 
+    ${Home_Dir}/include)
+target_link_libraries(helper_function OsqpEigen::OsqpEigen)
 
 # the following will be executable to control Digit
 # a simple standing controller implementation
@@ -159,7 +163,7 @@ add_dependencies(digit_mainV2 Digit_Ros_generate_messages_cpp)
 
 # walking controller mpc
 add_executable(digit_main_mpc ${digit_main_mpc_source})
-target_link_libraries(digit_main_mpc OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib osc_libV2 filter_lib mpc_cmd_lib ${catkin_LIBRARIES})
+target_link_libraries(digit_main_mpc OsqpEigen::OsqpEigen kinematics_dynamics_lib digit_safety_lib osc_lib osc_libV2 filter_lib mpc_cmd_lib helper_function ${catkin_LIBRARIES})
 add_dependencies(digit_main_mpc Digit_Ros_generate_messages_cpp)
 
 # mpc controller
