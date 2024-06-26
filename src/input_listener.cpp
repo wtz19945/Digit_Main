@@ -21,7 +21,8 @@ enum class TkKeys {
   I = 105,
   K = 107,
   J = 106,
-  L = 108
+  L = 108,
+  Z = 122
 };
 
 void InputListener::keyInputCallback(const std_msgs::Int32::ConstPtr& msg) {
@@ -84,6 +85,10 @@ void InputListener::keyInputCallback(const std_msgs::Int32::ConstPtr& msg) {
     case TkKeys::L:
         *key_mode = 12;
         std::cout << "drift right: " << std::endl;
+        break;
+
+    case TkKeys::Z:
+        *key_mode = 13;
         break;
 
     default:

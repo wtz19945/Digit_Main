@@ -22,15 +22,15 @@ Digit_MPC::Digit_MPC(bool run_sim)
 
   // Casadi MPC QP Matrix evaluation function
   std::string prefix_lib = fs::current_path().parent_path().string();
-  left_step0_matrix_ = casadi::external("LeftStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step0_04V3Tra.so");
-  left_step1_matrix_ = casadi::external("LeftStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step1_04V3Tra.so");
-  left_step2_matrix_ = casadi::external("LeftStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step2_04V3Tra.so");
-  left_step3_matrix_ = casadi::external("LeftStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step3_04V3Tra.so");
+  left_step0_matrix_ = casadi::external("LeftStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step0_04V4Tra.so");
+  left_step1_matrix_ = casadi::external("LeftStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step1_04V4Tra.so");
+  left_step2_matrix_ = casadi::external("LeftStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step2_04V4Tra.so");
+  left_step3_matrix_ = casadi::external("LeftStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step3_04V4Tra.so");
 
-  right_step0_matrix_ = casadi::external("RightStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step0_04V3Tra.so");
-  right_step1_matrix_ = casadi::external("RightStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step1_04V3Tra.so");
-  right_step2_matrix_ = casadi::external("RightStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step2_04V3Tra.so");
-  right_step3_matrix_ = casadi::external("RightStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step3_04V3Tra.so");
+  right_step0_matrix_ = casadi::external("RightStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step0_04V4Tra.so");
+  right_step1_matrix_ = casadi::external("RightStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step1_04V4Tra.so");
+  right_step2_matrix_ = casadi::external("RightStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step2_04V4Tra.so");
+  right_step3_matrix_ = casadi::external("RightStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step3_04V4Tra.so");
 
   // read control parameters
   std::string package_path; 
@@ -255,12 +255,6 @@ int main(int argc, char **argv){
           dy_offset = -w * foot_width* tanh(w * T / 2);
         double fx_offset = dx_des / w * ((2 - exp(w*T) - exp(-w*T)) / (exp(w * T) - exp(-w * T)));
 
-        if(key_mode == 4){
-          foot_x_offset -= 0.0000 * mpc_pel_ref(0);
-          foot_y_offset -= 0.0000 * mpc_pel_ref(2);
-        }
-          
-
         std::vector<double> q_init = {mpc_pel_pos(0), mpc_pel_vel(0), mpc_pel_pos(1), mpc_pel_vel(1)};
         std::vector<double> x_ref = {0, dx_des, dx_des, dx_des, dx_des};
         std::vector<double> y_ref = {0, dy_offset + dy_des, -dy_offset + dy_des, dy_offset + dy_des, -dy_offset + dy_des};
@@ -306,6 +300,8 @@ int main(int argc, char **argv){
         cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
         cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
+
+
       int off = 0;
       cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(55), QPSolution(57 + off);
       cmd_pel_vel << QPSolution(1), QPSolution(3 + off), QPSolution(56), QPSolution(58 + off);

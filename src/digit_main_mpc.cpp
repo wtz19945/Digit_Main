@@ -293,14 +293,11 @@ int main(int argc, char* argv[])
 
   // Incorporate damping command into OSC
   double damping_dt = 1 / qp_rate;
-  VectorXd damping = VectorXd::Zero(20,1);
   VectorXd D_term = VectorXd::Zero(20,1);
-  damping << VectorXd::Zero(6,1), 66.849, 26.1129, 38.05, 38.05, 0 , 0, 0, 
-              66.849, 26.1129, 38.05, 38.05, 0 , 0, 0;
-  MatrixXd Dmat = damping.asDiagonal();
 
   // initialize Digit foot and base states
   double yaw_des = 0;
+  double yaw_standing = 0; // default base yaw orientation during standing
   double pel_x = 0;
   double pel_y = 0;
   double pel_z = 0;
@@ -332,14 +329,6 @@ int main(int argc, char* argv[])
   // initialize Filter
   MovingAverageFilter pel_vel_x(int (step_time * qp_rate)); 
   MovingAverageFilter pel_vel_y(int (step_time * qp_rate));
-  vector<MovingAverageFilter> wb_dq_fil;
-  for(int i = 0;i < NUM_LEG_STATE;i++){
-    wb_dq_fil.push_back(MovingAverageFilter(5));
-  }
-  vector<MovingAverageFilter> f_vel_fil;
-  for(int i=0;i<12;i++){
-    f_vel_fil.push_back(MovingAverageFilter(1));
-  }
 
   // Set ROS params
   ros::Rate control_loop_rate(qp_rate);
@@ -364,10 +353,14 @@ int main(int argc, char* argv[])
   MPC_CMD_Listener mpc_cmd_listener;
 
   // arm IK tracker
-  VectorXd ql_last = VectorXd::Zero(10,1);
-  VectorXd qr_last = VectorXd::Zero(10,1);
   IKArmControl IK_Arm = IKArmControl(step_time, arm_z_int);
 
+  // Finite state machine
+  StateMachine FSM = StateMachine(step_time, ds_time);
+  
+  // Obstacle generator
+  ObstacleGenerator Obs_Gen = ObstacleGenerator();
+  
   // OSC and Walking Variables
   OSC_Control osc(config);
   OSC_ControlV2 oscV2(config);
@@ -391,10 +384,8 @@ int main(int argc, char* argv[])
   VectorXd dtvec = VectorXd::Zero(6,1);
   VectorXd ddtvec = VectorXd::Zero(6,1);
   VectorXd contact = VectorXd::Zero(2,1);
-  contact << 1,1;
   int stance_leg = 1;
   int stepping = 0;
-  int change_state = 0;
   double traj_time = 0;
   VectorXd pos_avg = VectorXd::Zero(3,1);
   // computation time tracker
@@ -420,73 +411,29 @@ int main(int argc, char* argv[])
     }
 
     circle_time = (observation.time - digit_time_last);
-    // get contact trajectory
-    if(key_mode == 4 || stepping > 0){
-      traj_time = traj_time + circle_time; // use this when the simulator time is slow than real-time
-      //traj_time = traj_time + 1 / qp_rate; // use this when the simualator is close to real-time
-      if(traj_time > step_time){
-        traj_time = 0;
-        change_state = 1;
-      }
-      else{
-        change_state = 0;
-      }
-      if(stepping<2 && change_state == 1)
-        stepping++;
-    }
 
-    if(stepping == 0){
-      contact << 1,1;
-    }
-    else if(stepping == 1){
-      contact << 1,1;
-    }
-    else{
-      if(change_state){
-        stance_leg *= -1;
-      }
-
-      if(stance_leg == 1){
-        if(ds_time == 0){
-            contact << 0,1;
-        }
-        else{
-          if(traj_time <= ds_time/2)
-            contact << 0.5 - traj_time * 1 / ds_time, 0.5 + traj_time * 1 / ds_time;
-          else if(traj_time >= step_time - ds_time/2)
-            contact << 0 + 1 / ds_time * (traj_time - step_time + ds_time/2),1 - 1 / ds_time * (traj_time - step_time + ds_time/2);
-          else
-            contact << 0,1;
-        }
-      }
-      else{
-        if(ds_time == 0){
-            contact << 1,0;
-        }
-        else{
-          if(traj_time <= ds_time/2)
-            contact << 0.5 + traj_time * 1 / ds_time, 0.5 - traj_time * 1 / ds_time;
-          else if(traj_time >= step_time - ds_time/2)
-            contact << 1 - 1 / ds_time * (traj_time - step_time + ds_time/2), 0 + 1 / ds_time * (traj_time - step_time + ds_time/2);
-          else
-            contact << 1,0;
-        }
-      }
-    }
+    // Update state machine to get current contact traj cmd
+    FSM.update(key_mode, circle_time);
+    stepping = FSM.get_stepping_phase();
+    traj_time = FSM.get_traj_time();
+    contact = FSM.get_contact_traj();
+    stance_leg = FSM.get_stance_leg(); 
     digit_time_last = observation.time;
 
-    // Get state information
+    // Get motor information
     for (int i = 0; i < NUM_MOTORS; i++){
       q(i) = observation.motor.position[i];
       dq(i) = observation.motor.velocity[i];
       torq(i) = observation.motor.torque[i];
     }
 
+    // Get joint information
     for (int i = 0; i < NUM_JOINTS; i++){
       qj(i) = observation.joint.position[i];
       dqj(i) = observation.joint.velocity[i];
     }
     
+    // Get base information
     for (int i = 0;i < 3;i++){
         pel_pos(i) = observation.base.translation[i];
         pel_vel(i) = observation.base.linear_velocity[i];
@@ -505,19 +452,11 @@ int main(int argc, char* argv[])
       
     if(key_mode == 3){
       yaw_des -= 0.2/qp_rate;
-      pel_omg_des(2) = 0.2/qp_rate;
+      pel_omg_des(2) = -0.2/qp_rate;
     }
 
     // Wrap theta
-    if(yaw_des> M_PI){
-        yaw_des -= 2 * M_PI; 
-    }
-    else if(yaw_des < -M_PI){
-        yaw_des += 2 * M_PI;
-    }
-    else{
-      //;
-    }
+    wrap_theta(yaw_des);
 
     // Frame transformation
     theta = ToEulerAngle(pel_quaternion); // transform quaternion in euler roll, pitch, yaw order
@@ -532,6 +471,7 @@ int main(int argc, char* argv[])
     // Wrap yaw orientation and positions so the desired states are always 0
     if((observation.time - digit_time_start) < init_count){
         yaw_des = theta(2);
+        yaw_standing = theta(2);
         pel_x = pel_pos(0);
         pel_y = pel_pos(1);
         pel_z = pel_pos(2);
@@ -548,22 +488,7 @@ int main(int argc, char* argv[])
     pel_vel_avg(0) = pel_vel_x.getData(pel_vel(0));
     pel_vel_avg(1) = pel_vel_y.getData(pel_vel(1));
 
-    // Wrap theta
-    if(theta(2) > M_PI){
-        theta(2) -= 2 * M_PI; 
-    }
-    else if(theta(2) < -M_PI){
-        theta(2) += 2 * M_PI;
-    }
-    else{
-      //;
-    }
-
-/*     if((observation.time - digit_time_start) >= init_count){
-      pel_pos(0) -= pos_avg(0); 
-      pel_pos(1) -= pos_avg(1);
-    }
-     */
+    wrap_theta(theta(2));
     // get state vector
     wb_q  << pel_pos, theta(2), theta(1), theta(0), q(joint::left_hip_roll),q(joint::left_hip_yaw),q(joint::left_hip_pitch),q(joint::left_knee)
       ,qj(joint::left_tarsus),qj(joint::left_toe_pitch),qj(joint::left_toe_roll),
@@ -602,9 +527,6 @@ int main(int argc, char* argv[])
         //left_toe_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
         //left_toe_back_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
     }
- 
-    // compute end effector position
-    // VectorXd pelvis_pos = analytical_expressions.p_Pelvis(wb_q);
     
     // Compute Dynamics and kinematics, partial update???
     if(update_mat == -1){
@@ -648,7 +570,6 @@ int main(int argc, char* argv[])
         a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
         b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
     }
-
     
     // End effector velocity
     VectorXd  left_toe_vel = left_toe_jaco * wb_dq;
@@ -680,6 +601,7 @@ int main(int argc, char* argv[])
 
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin is: " << elapsed_time.count() << endl;
+
     int use_cap = 0;
     // Compute Desired CoM Traj// Testing use
     if(key_mode == 0){
@@ -711,6 +633,7 @@ int main(int argc, char* argv[])
       VectorXd mpc_cmd_pel_vel = mpc_cmd_listener.get_pel_vel_cmd();
 
       double lam = 0.0 + 1.0 * (traj_time - ds_time/2) / (step_time - ds_time/2);
+      //double lam = 1.0;
       pel_pos_des(0) = (1 - lam) * mpc_cmd_pel_pos(0) + lam * mpc_cmd_pel_pos(1) + pel_pos(0);
       pel_pos_des(1) = (1 - lam) * mpc_cmd_pel_pos(2) + lam  * mpc_cmd_pel_pos(3) + pel_pos(1);
       pel_vel_des(0) = (1 - lam) * mpc_cmd_pel_vel(0) + lam  * mpc_cmd_pel_vel(1);
@@ -721,18 +644,22 @@ int main(int argc, char* argv[])
     double vel_des_y = -0.0;
     if(stepping == 2){
       // reset position command when walking direction is changed
-      if(key_mode == 5){
-        vel_des_x = 0.2;
+      switch(key_mode){
+        case 5:
+          vel_des_x = 0.2;
+          break;
+        case 6:
+          vel_des_x = -0.2;
+          break;
+        case 7:
+          vel_des_y = 0.2;
+          break;
+        case 8:
+          vel_des_y = -0.2;
+          break;
+        default:
+          break;
       }
-      if(key_mode == 6){
-        vel_des_x = -0.2;
-      }
-      if(key_mode == 7){
-        vel_des_y = 0.2;
-      }
-      if(key_mode == 8){
-        vel_des_y = -0.2;
-      }      
     }
     key_mode_prev = key_mode;
 
@@ -746,15 +673,10 @@ int main(int argc, char* argv[])
     VectorXd right_toe_acc_ref = VectorXd::Zero(3,1);
 
     if(contact(0) == 0){
-      // temporally use capture point
-      double x_goal = pel_pos(0) - 0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des_x * 0;
-      double y_goal = max(pel_pos(1) + 0.1 + cp_py * sqrt(.9/9.81) * pel_vel(1), (right_toe_pos(1) + right_toe_back_pos(1))/2 + 0.03);
-
-      if(use_cap == 0){
-        VectorXd foot_cmd = mpc_cmd_listener.get_left_foot_cmd();
-        x_goal = foot_cmd(0) + pel_pos(0);
-        y_goal = foot_cmd(1) + pel_pos(1);
-      }
+      // get foot cmd
+      VectorXd foot_cmd = mpc_cmd_listener.get_left_foot_cmd();
+      double x_goal = foot_cmd(0) + pel_pos(0);
+      double y_goal = foot_cmd(1) + pel_pos(1);
       
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
@@ -800,15 +722,10 @@ int main(int argc, char* argv[])
     }
 
     if(contact(1) == 0){
-      // temporally use capture point
-      double x_goal = pel_pos(0) + -0.07 + cp_py * sqrt(.9/9.81) * pel_vel(0) + vel_des_x * 0;
-      double y_goal = min(pel_pos(1) - 0.1 + cp_py * sqrt(.9/9.81) * pel_vel(1), (left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.02);
-
-      if(use_cap == 0){
-        VectorXd foot_cmd = mpc_cmd_listener.get_right_foot_cmd();
-        x_goal = foot_cmd(0) + pel_pos(0);
-        y_goal = foot_cmd(1) + pel_pos(1);
-      }
+      // get foot cmd
+      VectorXd foot_cmd = mpc_cmd_listener.get_left_foot_cmd();
+      double x_goal = foot_cmd(0) + pel_pos(0);
+      double y_goal = foot_cmd(1) + pel_pos(1);
       
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
@@ -852,6 +769,7 @@ int main(int argc, char* argv[])
       right_toe_acc_ref << 0, 0, 0;
     }
 
+    // Compute task space accelerations
     VectorXd des_acc = VectorXd::Zero(6,1);
     des_acc << -KP_ToeF(0) * (left_toe_pos(0) - left_toe_pos_ref(0)   - 0.08) - KD_ToeF(0) * (left_toe_vel(0) - left_toe_vel_ref(0)) + left_toe_acc_ref(0),
                -KP_ToeF(1) * (left_toe_pos(1) - left_toe_pos_ref(1))  - KD_ToeF(1) * (left_toe_vel(1) - left_toe_vel_ref(1)) + left_toe_acc_ref(1), 
@@ -870,28 +788,25 @@ int main(int argc, char* argv[])
                    -KP_ToeB(4) * (right_toe_rot(1) - right_toe_pos_ref(1)) - KD_ToeB(4) * (right_toe_drot(1) - right_toe_vel_ref(1)) + right_toe_acc_ref(1),
                    -KP_ToeB(5) * (right_toe_rot(2) - right_toe_pos_ref(2)) - KD_ToeB(5) * (right_toe_drot(2) - right_toe_vel_ref(2)) + right_toe_acc_ref(2),
                    -cphy * (right_toe_rot(3) - theta(2)) - cdhy * (right_toe_drot(3) - 0);
-    
-    // Zero accelerations for stance foot
+
+    // leg yaw reference is 0 during stepping: leg should align with the body.
+    // During standing, it should be adjusted depending on the base yaw change
+    double standing_yaw_err = yaw_des - yaw_standing;
+    wrap_theta(standing_yaw_err);
+    if(contact(0) == 1 && contact(1) == 1){
+        des_acc_toe(3) = -cphy * (left_toe_rot(3) - standing_yaw_err) - cdhy * (left_toe_drot(3) - 0);
+        des_acc_toe(7) = -cphy * (right_toe_rot(3) - standing_yaw_err) - cdhy * (right_toe_drot(3) - 0);
+    }
+
+    // Zero accelerations for stance foot and swing foot near touch-down
     if(contact(0) != 0){
       des_acc.block(0,0,3,1) = VectorXd::Zero(3,1);
       des_acc_toe.block(0,0,3,1) = VectorXd::Zero(3,1); 
-    }
-    else{
-      if(traj_time >= step_time - 0.05){
-        des_acc.block(0,0,2,1) = VectorXd::Zero(2,1);
-        des_acc_toe.block(0,0,2,1) = VectorXd::Zero(2,1); 
-      }
     }
 
     if(contact(1) != 0){
       des_acc.block(3,0,3,1) = VectorXd::Zero(3,1);
       des_acc_toe.block(4,0,3,1) = VectorXd::Zero(3,1);
-    }
-    else{
-      if(traj_time >= step_time - 0.05){
-        des_acc.block(3,0,2,1) = VectorXd::Zero(2,1);
-        des_acc_toe.block(4,0,2,1) = VectorXd::Zero(2,1);
-      }
     }
     // B matrix
     MatrixXd B = get_B(wb_q);
@@ -913,13 +828,8 @@ int main(int argc, char* argv[])
                      -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - pel_omg_des(0));
     }
     else if(contact(0) == 0 || contact(1) == 0){
-      VectorXd foot = pel_pos;
-      if(contact(0) == 0)
-        foot = .5 * (right_toe_back_pos + right_toe_pos);
-      if(contact(1) == 0)
-        foot = .5 * (left_toe_back_pos + left_toe_pos);
-      des_acc_pel << -0.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 0.2 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) - fcdx * (pel_vel(0) - vel_des_x),
-                     -2.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 2.2 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) - fcdy * (pel_vel(1) - vel_des_y),
+      des_acc_pel << -1.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 1.2 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) - fcdx * (pel_vel(0) - vel_des_x),
+                     -1.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 1.2 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) - fcdy * (pel_vel(1) - vel_des_y),
                      -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                      -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - pel_omg_des(2)),
                      -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - pel_omg_des(1)),
@@ -937,6 +847,23 @@ int main(int argc, char* argv[])
     
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
+    double damping_ratio = 0.4;
+    if(contact(0) == 0){
+        M(6,6) += damping_dt * limits->damping_limit[0] * damping_ratio;
+        M(7,7) += damping_dt * limits->damping_limit[1] * damping_ratio;
+        M(8,8) += damping_dt * limits->damping_limit[2] * damping_ratio;
+        M(9,9) += damping_dt * limits->damping_limit[3] * damping_ratio;
+        M(11,11) += damping_dt * limits->damping_limit[4] * damping_ratio;
+        M(12,12) += damping_dt * limits->damping_limit[5] * damping_ratio;
+    }
+    if(contact(1) == 0){
+        M(13,13) += damping_dt * limits->damping_limit[6] * damping_ratio;
+        M(14,14) += damping_dt * limits->damping_limit[7] * damping_ratio;
+        M(15,15) += damping_dt * limits->damping_limit[8] * damping_ratio;
+        M(16,16) += damping_dt * limits->damping_limit[9] * damping_ratio;
+        M(18,18) += damping_dt * limits->damping_limit[10] * damping_ratio;
+        M(19,19) += damping_dt * limits->damping_limit[11] * damping_ratio;
+    }
     // Solve OSC QP
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "set up sparse constraint: " << elapsed_time.count() << endl;
@@ -1009,19 +936,19 @@ int main(int argc, char* argv[])
     VectorXd wb_dq_next = VectorXd::Zero(12,1);
     for(int i=0;i<12;i++){
       if(i<4) 
-        wb_dq_next(i) = wb_dq(6+i) + damping_dt * 0.5 * (QPSolution(6+i) + last_QPSolution(6+i)); // skip passive joint
+        wb_dq_next(i) = wb_dq(6+i) + damping_dt * QPSolution(6+i); // skip passive joint
       else if(i<10)
-        wb_dq_next(i) = wb_dq(7+i) + damping_dt * 0.5 * (QPSolution(7+i) + last_QPSolution(6+i));
+        wb_dq_next(i) = wb_dq(7+i) + damping_dt * QPSolution(7+i);
       else
-        wb_dq_next(i) = wb_dq(8+i) + damping_dt * 0.5 * (QPSolution(8+i) + last_QPSolution(6+i));
+        wb_dq_next(i) = wb_dq(8+i) + damping_dt * QPSolution(8+i);
     }
     last_QPSolution = QPSolution;
 
     
-    wb_dq_next(2) = 0*wb_dq_next(2);
+/*     wb_dq_next(2) = 1*wb_dq_next(2);
     wb_dq_next(3) = 1*wb_dq_next(3);
-    wb_dq_next(8) = 0*wb_dq_next(8);
-    wb_dq_next(9) = 1*wb_dq_next(9);
+    wb_dq_next(8) = 1*wb_dq_next(8);
+    wb_dq_next(9) = 1*wb_dq_next(9); */
 
     double ramp_time = 0.05;
     if(contact(0) != 0){
@@ -1053,11 +980,13 @@ int main(int argc, char* argv[])
         torque(11) *= max(n/ramp_time,0.0);
       }
     }
+
     // Foot joint velocity command
     wb_dq_next(4) = 0;
     wb_dq_next(5) = 0;
     wb_dq_next(10) = 0;
     wb_dq_next(11) = 0;
+
 
     // IK arm control
     VectorXd ql_ref = IK_Arm.update_left_arm(stepping, stance_leg, traj_time, wb_q);
@@ -1075,7 +1004,7 @@ int main(int argc, char* argv[])
     safe_check.updateSafety(pb_q.block(6,0,14,1),pb_dq.block(6,0,14,1));
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
-    
+
     for (int i = 0; i < NUM_MOTORS; ++i) {
       if(safe_check.checkSafety()){ // safety check
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];
@@ -1098,15 +1027,29 @@ int main(int argc, char* argv[])
           // Use different damping or velocity for stance and swing leg (Potentially better)
           if(i<6){
             if(contact(0) > 0)
-              command.motors[i].damping = .2 * limits->damping_limit[i];
-            else
-              command.motors[i].damping = .2 * limits->damping_limit[i];
+              command.motors[i].damping = damping_ratio * limits->damping_limit[i];
+            else{
+              command.motors[0].damping = damping_ratio * limits->damping_limit[0];
+              command.motors[1].damping = damping_ratio * limits->damping_limit[1];
+              command.motors[2].damping = damping_ratio * limits->damping_limit[2];
+              command.motors[3].damping = damping_ratio * limits->damping_limit[3];
+              command.motors[4].damping = damping_ratio * limits->damping_limit[4];
+              command.motors[5].damping = damping_ratio * limits->damping_limit[5];
+              //command.motors[i].damping = .0 * limits->damping_limit[i];
+            }
           }
           else{
             if(contact(1) > 0)
-              command.motors[i].damping = .2 * limits->damping_limit[i];
-            else
-              command.motors[i].damping = .2 * limits->damping_limit[i];
+              command.motors[i].damping = damping_ratio * limits->damping_limit[i];
+            else{
+              command.motors[6].damping = damping_ratio * limits->damping_limit[6];
+              command.motors[7].damping = damping_ratio * limits->damping_limit[7];
+              command.motors[8].damping = damping_ratio * limits->damping_limit[8];
+              command.motors[9].damping = damping_ratio * limits->damping_limit[9];
+              command.motors[10].damping = damping_ratio * limits->damping_limit[10];
+              command.motors[11].damping = damping_ratio * limits->damping_limit[11];
+              //command.motors[i].damping = .0 * limits->damping_limit[i];
+            }
           }
         }
       }
@@ -1124,22 +1067,12 @@ int main(int argc, char* argv[])
     VectorXd obs_pos = VectorXd(2,1);
     obs_pos << 5,5;
     VectorXd obs_tan = VectorXd(2,1);
-    if(stepping == 3){
-      // reset position command when walking direction is changed
-      if(key_mode == 5){
-        obs_pos << 0.2, 0.0;
-      }
-      if(key_mode == 6){
-        obs_pos << -0.2, 0.0;
-      }
-      if(key_mode == 7){
-        obs_pos << 0.0, 0.2;
-      }
-      if(key_mode == 8){
-        obs_pos << 0.0, -0.2;
-      }      
-    }
 
+    
+    if(stepping == 2){
+      // reset position command when walking direction is changed
+      int avd_mode = Obs_Gen.get_avoidance_mode(key_mode, stepping, obs_pos);
+    }
     obs_tan = -obs_pos / obs_pos.norm();
     // send mpc state info
     VectorXd pel_ref = VectorXd::Zero(4,1);      // x,y reference
@@ -1161,6 +1094,7 @@ int main(int argc, char* argv[])
     }
     pel_pos(0) = 0;
     pel_pos(1) = 0;
+
     Digit_Ros::digit_state msg;
     // MPC data
     std::copy(pel_pos.data(),pel_pos.data() + 3,msg.pel_pos.begin());
@@ -1191,7 +1125,7 @@ int main(int argc, char* argv[])
     if(recording)
       bag.write("digit_state", ros::Time::now(), msg);
 
-      //msg.yaw = yaw_des;
+    //msg.yaw = yaw_des;
     state_pub.publish(msg);
     ros::spinOnce();
     control_loop_rate.sleep();
