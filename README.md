@@ -70,7 +70,14 @@ cd ~/catkin_ws
 roslaunch Digit_ROS digit_main_mpc_launch.launch 
 ```
 Now you should see the solver info, ros outputs, and etc in the terminal. Make sure run `source devel/setup.bash` everytime you launch a new terminal.
-Currently, only keyboard commands are implemented. Available commands are: space to start walking, WASD to change walking direction, up/down arrows to change height 
+Currently, only keyboard commands are implemented. Available commands are: 
+- 1 Space: start walking
+- 2 up/down arrow: change height
+- 3 left/right arrow: change yaw orientaion
+- 4 numpad 4568: change pitch and roll orientation
+- 5 WASD: change walking direction
+- 6 IJKL: tuning offset to account for model errors to avoid drifting
+- 7 Z:    to generate random obstacles  
 
 ## Hardware Test
 Disclaimer: this repository is in development and not liable for any damage caused by the hardware experiment.

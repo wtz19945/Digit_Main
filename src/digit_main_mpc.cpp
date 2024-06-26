@@ -370,6 +370,7 @@ int main(int argc, char* argv[])
 
   VectorXd pel_pos_des = VectorXd::Zero(3,1);
   VectorXd pel_vel_des = VectorXd::Zero(3,1);
+  VectorXd pel_ang_des = VectorXd::Zero(3,1);
   VectorXd pel_omg_des = VectorXd::Zero(3,1);
 
   VectorXd fzint(3) ; fzint << 0,0,0;
@@ -444,7 +445,7 @@ int main(int argc, char* argv[])
     pel_quaternion(2) = observation.base.orientation.y;
     pel_quaternion(3) = observation.base.orientation.z;
     
-    // Cmd
+    // Robot base rotation command
     if(key_mode == 2){
       yaw_des += 0.2/qp_rate;
       pel_omg_des(2) = 0.2/qp_rate;
@@ -453,6 +454,30 @@ int main(int argc, char* argv[])
     if(key_mode == 3){
       yaw_des -= 0.2/qp_rate;
       pel_omg_des(2) = -0.2/qp_rate;
+    }
+
+    if(key_mode == 14){
+      pel_ang_des(1) = std::min(pel_ang_des(1) + 0.2 / qp_rate, 0.3);
+      pel_omg_des(1) = (pel_ang_des(1) < 0.3) ? 0.2 / qp_rate : 0;
+    }
+    else if(key_mode == 15){
+      pel_ang_des(1) = std::max(pel_ang_des(1) - 0.2 / qp_rate, -0.3);
+      pel_omg_des(1) = (pel_ang_des(1) > -0.3) ? -0.2 / qp_rate : 0;
+    }
+    else{
+      pel_ang_des(1) = 0.999 * (pel_ang_des(1) - 0);
+    }
+
+    if(key_mode == 16){
+      pel_ang_des(0) = std::min(pel_ang_des(0) + 0.1 / qp_rate, 0.2);
+      pel_omg_des(0) = (pel_ang_des(0) < 0.2) ? 0.1 / qp_rate : 0;
+    }
+    else if(key_mode == 17){
+      pel_ang_des(0) = std::max(pel_ang_des(0) - 0.1 / qp_rate, -0.2);
+      pel_omg_des(0) = (pel_ang_des(0) > -0.2) ? -0.1 / qp_rate : 0;
+    }
+    else{
+      pel_ang_des(0) = 0.999 * (pel_ang_des(0) - 0);
     }
 
     // Wrap theta
@@ -824,24 +849,24 @@ int main(int argc, char* argv[])
                      -KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - KD_pel(1) * (pel_vel(1) - pel_vel_des(1)),
                      -KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                      -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - pel_omg_des(2)),
-                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - pel_omg_des(1)),
-                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - pel_omg_des(0));
+                     -KP_pel(4) * (theta(1) - pel_ang_des(1)) - KD_pel(4) * (dtheta(1) - pel_omg_des(1)),
+                     -KP_pel(5) * (theta(0) - pel_ang_des(0)) - KD_pel(5) * (dtheta(0) - pel_omg_des(0));
     }
     else if(contact(0) == 0 || contact(1) == 0){
       des_acc_pel << -1.2 * KP_pel(0) * (pel_pos(0) - pel_pos_des(0)) - 1.2 * KD_pel(0) * (pel_vel(0) - pel_vel_des(0)) - fcdx * (pel_vel(0) - vel_des_x),
                      -1.2 * KP_pel(1) * (pel_pos(1) - pel_pos_des(1)) - 1.2 * KD_pel(1) * (pel_vel(1) - pel_vel_des(1)) - fcdy * (pel_vel(1) - vel_des_y),
                      -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                      -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - pel_omg_des(2)),
-                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - pel_omg_des(1)),
-                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - pel_omg_des(0));
+                     -KP_pel(4) * (theta(1) - pel_ang_des(1)) - KD_pel(4) * (dtheta(1) - pel_omg_des(1)),
+                     -KP_pel(5) * (theta(0) - pel_ang_des(0)) - KD_pel(5) * (dtheta(0) - pel_omg_des(0));
     }
     else{
       des_acc_pel << - fcdx * (pel_vel(0) - vel_des_x),
                      - fcdy * (pel_vel(1) - vel_des_y),
                      -2 * KP_pel(2) * (pel_pos(2) - pel_pos_des(2)) - 2 * KD_pel(2) * (pel_vel(2) - pel_vel_des(2)),
                      -KP_pel(3) * (theta(2) - 0) - KD_pel(3) * (dtheta(2) - pel_omg_des(2)),
-                     -KP_pel(4) * (theta(1) - 0) - KD_pel(4) * (dtheta(1) - pel_omg_des(1)),
-                     -KP_pel(5) * (theta(0) - 0) - KD_pel(5) * (dtheta(0) - pel_omg_des(0));
+                     -KP_pel(4) * (theta(1) - pel_ang_des(1)) - KD_pel(4) * (dtheta(1) - pel_omg_des(1)),
+                     -KP_pel(5) * (theta(0) - pel_ang_des(0)) - KD_pel(5) * (dtheta(0) - pel_omg_des(0));
     }
 
     

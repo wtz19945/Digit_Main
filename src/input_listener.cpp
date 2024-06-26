@@ -22,7 +22,11 @@ enum class TkKeys {
   K = 107,
   J = 106,
   L = 108,
-  Z = 122
+  Z = 122,
+  picth_up = 65464,
+  pitch_down = 65461,
+  roll_up = 65460,
+  roll_down = 65462
 };
 
 void InputListener::keyInputCallback(const std_msgs::Int32::ConstPtr& msg) {
@@ -89,6 +93,26 @@ void InputListener::keyInputCallback(const std_msgs::Int32::ConstPtr& msg) {
 
     case TkKeys::Z:
         *key_mode = 13;
+        break;
+
+    case TkKeys::picth_up:
+        *key_mode = 14;
+        std::cout << "pitch up: " << std::endl;
+        break;
+
+    case TkKeys::pitch_down:
+        *key_mode = 15;
+        std::cout << "pitch down: " << std::endl;
+        break;
+
+    case TkKeys::roll_up:
+        *key_mode = 16;
+        std::cout << "roll up: " << std::endl;
+        break;
+
+    case TkKeys::roll_down:
+        *key_mode = 17;
+        std::cout << "roll down: " << std::endl;
         break;
 
     default:
