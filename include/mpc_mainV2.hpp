@@ -53,6 +53,7 @@ public:
   double get_uyoff() {return uy_off_;};
   double get_Wdu() {return du_cost_;};
   double get_height() {return height_;};
+  Eigen::VectorXd get_swing_foot() {return (stance_leg_ == 1) ? left_swing_ : right_swing_;};
   int get_stance_leg() {return stance_leg_;};
   int get_Var_Num() {return Vars_Num_;};
   Eigen::VectorXd Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input);
@@ -71,6 +72,9 @@ private:
   Eigen::VectorXd pel_ref_;
   Eigen::VectorXd foot_pos_;
   Eigen::VectorXd obs_info_;
+  Eigen::VectorXd left_swing_;
+  Eigen::VectorXd right_swing_;
+
   double traj_time_;
   int stance_leg_;
 

@@ -872,7 +872,7 @@ int main(int argc, char* argv[])
     
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
-    double damping_ratio = 0.4;
+    double damping_ratio = 0.2;
     if(contact(0) == 0){
         M(6,6) += damping_dt * limits->damping_limit[0] * damping_ratio;
         M(7,7) += damping_dt * limits->damping_limit[1] * damping_ratio;
@@ -1092,7 +1092,7 @@ int main(int argc, char* argv[])
     VectorXd obs_pos = VectorXd(2,1);
     obs_pos << 5,5;
     VectorXd obs_tan = VectorXd(2,1);
-
+    VectorXd obs_foot = VectorXd(3,1);
     
     if(stepping == 2){
       // reset position command when walking direction is changed
@@ -1102,14 +1102,15 @@ int main(int argc, char* argv[])
     // send mpc state info
     VectorXd pel_ref = VectorXd::Zero(4,1);      // x,y reference
     VectorXd st_foot_pos = VectorXd::Zero(2,1);  // stance foot position
-    VectorXd obs_info = VectorXd::Zero(4,1);     // obstacle info
+    VectorXd obs_info = VectorXd::Zero(7,1);     // obstacle info
     pel_ref << 0.0, vel_des_x, 0.0, vel_des_y;           
     if(vel_des_x == 0)
        pel_ref(0) = pel_vel_avg(0);   
     if(vel_des_y == 0)
        pel_ref(2) = pel_vel_avg(1); 
 
-    obs_info << obs_pos, obs_tan;           
+    obs_foot << 2.0, 0, 0;
+    obs_info << obs_pos, obs_tan, obs_foot;           
 
     if(contact(0) == 0){
       st_foot_pos << (right_toe_pos(0) + right_toe_back_pos(0))/2 - pel_pos(0), (right_toe_pos(1) + right_toe_back_pos(1))/2 - pel_pos(1);
@@ -1128,7 +1129,7 @@ int main(int argc, char* argv[])
     std::copy(dtheta.data(),dtheta.data() + 3,msg.pel_omg.begin());
     std::copy(pel_ref.data(),pel_ref.data() + 4, msg.pel_ref.begin());
     std::copy(st_foot_pos.data(),st_foot_pos.data() + 2,msg.foot_pos.begin());
-    std::copy(obs_info.data(),obs_info.data() + 4,msg.obs_info.begin());
+    std::copy(obs_info.data(),obs_info.data() + obs_info.size(),msg.obs_info.begin());
 
     // OSC data for visualization
     std::copy(pel_pos_des.data(), pel_pos_des.data() + pel_pos_des.size(), msg.pel_pos_des.begin());

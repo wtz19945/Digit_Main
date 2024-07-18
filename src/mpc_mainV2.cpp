@@ -16,7 +16,9 @@ Digit_MPC::Digit_MPC(bool run_sim)
   dtheta_ = VectorXd::Zero(3,1);
   pel_ref_ = VectorXd::Zero(4,1);
   foot_pos_ = VectorXd::Zero(2,1);
-  obs_info_ = VectorXd::Zero(4,1);
+  obs_info_ = VectorXd::Zero(7,1);
+  right_swing_ = VectorXd::Zero(3,1);
+  left_swing_ = VectorXd::Zero(3,1);
   traj_time_ = 0;
   stance_leg_ = 1;
 
@@ -116,7 +118,9 @@ void Digit_MPC::MPCInputCallback(const Digit_Ros::digit_state& msg) {
   std::copy(msg.pel_omg.begin(), msg.pel_omg.begin() + 3, dtheta_.data());
   std::copy(msg.pel_ref.begin(), msg.pel_ref.begin() + 4, pel_ref_.data());
   std::copy(msg.foot_pos.begin(), msg.foot_pos.begin() + 2, foot_pos_.data());
-  std::copy(msg.obs_info.begin(), msg.obs_info.begin() + 4, obs_info_.data());
+  std::copy(msg.obs_info.begin(), msg.obs_info.begin() + 7, obs_info_.data());
+  std::copy(msg.left_toe_pos.begin(), msg.left_toe_pos.begin() + 3, left_swing_.data());
+  std::copy(msg.right_toe_pos.begin(), msg.right_toe_pos.begin() + 3, right_swing_.data());
 
   traj_time_ = msg.traj_time;
   stance_leg_ = msg.stance_leg;
@@ -207,6 +211,8 @@ int main(int argc, char **argv){
   VectorXd cmd_pel_vel = VectorXd::Zero(4,1); 
   VectorXd cmd_left_foot = VectorXd::Zero(3,1);
   VectorXd cmd_right_foot = VectorXd::Zero(3,1);
+  VectorXd swing_foot_cmd = VectorXd::Zero(15,1);
+
   VectorXd foot_change = VectorXd::Zero(2,1);
 
   // 
@@ -283,7 +289,7 @@ int main(int argc, char **argv){
         std::vector<double> f_init(mpc_f_init.data(), mpc_f_init.data() + mpc_f_init.size());
         std::vector<double> f_param = {0, 0, fx_offset, 0, 0, foot_width};
         std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
-        std::vector<double> qo_tan(mpc_obs_info.data() + 2, mpc_obs_info.data() + mpc_obs_info.size());
+        std::vector<double> qo_tan(mpc_obs_info.data() + 2, mpc_obs_info.data() + 4);
         std::vector<double> rt = {max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
         if(mpc_index > 2)
           rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
@@ -291,7 +297,7 @@ int main(int argc, char **argv){
         std::vector<double> du_reff = {h};
         std::vector<double> swf_cq = {0,0,0}; // starting position
         std::vector<double> swf_rq(swf_ref.data(), swf_ref.data() + swf_ref.size()); // reference traj
-        std::vector<double> swf_obs = {2,0,0}; // foot obs position
+        std::vector<double> swf_obs(mpc_obs_info.data() + 4, mpc_obs_info.data() + 7); // foot obs position
 
         vector<vector<double>> mpc_input;
         mpc_input.push_back(q_init);
@@ -336,14 +342,16 @@ int main(int argc, char **argv){
       cmd_pel_vel << QPSolution(1), QPSolution(3 + off), QPSolution(56), QPSolution(58 + off);
       cmd_left_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
       cmd_right_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
+      swing_foot_cmd = QPSolution.block(127,0,15,1);
+      
     }
-    
     // interpolates result
     Digit_Ros::mpc_info msg;
     std::copy(cmd_pel_pos.data(),cmd_pel_pos.data() + 4,msg.pel_pos_cmd.begin());
     std::copy(cmd_pel_vel.data(),cmd_pel_vel.data() + 4,msg.pel_vel_cmd.begin());
     std::copy(cmd_left_foot.data(),cmd_left_foot.data() + 3,msg.foot_left_cmd.begin());
     std::copy(cmd_right_foot.data(),cmd_right_foot.data() + 3,msg.foot_right_cmd.begin());
+    std::copy(swing_foot_cmd.data(),swing_foot_cmd.data() + swing_foot_cmd.size(),msg.swing_foot_cmd.begin());
     mpc_res_pub.publish(msg);
     ros::spinOnce();
     loop_rate.sleep();

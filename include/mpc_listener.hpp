@@ -25,6 +25,7 @@ public:
   Eigen::VectorXd get_pel_vel_cmd() {return pel_vel_cmd;};
   Eigen::VectorXd get_left_foot_cmd()   {return left_foot_cmd;};
   Eigen::VectorXd get_right_foot_cmd()  {return right_foot_cmd;};
+  Eigen::VectorXd get_swing_foot_cmd()  {return swing_foot_cmd;};
 
 private:
   void MPCInputCallback(const Digit_Ros::mpc_info& msg);
@@ -36,4 +37,5 @@ private:
   Eigen::VectorXd pel_vel_cmd;
   Eigen::VectorXd left_foot_cmd;
   Eigen::VectorXd right_foot_cmd;
+  Eigen::VectorXd swing_foot_cmd;
 };
