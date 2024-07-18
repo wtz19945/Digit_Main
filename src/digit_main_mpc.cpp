@@ -667,13 +667,11 @@ int main(int argc, char* argv[])
 
     double vel_des_x = -0.0;
     double vel_des_y = -0.0;
-
-    cout << pel_vel(0) << endl;
     if(stepping == 2){
       // reset position command when walking direction is changed
       switch(key_mode){
         case 5:
-          vel_des_x = 0.2 + min(global_time * 0.1, 0.8);
+          vel_des_x = 0.2;
           break;
         case 6:
           vel_des_x = -0.2;
@@ -875,21 +873,22 @@ int main(int argc, char* argv[])
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
     double damping_ratio = 0.2;
+    double damping_ratio_toe = 0.2;
     if(contact(0) == 0){
         M(6,6) += damping_dt * limits->damping_limit[0] * damping_ratio;
         M(7,7) += damping_dt * limits->damping_limit[1] * damping_ratio;
         M(8,8) += damping_dt * limits->damping_limit[2] * damping_ratio;
         M(9,9) += damping_dt * limits->damping_limit[3] * damping_ratio;
-        M(11,11) += damping_dt * limits->damping_limit[4] * damping_ratio;
-        M(12,12) += damping_dt * limits->damping_limit[5] * damping_ratio;
+        M(11,11) += damping_dt * limits->damping_limit[4] * damping_ratio_toe;
+        M(12,12) += damping_dt * limits->damping_limit[5] * damping_ratio_toe;
     }
     if(contact(1) == 0){
         M(13,13) += damping_dt * limits->damping_limit[6] * damping_ratio;
         M(14,14) += damping_dt * limits->damping_limit[7] * damping_ratio;
         M(15,15) += damping_dt * limits->damping_limit[8] * damping_ratio;
         M(16,16) += damping_dt * limits->damping_limit[9] * damping_ratio;
-        M(18,18) += damping_dt * limits->damping_limit[10] * damping_ratio;
-        M(19,19) += damping_dt * limits->damping_limit[11] * damping_ratio;
+        M(18,18) += damping_dt * limits->damping_limit[10] * damping_ratio_toe;
+        M(19,19) += damping_dt * limits->damping_limit[11] * damping_ratio_toe;
     }
 
     if(ros::isShuttingDown()){
@@ -1024,8 +1023,8 @@ int main(int argc, char* argv[])
               command.motors[1].damping = damping_ratio * limits->damping_limit[1];
               command.motors[2].damping = damping_ratio * limits->damping_limit[2];
               command.motors[3].damping = damping_ratio * limits->damping_limit[3];
-              command.motors[4].damping = damping_ratio * limits->damping_limit[4];
-              command.motors[5].damping = damping_ratio * limits->damping_limit[5];
+              command.motors[4].damping = damping_ratio_toe * limits->damping_limit[4];
+              command.motors[5].damping = damping_ratio_toe * limits->damping_limit[5];
               //command.motors[i].damping = .0 * limits->damping_limit[i];
             }
           }
@@ -1037,8 +1036,8 @@ int main(int argc, char* argv[])
               command.motors[7].damping = damping_ratio * limits->damping_limit[7];
               command.motors[8].damping = damping_ratio * limits->damping_limit[8];
               command.motors[9].damping = damping_ratio * limits->damping_limit[9];
-              command.motors[10].damping = damping_ratio * limits->damping_limit[10];
-              command.motors[11].damping = damping_ratio * limits->damping_limit[11];
+              command.motors[10].damping = damping_ratio_toe * limits->damping_limit[10];
+              command.motors[11].damping = damping_ratio_toe * limits->damping_limit[11];
               //command.motors[i].damping = .0 * limits->damping_limit[i];
             }
           }
@@ -1169,7 +1168,8 @@ MatrixXd get_B(VectorXd q){
   d << 0.003154, 0.9416, 0.2848, -0.1133, -0.1315, 0.06146;
 
   // Replace left_J and right_J with left_J2 and right_J2 for a better approximation
-  /*e.resize(15);
+/*   VectorXd e,f,g,h;
+  e.resize(15);
   f.resize(15);
   g.resize(15);
   h.resize(15);
@@ -1180,8 +1180,8 @@ MatrixXd get_B(VectorXd q){
   h <<  0.01785,0.9257,0.2972,-0.08391,-0.1045,0.06483,-0.02982,-0.02973,0.01419,-0.03903,-0.03976,-0.06553,-0.04701,0.02931,-0.003061; 
 
   MatrixXd left_J2 = get_pr2m_jaco(e,f,q(11),q(12));
-  MatrixXd right_J2 = get_pr2m_jaco(g,h,q(18),q(19));
-  */
+  MatrixXd right_J2 = get_pr2m_jaco(g,h,q(18),q(19)); */
+ 
   VectorXd left_toe_j = VectorXd::Zero(2,1);
   MatrixXd left_J = MatrixXd::Zero(2,2);
   left_toe_j << q(11) , q(12);

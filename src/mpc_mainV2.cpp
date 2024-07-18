@@ -234,6 +234,7 @@ int main(int argc, char **argv){
       }
       counter = 0;
     }
+    
     // solve for results
     traj_time = digit_mpc.get_traj_time();
     if(traj_time >= digit_mpc.get_dstime()/2 && traj_time < digit_mpc.get_steptime() - digit_mpc.get_dstime()/2){
@@ -242,8 +243,9 @@ int main(int argc, char **argv){
         VectorXd mpc_pel_vel = digit_mpc.get_pel_vel();
         VectorXd mpc_pel_ref = digit_mpc.get_pel_ref();
         VectorXd mpc_f_init = digit_mpc.get_foot_pos();
-        VectorXd mpc_obs_info = digit_mpc.get_obs_info();
 
+        h = mpc_pel_pos(2) + 1.0;
+        w = sqrt(g/h);
         double foot_width = digit_mpc.get_foot_width();
         double dx_des = mpc_pel_ref(1);
         double dy_des = mpc_pel_ref(3);

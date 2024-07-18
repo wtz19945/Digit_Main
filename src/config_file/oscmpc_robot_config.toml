@@ -39,8 +39,8 @@ hip_yaw_D = 15
 
 arm_P = 250.0      # arm gain
 cp_P  = 1.8        # capture point gains, only for capture point walking
-mpc_px = 1.0  # worth checking
-mpc_py = 1.2  # worth checking
+mpc_px = 1.1  # worth checking
+mpc_py = 1.1  # worth checking
 
 [QP-Params]
 st_foot_W = 1350.0
@@ -76,7 +76,7 @@ end_acc = -5       # Acceleration when foot hig ground
 ds_time = 0.02    # Time duration for double support phase
 
 [Filter]
-wd_sz = 25000      # number of the consecutive safety violation to trigger safe controller. Control frequency is 1kHz, so 0.5s safe window
+wd_sz = 55000      # number of the consecutive safety violation to trigger safe controller. Control frequency is 1kHz, so 0.5s safe window
 
 [Start]
 init_count = 0.3 # Time to record robot's initial configuration
