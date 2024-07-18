@@ -24,7 +24,6 @@ VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq
     std::memcpy(upperBound_.data(), beq.ptr(), sizeof(double)*Aeq.size1());
     std::memcpy(upperBound_.data() + Aeq.size1(), biq.ptr(), sizeof(double)*Aiq.size1());
     for(int i=0;i<Aiq.size1();i++){
-        lowerBound_(i + Aeq.size1()) = -OsqpEigen::INFTY;
     } */
 
     for(int i = 0; i<Vars_Num_; i++){

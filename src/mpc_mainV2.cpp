@@ -22,15 +22,15 @@ Digit_MPC::Digit_MPC(bool run_sim)
 
   // Casadi MPC QP Matrix evaluation function
   std::string prefix_lib = fs::current_path().parent_path().string();
-  left_step0_matrix_ = casadi::external("LeftStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step0_04V4Tra.so");
-  left_step1_matrix_ = casadi::external("LeftStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step1_04V4Tra.so");
-  left_step2_matrix_ = casadi::external("LeftStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step2_04V4Tra.so");
-  left_step3_matrix_ = casadi::external("LeftStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step3_04V4Tra.so");
+  left_step0_matrix_ = casadi::external("LeftStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step0_Foot.so");
+  left_step1_matrix_ = casadi::external("LeftStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step1_Foot.so");
+  left_step2_matrix_ = casadi::external("LeftStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step2_Foot.so");
+  left_step3_matrix_ = casadi::external("LeftStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step3_Foot.so");
 
-  right_step0_matrix_ = casadi::external("RightStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step0_04V4Tra.so");
-  right_step1_matrix_ = casadi::external("RightStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step1_04V4Tra.so");
-  right_step2_matrix_ = casadi::external("RightStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step2_04V4Tra.so");
-  right_step3_matrix_ = casadi::external("RightStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step3_04V4Tra.so");
+  right_step0_matrix_ = casadi::external("RightStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step0_Foot.so");
+  right_step1_matrix_ = casadi::external("RightStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step1_Foot.so");
+  right_step2_matrix_ = casadi::external("RightStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step2_Foot.so");
+  right_step3_matrix_ = casadi::external("RightStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step3_Foot.so");
 
   // read control parameters
   std::string package_path; 
@@ -66,7 +66,16 @@ Digit_MPC::Digit_MPC(bool run_sim)
     ux_off_ = config->get_qualified_as<double>("MPC-Params.ux_off").value_or(0);
     uy_off_ = config->get_qualified_as<double>("MPC-Params.uy_off").value_or(0);
   }
-
+  double swf_Qx = config->get_qualified_as<double>("Foot-Params.swf_Qx").value_or(0);
+  double swf_Qy = config->get_qualified_as<double>("Foot-Params.swf_Qy").value_or(0);
+  double swf_Qz = config->get_qualified_as<double>("Foot-Params.swf_Qz").value_or(0);
+  double swf_xy_r1 = config->get_qualified_as<double>("Foot-Params.swf_xy_r1").value_or(0);
+  double swf_xy_r2 = config->get_qualified_as<double>("Foot-Params.swf_xy_r2").value_or(0);
+  double swf_z_r1 = config->get_qualified_as<double>("Foot-Params.swf_z_r1").value_or(0);
+  double swf_z_r2 = config->get_qualified_as<double>("Foot-Params.swf_z_r2").value_or(0);
+  double swf_obs_Qxy = config->get_qualified_as<double>("Foot-Params.swf_obs_Qxy").value_or(0);
+  double swf_obs_Qz = config->get_qualified_as<double>("Foot-Params.swf_obs_Qz").value_or(0);
+  double swf_z_frac = config->get_qualified_as<double>("Foot-Params.swf_z_frac").value_or(0);
 
   std::shared_ptr<cpptoml::table> config_osc = cpptoml::parse_file(package_path + "/src/config_file/oscmpc_robot_config.toml");
   step_time_ = config_osc->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
@@ -74,6 +83,9 @@ Digit_MPC::Digit_MPC(bool run_sim)
   f_length_ = {flx, fly};
   Weights_ss_ = {Wx, Wdx, Wy, Wdy, Wux, Wuy, Wdux, Wduy, Wobs};
   Weights_ds_ = {0, 2500, 0, 2500, 10000, 10000, 100, 6000, 15000};
+  Weights_swf_Q_ = {swf_Qx, swf_Qy, swf_Qz};
+  Weights_swf_param_ = {swf_xy_r1, swf_xy_r2, swf_z_r1, swf_z_r2, swf_obs_Qxy, swf_obs_Qz, swf_z_frac};
+
   r_ = {r1, r2};
   f_width_ = config->get_qualified_as<double>("MPC-Params.foot_width").value_or(0);
   height_ = config->get_qualified_as<double>("MPC-Params.height").value_or(0);
@@ -83,8 +95,8 @@ Digit_MPC::Digit_MPC(bool run_sim)
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {187,187,187,187};
-  Vars_Num_ = 127;
+  Cons_Num_ = {209,207,205,203};
+  Vars_Num_ = 147;
   for(int i = 0; i<Vars_Num_;i++){
     sol_.push_back(0);
     sol_init_.push_back(0);
@@ -128,7 +140,13 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input)
   input.insert(input.end(), mpc_input[7].begin(), mpc_input[7].end());
   input.insert(input.end(), mpc_input[8].begin(), mpc_input[8].end());
   input.insert(input.end(), mpc_input[9].begin(), mpc_input[9].end());
-  std::vector<casadi::DM> MPC_arg = {input,sol_init_};
+  input.insert(input.end(), mpc_input[10].begin(), mpc_input[10].end());
+  input.insert(input.end(), mpc_input[11].begin(), mpc_input[11].end());
+  input.insert(input.end(), Weights_swf_Q_.begin(), Weights_swf_Q_.end());
+  input.insert(input.end(), mpc_input[12].begin(), mpc_input[12].end());
+  input.insert(input.end(), Weights_swf_param_.begin(), Weights_swf_param_.end());
+  
+  std::vector<casadi::DM> MPC_arg = {input,sol_init_};  
   std::vector<casadi::DM> res;
 
   if(stance_leg_ == -1){
@@ -243,7 +261,11 @@ int main(int argc, char **argv){
         VectorXd mpc_pel_ref = digit_mpc.get_pel_ref();
         VectorXd mpc_f_init = digit_mpc.get_foot_pos();
         VectorXd mpc_obs_info = digit_mpc.get_obs_info();
-
+        VectorXd swf_x_ref = VectorXd::Zero(5,1);
+        VectorXd swf_y_ref = VectorXd::Zero(5,1);
+        VectorXd swf_z_ref = VectorXd::Zero(5,1);
+        VectorXd swf_ref = VectorXd::Zero(15,1);
+        
         double foot_width = digit_mpc.get_foot_width();
         double dx_des = mpc_pel_ref(1);
         double dy_des = mpc_pel_ref(3);
@@ -266,7 +288,10 @@ int main(int argc, char **argv){
         if(mpc_index > 2)
           rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
         std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset, digit_mpc.get_uyoff() + foot_y_offset};
-        std::vector<double> du_reff = {foot_change(0), foot_change(1), digit_mpc.get_Wdu(), h};
+        std::vector<double> du_reff = {h};
+        std::vector<double> swf_cq = {0,0,0}; // starting position
+        std::vector<double> swf_rq(swf_ref.data(), swf_ref.data() + swf_ref.size()); // reference traj
+        std::vector<double> swf_obs = {2,0,0}; // foot obs position
 
         vector<vector<double>> mpc_input;
         mpc_input.push_back(q_init);
@@ -279,6 +304,10 @@ int main(int argc, char **argv){
         mpc_input.push_back(rt);
         mpc_input.push_back(foff);
         mpc_input.push_back(du_reff);
+        mpc_input.push_back(swf_cq);
+        mpc_input.push_back(swf_rq);
+        mpc_input.push_back(swf_obs);
+
 
         QPSolution = digit_mpc.Update_MPC_(mpc_index,mpc_input);
         auto mpc_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - mpc_time_start);

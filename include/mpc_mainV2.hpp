@@ -90,6 +90,8 @@ private:
   std::vector<double> Weights_ss_; // single support 
   std::vector<double> Weights_ds_; // double support
   std::vector<double> r_;          // obstacle radius
+  std::vector<double> Weights_swf_Q_; // swing foot tracking cost
+  std::vector<double> Weights_swf_param_; // swing foot MPC params
   double f_width_;
   double du_cost_;
   double height_;

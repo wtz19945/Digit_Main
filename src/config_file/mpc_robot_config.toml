@@ -34,3 +34,16 @@ uy_off = -0.02        # mpc input y offset
 ux_off_sim = 0.01     # mpc input x offset used in sim
 uy_off_sim = 0.001     # mpc input y offset used in sim
 
+[Foot-Params]
+swf_Qx = 0.0        # Swing foot tracking
+swf_Qy = 0.0
+swf_Qz = 0.0
+swf_xy_r1 = 0.0     # XY avoidance radius
+swf_xy_r2 = 0.0
+swf_z_r1 = 0.0      # Z avoidance radius
+swf_z_r2 = 0.0
+swf_obs_Qxy = 0.0   # Swing avoidance slack cost
+swf_obs_Qz = 0.0
+swf_z_frac = 0.5    # Swing foot profile
+
+
