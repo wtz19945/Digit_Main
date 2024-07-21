@@ -44,7 +44,7 @@ swf_z_r1 = 0.1      # Z avoidance radius
 swf_z_r2 = 0.2
 swf_obs_Qxy = 0.0   # Swing avoidance slack cost
 swf_obs_Qz = 1000.0
-swf_z_frac = 0.75    # Swing foot profile
+swf_z_frac = 0.5    # Swing foot profile, should be 0.5 for avoidance
 z_max = 0.6
 
 
