@@ -6,3 +6,4 @@ float32[4] pel_vel_cmd
 float32[3] foot_left_cmd
 float32[3] foot_right_cmd
 float32[15] swing_foot_cmd
+float32[3] mpc_swf_cur

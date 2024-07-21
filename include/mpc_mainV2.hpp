@@ -53,7 +53,12 @@ public:
   double get_uyoff() {return uy_off_;};
   double get_Wdu() {return du_cost_;};
   double get_height() {return height_;};
+  double get_z_max() {return step_z_max_;};
+  double get_z_min() {return step_height_;};
+  double get_z_frac() {return swf_z_frac_;};
+  
   Eigen::VectorXd get_swing_foot() {return (stance_leg_ == 1) ? left_swing_ : right_swing_;};
+  Eigen::VectorXd linspace(double start, double end, int num);
   int get_stance_leg() {return stance_leg_;};
   int get_Var_Num() {return Vars_Num_;};
   Eigen::VectorXd Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input);
@@ -75,6 +80,9 @@ private:
   Eigen::VectorXd left_swing_;
   Eigen::VectorXd right_swing_;
 
+  double swf_z_frac_;
+  double step_z_max_;
+  double step_height_;
   double traj_time_;
   int stance_leg_;
 

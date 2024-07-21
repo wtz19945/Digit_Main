@@ -28,22 +28,23 @@ obs_rad2 = 0.5
 foot_width = 0.16 # worth checking
 height = 0.9
 
-mpc_rate = 500.0      # mpc update rate
+mpc_rate = 200.0      # mpc update rate
 ux_off = 0.02         # mpc input x offset
 uy_off = -0.02        # mpc input y offset
 ux_off_sim = 0.01     # mpc input x offset used in sim
 uy_off_sim = 0.001     # mpc input y offset used in sim
 
 [Foot-Params]
-swf_Qx = 0.0        # Swing foot tracking
-swf_Qy = 0.0
-swf_Qz = 0.0
+swf_Qx = 1000.0        # Swing foot tracking
+swf_Qy = 1000.0
+swf_Qz = 1000.0
 swf_xy_r1 = 0.0     # XY avoidance radius
 swf_xy_r2 = 0.0
-swf_z_r1 = 0.0      # Z avoidance radius
-swf_z_r2 = 0.0
+swf_z_r1 = 0.1      # Z avoidance radius
+swf_z_r2 = 0.2
 swf_obs_Qxy = 0.0   # Swing avoidance slack cost
-swf_obs_Qz = 0.0
-swf_z_frac = 0.5    # Swing foot profile
+swf_obs_Qz = 1000.0
+swf_z_frac = 0.75    # Swing foot profile
+z_max = 0.6
 
 

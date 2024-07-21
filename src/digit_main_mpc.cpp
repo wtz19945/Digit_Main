@@ -671,7 +671,7 @@ int main(int argc, char* argv[])
       // reset position command when walking direction is changed
       switch(key_mode){
         case 5:
-          vel_des_x = 0.2;
+          vel_des_x = 0.3;
           break;
         case 6:
           vel_des_x = -0.2;
@@ -697,6 +697,8 @@ int main(int argc, char* argv[])
     VectorXd right_toe_vel_ref = VectorXd::Zero(3,1);
     VectorXd right_toe_acc_ref = VectorXd::Zero(3,1);
 
+    VectorXd foot_swing_cmd = mpc_cmd_listener.get_swing_foot_cmd();
+
     if(contact(0) == 0){
       // get foot cmd
       VectorXd foot_cmd = mpc_cmd_listener.get_left_foot_cmd();
@@ -721,6 +723,11 @@ int main(int argc, char* argv[])
       left_toe_acc_ref << ddx_goal,ddy_goal,0;
 
       if(traj_time < step_time/2 ){
+        // new trajectory based on mpc result
+        fzmid << pos_avg(2) + foot_swing_cmd(12),0,0;
+        a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
+        b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
+
         double n = traj_time - ds_time / 2;
         tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
         dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
@@ -770,6 +777,11 @@ int main(int argc, char* argv[])
       right_toe_acc_ref << ddx_goal,ddy_goal,0;
 
       if(traj_time < step_time/2){
+        // new trajectory based on mpc result
+        fzmid << pos_avg(2) + foot_swing_cmd(12),0,0;
+        a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
+        b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
+
         double n = traj_time - ds_time / 2;
         tvec   << 1,n,pow(n,2),pow(n,3),pow(n,4),pow(n,5);
         dtvec  << 0,1,2*n,3*pow(n,2),4*pow(n,3),5*pow(n,4);
@@ -1109,7 +1121,7 @@ int main(int argc, char* argv[])
     if(vel_des_y == 0)
        pel_ref(2) = pel_vel_avg(1); 
 
-    obs_foot << 2.0, 0, 0;
+    obs_foot << -12.0, 0, 0;
     obs_info << obs_pos, obs_tan, obs_foot;           
 
     if(contact(0) == 0){
@@ -1118,9 +1130,14 @@ int main(int argc, char* argv[])
     if(contact(1) == 0){
       st_foot_pos << (left_toe_pos(0) + left_toe_back_pos(0))/2  - pel_pos(0), (left_toe_pos(1) + left_toe_back_pos(1))/2 - pel_pos(1);
     }
+
     pel_pos(0) = 0;
     pel_pos(1) = 0;
-
+    left_toe_pos(0) -= pel_pos(0);
+    left_toe_pos(1) -= pel_pos(1);
+    right_toe_pos(0) -= pel_pos(0);
+    right_toe_pos(1) -= pel_pos(1);
+    
     Digit_Ros::digit_state msg;
     // MPC data
     std::copy(pel_pos.data(),pel_pos.data() + 3,msg.pel_pos.begin());

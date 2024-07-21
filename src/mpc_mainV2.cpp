@@ -45,6 +45,8 @@ Digit_MPC::Digit_MPC(bool run_sim)
     std::cerr << "package not found\n";
   }
   std::shared_ptr<cpptoml::table> config = cpptoml::parse_file(package_path + "/src/config_file/mpc_robot_config.toml");
+  std::shared_ptr<cpptoml::table> config_osc = cpptoml::parse_file(package_path + "/src/config_file/oscmpc_robot_config.toml");
+
   double flx = config->get_qualified_as<double>("MPC-Params.foot_x_max").value_or(0);
   double fly = config->get_qualified_as<double>("MPC-Params.foot_y_max").value_or(0);
   double Wx = config->get_qualified_as<double>("MPC-Params.W_com_x_p").value_or(0);
@@ -77,16 +79,17 @@ Digit_MPC::Digit_MPC(bool run_sim)
   double swf_z_r2 = config->get_qualified_as<double>("Foot-Params.swf_z_r2").value_or(0);
   double swf_obs_Qxy = config->get_qualified_as<double>("Foot-Params.swf_obs_Qxy").value_or(0);
   double swf_obs_Qz = config->get_qualified_as<double>("Foot-Params.swf_obs_Qz").value_or(0);
-  double swf_z_frac = config->get_qualified_as<double>("Foot-Params.swf_z_frac").value_or(0);
+  swf_z_frac_ = config->get_qualified_as<double>("Foot-Params.swf_z_frac").value_or(0);
+  step_height_ = config_osc->get_qualified_as<double>("Walk-Params.step_height").value_or(0);
+  step_z_max_ = config->get_qualified_as<double>("Foot-Params.z_max").value_or(0);
 
-  std::shared_ptr<cpptoml::table> config_osc = cpptoml::parse_file(package_path + "/src/config_file/oscmpc_robot_config.toml");
   step_time_ = config_osc->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
   ds_time_ = config_osc->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
   f_length_ = {flx, fly};
   Weights_ss_ = {Wx, Wdx, Wy, Wdy, Wux, Wuy, Wdux, Wduy, Wobs};
   Weights_ds_ = {0, 2500, 0, 2500, 10000, 10000, 100, 6000, 15000};
   Weights_swf_Q_ = {swf_Qx, swf_Qy, swf_Qz};
-  Weights_swf_param_ = {swf_xy_r1, swf_xy_r2, swf_z_r1, swf_z_r2, swf_obs_Qxy, swf_obs_Qz, swf_z_frac};
+  Weights_swf_param_ = {swf_xy_r1, swf_xy_r2, swf_z_r1, swf_z_r2, swf_obs_Qxy, swf_obs_Qz, swf_z_frac_,step_height_,step_z_max_};
 
   r_ = {r1, r2};
   f_width_ = config->get_qualified_as<double>("MPC-Params.foot_width").value_or(0);
@@ -97,7 +100,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {209,207,205,203};
+  Cons_Num_ = {210,208,205,203};
   Vars_Num_ = 147;
   for(int i = 0; i<Vars_Num_;i++){
     sol_.push_back(0);
@@ -108,6 +111,19 @@ Digit_MPC::Digit_MPC(bool run_sim)
   mpc_solver1_ = MPC_Solver(Cons_Num_[1],Vars_Num_);
   mpc_solver2_ = MPC_Solver(Cons_Num_[2],Vars_Num_);
   mpc_solver3_ = MPC_Solver(Cons_Num_[3],Vars_Num_);
+}
+
+VectorXd Digit_MPC::linspace(double start, double end, int num){
+    Eigen::VectorXd result(num,1);
+    if (num == 1) {
+        result[0] = start;
+    } else {
+        double step = (end - start) / (num - 1);
+        for (int i = 0; i < num; ++i) {
+            result[i] = start + step * i;
+        }
+    }
+    return result;
 }
 
 // get mpc inputs (robot foot&base states)
@@ -206,13 +222,22 @@ int main(int argc, char **argv){
   ros::Publisher mpc_res_pub = n.advertise<Digit_Ros::mpc_info>("mpc_res", 10);
   int count = 0;
 
+  // MPC ros output
   VectorXd QPSolution = VectorXd::Zero(digit_mpc.get_Var_Num(),1);
   VectorXd cmd_pel_pos = VectorXd::Zero(4,1);
   VectorXd cmd_pel_vel = VectorXd::Zero(4,1); 
   VectorXd cmd_left_foot = VectorXd::Zero(3,1);
   VectorXd cmd_right_foot = VectorXd::Zero(3,1);
   VectorXd swing_foot_cmd = VectorXd::Zero(15,1);
+  VectorXd mpc_swf_init = VectorXd::Zero(3,1);
 
+  // MPC info
+  VectorXd swing_foot_start = VectorXd::Zero(3,1);
+  VectorXd swf_x_ref = VectorXd::Zero(5,1);
+  VectorXd swf_y_ref = VectorXd::Zero(5,1);
+  VectorXd swf_z_ref = VectorXd::Zero(5,1);
+  VectorXd swf_ref = VectorXd::Zero(15,1);
+  swf_z_ref << 0.0, 0.1, 0.2, 0.1, 0.0;
   VectorXd foot_change = VectorXd::Zero(2,1);
 
   // 
@@ -228,11 +253,11 @@ int main(int argc, char **argv){
   double foot_x_offset = 0;
   double foot_y_offset = 0;
   int counter = 0;
+  int stance_leg_prev = 1;
+  
   while (ros::ok()){
     double traj_time = 0;
-    int stance_leg = 1;
     auto mpc_time_start = std::chrono::system_clock::now();
-
     // tune offset parameters to account for model mismatch and avoid drifting
     switch(key_mode) {
       case 9:
@@ -266,12 +291,9 @@ int main(int argc, char **argv){
         VectorXd mpc_pel_vel = digit_mpc.get_pel_vel();
         VectorXd mpc_pel_ref = digit_mpc.get_pel_ref();
         VectorXd mpc_f_init = digit_mpc.get_foot_pos();
-        VectorXd mpc_obs_info = digit_mpc.get_obs_info();
-        VectorXd swf_x_ref = VectorXd::Zero(5,1);
-        VectorXd swf_y_ref = VectorXd::Zero(5,1);
-        VectorXd swf_z_ref = VectorXd::Zero(5,1);
-        VectorXd swf_ref = VectorXd::Zero(15,1);
-        
+        VectorXd mpc_obs_info = digit_mpc.get_obs_info();   
+        VectorXd mpc_swf_cur = digit_mpc.get_swing_foot();
+
         double foot_width = digit_mpc.get_foot_width();
         double dx_des = mpc_pel_ref(1);
         double dy_des = mpc_pel_ref(3);
@@ -282,6 +304,24 @@ int main(int argc, char **argv){
         else
           dy_offset = -w * foot_width* tanh(w * T / 2);
         double fx_offset = dx_des / w * ((2 - exp(w*T) - exp(-w*T)) / (exp(w * T) - exp(-w * T)));
+
+        if(stance_leg_prev != digit_mpc.get_stance_leg()){
+          //cout << "stance leg change!" << endl;
+          swing_foot_start = digit_mpc.get_swing_foot();
+          swf_x_ref << digit_mpc.linspace(swing_foot_start(0), swing_foot_start(0) + digit_mpc.get_steptime() * dx_des, 5);
+          swf_y_ref << digit_mpc.linspace(swing_foot_start(1), swing_foot_start(1) + digit_mpc.get_steptime() * dy_des, 5);
+          swf_z_ref << 0.0, digit_mpc.get_z_min() * digit_mpc.get_z_frac(), digit_mpc.get_z_min(), digit_mpc.get_z_min() * digit_mpc.get_z_frac(), 0.0;
+        }
+        else{
+          swf_x_ref << digit_mpc.linspace(swing_foot_start(0), mpc_f_init(0) + foot_change(0), 5);
+          swf_y_ref << digit_mpc.linspace(swing_foot_start(1), mpc_f_init(1) + foot_change(1), 5);
+          //swf_z_ref << 0.0, 0.1, 0.2, 0.1, 0.0;
+          for(int i = 0; i < mpc_index; i++){
+              swf_z_ref(i) = swing_foot_cmd(10 + i);
+          }
+        }
+        swf_ref << swf_x_ref, swf_y_ref, swf_z_ref;
+        stance_leg_prev = digit_mpc.get_stance_leg();
 
         std::vector<double> q_init = {mpc_pel_pos(0), mpc_pel_vel(0), mpc_pel_pos(1), mpc_pel_vel(1)};
         std::vector<double> x_ref = {0, dx_des, dx_des, dx_des, dx_des};
@@ -295,7 +335,12 @@ int main(int argc, char **argv){
           rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
         std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset, digit_mpc.get_uyoff() + foot_y_offset};
         std::vector<double> du_reff = {h};
-        std::vector<double> swf_cq = {0,0,0}; // starting position
+        if(traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1 < 0.05){
+          mpc_swf_init = mpc_swf_cur;
+          mpc_swf_init(2) = max(mpc_swf_cur(2) - swing_foot_start(2),0.0);
+        }
+
+        std::vector<double> swf_cq(mpc_swf_init.data(), mpc_swf_init.data() + mpc_swf_init.size()); // starting position        
         std::vector<double> swf_rq(swf_ref.data(), swf_ref.data() + swf_ref.size()); // reference traj
         std::vector<double> swf_obs(mpc_obs_info.data() + 4, mpc_obs_info.data() + 7); // foot obs position
 
@@ -336,14 +381,12 @@ int main(int argc, char **argv){
         cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
 
-
       int off = 0;
       cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(55), QPSolution(57 + off);
       cmd_pel_vel << QPSolution(1), QPSolution(3 + off), QPSolution(56), QPSolution(58 + off);
       cmd_left_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
       cmd_right_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
       swing_foot_cmd = QPSolution.block(127,0,15,1);
-      
     }
     // interpolates result
     Digit_Ros::mpc_info msg;
@@ -352,6 +395,7 @@ int main(int argc, char **argv){
     std::copy(cmd_left_foot.data(),cmd_left_foot.data() + 3,msg.foot_left_cmd.begin());
     std::copy(cmd_right_foot.data(),cmd_right_foot.data() + 3,msg.foot_right_cmd.begin());
     std::copy(swing_foot_cmd.data(),swing_foot_cmd.data() + swing_foot_cmd.size(),msg.swing_foot_cmd.begin());
+    std::copy(mpc_swf_init.data(), mpc_swf_init.data() + mpc_swf_init.size(), msg.mpc_swf_cur.begin());
     mpc_res_pub.publish(msg);
     ros::spinOnce();
     loop_rate.sleep();
