@@ -83,7 +83,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {187,187,187,187};
+  Cons_Num_ = {225,225,225,225};
   Vars_Num_ = 127;
   for(int i = 0; i<Vars_Num_;i++){
     sol_.push_back(0);
@@ -243,6 +243,7 @@ int main(int argc, char **argv){
         VectorXd mpc_pel_vel = digit_mpc.get_pel_vel();
         VectorXd mpc_pel_ref = digit_mpc.get_pel_ref();
         VectorXd mpc_f_init = digit_mpc.get_foot_pos();
+        VectorXd mpc_obs_info = digit_mpc.get_obs_info();
 
         h = mpc_pel_pos(2) + 1.0;
         w = sqrt(g/h);
@@ -256,7 +257,7 @@ int main(int argc, char **argv){
         else
           dy_offset = -w * foot_width* tanh(w * T / 2);
         double fx_offset = dx_des / w * ((2 - exp(w*T) - exp(-w*T)) / (exp(w * T) - exp(-w * T)));
-
+        
         std::vector<double> q_init = {mpc_pel_pos(0), mpc_pel_vel(0), mpc_pel_pos(1), mpc_pel_vel(1)};
         std::vector<double> x_ref = {0, dx_des, dx_des, dx_des, dx_des};
         std::vector<double> y_ref = {0, dy_offset + dy_des, -dy_offset + dy_des, dy_offset + dy_des, -dy_offset + dy_des};
@@ -302,7 +303,6 @@ int main(int argc, char **argv){
         cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
         cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
-
 
       int off = 0;
       cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(55), QPSolution(57 + off);

@@ -39,8 +39,8 @@ hip_yaw_D = 15
 
 arm_P = 250.0      # arm gain
 cp_P  = 1.8        # capture point gains, only for capture point walking
-mpc_px = 1.1  # worth checking
-mpc_py = 1.1  # worth checking
+mpc_px = 1.0  # worth checking
+mpc_py = 1.0  # worth checking
 
 [QP-Params]
 st_foot_W = 1350.0

@@ -8,12 +8,14 @@
 #include <cmath>
 #include <csignal>
 #include <memory>
+#include <random>
+
 #include <Eigen/Dense>
 #include "cpptoml/include/cpptoml.h"
 #include "kin_left_arm.hpp"
 #include "kin_right_arm.hpp"
 #include "utilities.hpp"
-
+#include <random>
 using namespace Eigen;
 
 // Implementation of inverse kinematics for Digit arm.
@@ -51,12 +53,15 @@ class StateMachine {
 // An obstacle path generator to test the avoidance algorithm when on board obstacle estimiation is not available.
 class ObstacleGenerator {
     public:
-        ObstacleGenerator();
+        ObstacleGenerator() : gen_(rd_()), dis_(0, 2 * M_PI), avd_mode_(0), cmd_active_(0), obs_pos_(VectorXd::Zero(2,1)) {};
         int get_avoidance_mode(double key_cmd, int stepping, VectorXd &obs_pos);
     private:
         int avd_mode_;
         int cmd_active_;
         VectorXd obs_pos_;
+        std::random_device rd_;
+        std::mt19937 gen_; // Mersenne Twister generator
+        std::uniform_real_distribution<> dis_; // Uniform distribution
 };
 
 void wrap_theta(double &theta);

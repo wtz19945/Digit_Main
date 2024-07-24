@@ -222,42 +222,15 @@ void StateMachine::update(int cmd, double dt)
     }
 }
 
-ObstacleGenerator::ObstacleGenerator()
-{
-    avd_mode_ = 0;
-    cmd_active_ = 0;
-    obs_pos_ = VectorXd::Zero(2,1);
-}
-
 int ObstacleGenerator::get_avoidance_mode(double key_cmd, int stepping, VectorXd &obs_pos)
 {
     if (key_cmd == 13 && stepping == 2)
     {
         if (cmd_active_ == 0)
         {
-            avd_mode_ = (avd_mode_ + 1) % 4;
-            switch (avd_mode_)
-            {
-            case 0:
-                std::cout << "avoiding backward" << std::endl;
-                obs_pos_ << 0.2, 0.0;
-                break;
-            case 1:
-                std::cout << "avoiding forward" << std::endl;
-                obs_pos_ << -0.14, 0.14;
-                break;
-            case 2:
-                std::cout << "avoiding right" << std::endl;
-                obs_pos_ << 0.0, 0.2;
-                break;
-            case 3:
-                std::cout << "avoiding left" << std::endl;
-                obs_pos_ << 0.14, -0.14;
-                break;
-            default:
-                break;
-            }
-            cmd_active_++;
+            cmd_active_ = 1;
+            double angle = dis_(gen_);
+            obs_pos_ << 0.2 * cos(angle), 0.2 * sin(angle);
         }
         obs_pos = obs_pos_;
         return avd_mode_;

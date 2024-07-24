@@ -105,6 +105,8 @@ VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq
         solver_.updateBounds(lowerBound_,upperBound_);
     }
     solver_.solveProblem();
-    sol_= solver_.getSolution();
+    if((solver_.getStatus() == OsqpEigen::Status::Solved)){
+        sol_= solver_.getSolution();
+    }
     return sol_;
 }
