@@ -8,6 +8,7 @@
 #include <memory>
 #include <Eigen/Dense>
 
+#include "gurobi_c++.h"
 #include "cpptoml/include/cpptoml.h"
 #include "OsqpEigen/OsqpEigen.h"
 #include <casadi/casadi.hpp>

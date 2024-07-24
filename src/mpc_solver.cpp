@@ -13,6 +13,9 @@ MPC_Solver::MPC_Solver(int Cons_Num, int Vars_Num){
     lowerBound_ = VectorXd::Zero(Cons_Num_,1);
     upperBound_ = VectorXd::Zero(Cons_Num_,1);
     sol_ = VectorXd::Zero(Vars_Num_,1);
+
+    GRBEnv env = GRBEnv();
+    GRBModel model = GRBModel(env);
 }
 
 VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq, casadi::DM biq,casadi::DM H, casadi::DM f){

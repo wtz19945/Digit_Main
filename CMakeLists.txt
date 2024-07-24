@@ -32,6 +32,9 @@ find_package(OsqpEigen REQUIRED)
 find_package(casadi REQUIRED)
 find_package(osqp REQUIRED)
 
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+find_package(GUROBI REQUIRED)
+
 add_message_files(
   FILES
   digit_state.msg
@@ -64,7 +67,9 @@ include_directories(/libartl
   ${Home_Dir}/include/Eigen
   ${Home_Dir}/include
   ${Home_Dir}/include/cpptoml)
-  
+
+include_directories(${GUROBI_INCLUDE_DIRS})
+
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
@@ -137,7 +142,7 @@ add_library(mpc_solver_lib STATIC src/mpc_solver.cpp)
 target_include_directories(mpc_solver_lib 
     PUBLIC 
     ${Home_Dir}/include)
-target_link_libraries(mpc_solver_lib OsqpEigen::OsqpEigen ${mpc_lib})
+target_link_libraries(mpc_solver_lib OsqpEigen::OsqpEigen ${mpc_lib} optimized ${GUROBI_CXX_LIBRARY} ${GUROBI_LIBRARY})
 
 add_library(helper_function STATIC src/helper_function.cpp)
 target_include_directories(helper_function 
