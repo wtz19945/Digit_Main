@@ -14,8 +14,9 @@ To run the code, you need to install the following libraries
 - [ ] ROS                     : Install ROS melodic (Ubuntu 18.04) or ROS noetic (Ubuntu 20.04) in your system.
 - [ ] OSQP-Eigen Github       : https://github.com/robotology/osqp-eigen
 - [ ] Casadi Library          : https://github.com/casadi/casadi
+- [ ] Gurobi for MIQP         : https://www.gurobi.com/
 
-For ROS and OSQP-Eigen, simply follow the instructions on their website.
+For ROS, OSQP-Eigen and Gurobi, simply follow the instructions on their website.
 
 For Casadi, download the source code and use the following command to install
 ```
