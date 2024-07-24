@@ -18,6 +18,7 @@
 #include "OsqpEigen/OsqpEigen.h"
 #include <Eigen/Dense>
 #include <Eigen/Core>
+#include <unsupported/Eigen/Splines>
 
 // Custom Code
 #include "../lowlevelapi.h"
@@ -140,6 +141,8 @@ VectorXd get_quintic_params(VectorXd x0, VectorXd xT, double T);
 using namespace std;
 using namespace std::chrono;
 using namespace Eigen;
+
+typedef Eigen::Spline<double, 1> Spline1D;
 
 int main(int argc, char* argv[])
 {
@@ -367,7 +370,7 @@ int main(int argc, char* argv[])
 
   VectorXd QPSolution = VectorXd::Zero(20,1);
   VectorXd last_QPSolution = VectorXd::Zero(20,1);
-
+  
   VectorXd pel_pos_des = VectorXd::Zero(3,1);
   VectorXd pel_vel_des = VectorXd::Zero(3,1);
   VectorXd pel_ang_des = VectorXd::Zero(3,1);
@@ -384,10 +387,15 @@ int main(int argc, char* argv[])
   VectorXd tvec = VectorXd::Zero(6,1);
   VectorXd dtvec = VectorXd::Zero(6,1);
   VectorXd ddtvec = VectorXd::Zero(6,1);
+  VectorXd foot_cmd_last_x = VectorXd::Zero(5,1);
+  VectorXd foot_cmd_last_y = VectorXd::Zero(5,1);
+
   VectorXd contact = VectorXd::Zero(2,1);
   int stance_leg = 1;
   int stepping = 0;
   double traj_time = 0;
+  int last_mpc_index = 0;
+
   VectorXd pos_avg = VectorXd::Zero(3,1);
   // computation time tracker
   auto time_control_start = std::chrono::system_clock::now();
@@ -516,27 +524,26 @@ int main(int argc, char* argv[])
     wrap_theta(theta(2));
     // get state vector
     wb_q  << pel_pos, theta(2), theta(1), theta(0), q(joint::left_hip_roll),q(joint::left_hip_yaw),q(joint::left_hip_pitch),q(joint::left_knee)
-      ,qj(joint::left_tarsus),qj(joint::left_toe_pitch),qj(joint::left_toe_roll),
+      ,qj(joint::left_tarsus),q(joint::left_toe_A),q(joint::left_toe_B),
       q(joint::right_hip_roll),q(joint::right_hip_yaw),q(joint::right_hip_pitch),q(joint::right_knee),
-      qj(joint::right_tarsus),qj(joint::right_toe_pitch),qj(joint::right_toe_roll),q(joint::left_shoulder_roll),q(joint::left_shoulder_pitch)
+      qj(joint::right_tarsus),q(joint::right_toe_A),q(joint::right_toe_B),q(joint::left_shoulder_roll),q(joint::left_shoulder_pitch)
       ,q(joint::left_shoulder_yaw),q(joint::left_elbow),q(joint::right_shoulder_roll),q(joint::right_shoulder_pitch)
       ,q(joint::right_shoulder_yaw),q(joint::right_elbow);
 
     wb_dq  << pel_vel, dtheta(2), dtheta(1), dtheta(0), dq(joint::left_hip_roll),dq(joint::left_hip_yaw),dq(joint::left_hip_pitch),dq(joint::left_knee)
-      ,dqj(joint::left_tarsus),dqj(joint::left_toe_pitch),dqj(joint::left_toe_roll),
+      ,dqj(joint::left_tarsus),dq(joint::left_toe_A),dq(joint::left_toe_B),
       dq(joint::right_hip_roll),dq(joint::right_hip_yaw),dq(joint::right_hip_pitch),dq(joint::right_knee),
-      dqj(joint::right_tarsus),dqj(joint::right_toe_pitch),dqj(joint::right_toe_roll),dq(joint::left_shoulder_roll),dq(joint::left_shoulder_pitch)
+      dqj(joint::right_tarsus),dq(joint::right_toe_A),dq(joint::right_toe_B),dq(joint::left_shoulder_roll),dq(joint::left_shoulder_pitch)
       ,dq(joint::left_shoulder_yaw),dq(joint::left_elbow),dq(joint::right_shoulder_roll),dq(joint::right_shoulder_pitch)
       ,dq(joint::right_shoulder_yaw),dq(joint::right_elbow);
     
-
     pb_q << pel_pos, theta(2), theta(1), theta(0), q(joint::left_hip_roll),q(joint::left_hip_yaw),q(joint::left_hip_pitch),q(joint::left_knee)
-      ,qj(joint::left_tarsus),qj(joint::left_toe_pitch),qj(joint::left_toe_roll),q(joint::right_hip_roll),q(joint::right_hip_yaw),q(joint::right_hip_pitch)
-      ,q(joint::right_knee),qj(joint::right_tarsus),qj(joint::right_toe_pitch),qj(joint::right_toe_roll);
+      ,qj(joint::left_tarsus),q(joint::left_toe_A),q(joint::left_toe_B),q(joint::right_hip_roll),q(joint::right_hip_yaw),q(joint::right_hip_pitch)
+      ,q(joint::right_knee),qj(joint::right_tarsus),q(joint::right_toe_A),q(joint::right_toe_B);
 
     pb_dq << pel_vel, dtheta(2), dtheta(1), dtheta(0), dq(joint::left_hip_roll),dq(joint::left_hip_yaw),dq(joint::left_hip_pitch),dq(joint::left_knee)
-      ,dqj(joint::left_tarsus),dqj(joint::left_toe_pitch),dqj(joint::left_toe_roll),dq(joint::right_hip_roll),dq(joint::right_hip_yaw),dq(joint::right_hip_pitch)
-      ,dq(joint::right_knee),dqj(joint::right_tarsus),dqj(joint::right_toe_pitch),dqj(joint::right_toe_roll);
+      ,dqj(joint::left_tarsus),dq(joint::left_toe_A),dq(joint::left_toe_B),dq(joint::right_hip_roll),dq(joint::right_hip_yaw),dq(joint::right_hip_pitch)
+      ,dq(joint::right_knee),dqj(joint::right_tarsus),dq(joint::right_toe_A),dq(joint::right_toe_B);
       
     // height compensation for drifting assumeing fixed ground height
     if(contact(0) > 0 && contact(1) > 0){
@@ -658,7 +665,7 @@ int main(int argc, char* argv[])
       VectorXd mpc_cmd_pel_vel = mpc_cmd_listener.get_pel_vel_cmd();
 
       double lam = 0.0 + 1.0 * (traj_time - ds_time/2) / (step_time - ds_time/2);
-      //double lam = 1.0;
+      //lam = 1.0;
       pel_pos_des(0) = (1 - lam) * mpc_cmd_pel_pos(0) + lam * mpc_cmd_pel_pos(1) + pel_pos(0);
       pel_pos_des(1) = (1 - lam) * mpc_cmd_pel_pos(2) + lam  * mpc_cmd_pel_pos(3) + pel_pos(1);
       pel_vel_des(0) = (1 - lam) * mpc_cmd_pel_vel(0) + lam  * mpc_cmd_pel_vel(1);
@@ -674,7 +681,7 @@ int main(int argc, char* argv[])
           vel_des_x = 0.3;
           break;
         case 6:
-          vel_des_x = -0.2;
+          vel_des_x = -0.3;
           break;
         case 7:
           vel_des_y = 0.2;
@@ -707,9 +714,9 @@ int main(int argc, char* argv[])
       
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
-      if(traj_time - ds_time/2 < 0.005)
+      if(traj_time - ds_time/2 < 0.01)
         foot_start << (left_toe_pos(0) + left_toe_back_pos(0))/2, (left_toe_pos(1) + left_toe_back_pos(1))/2;
-      
+    
       double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       double ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
       y_goal   = .5 * y_goal * (1 - cos(min(mpc_py * w * n,M_PI))) + .5 * (1 + cos(min(mpc_py * w * n,M_PI))) * foot_start(1);
@@ -721,7 +728,28 @@ int main(int argc, char* argv[])
       left_toe_pos_ref << x_goal,max(y_goal,(right_toe_pos(1) + right_toe_back_pos(1))/2 + 0.05),0;
       left_toe_vel_ref << dx_goal, dy_goal, 0;
       left_toe_acc_ref << ddx_goal,ddy_goal,0;
+      
+      // new fitting scheme
+/*       int mpc_index = floor((traj_time - ds_time/2) / 0.1);
+      for(int i = mpc_index;i < 5;i++){
+        foot_cmd_last_x(i) = foot_swing_cmd(i) + pel_pos(0);
+        foot_cmd_last_y(i) = foot_swing_cmd(5+i) + pel_pos(1);
+      }
+      VectorXd ans_x = generate_traj(foot_cmd_last_x, 0.1);
+      VectorXd ans_y = generate_traj(foot_cmd_last_y, 0.1);
 
+      VectorXd tvec(6);
+      double ct = traj_time - ds_time/2 - mpc_index * 0.1;
+      tvec <<  1, ct, ct*ct, ct*ct*ct, ct*ct*ct*ct, ct*ct*ct*ct*ct;
+      x_goal = tvec.dot(ans_x.block(mpc_index*6,0,6,1));
+      y_goal = tvec.dot(ans_y.block(mpc_index*6,0,6,1));
+      tvec <<  0, 1, 2*ct, 3*ct*ct, 4*ct*ct*ct, 5*ct*ct*ct*ct;
+      dx_goal = tvec.dot(ans_x.block(mpc_index*6,0,6,1));
+      dy_goal = tvec.dot(ans_y.block(mpc_index*6,0,6,1));
+      tvec <<  0, 0, 2, 6*ct, 12*ct*ct, 20*ct*ct*ct;
+      ddx_goal = tvec.dot(ans_x.block(mpc_index*6,0,6,1));
+      ddy_goal = tvec.dot(ans_y.block(mpc_index*6,0,6,1));
+ */
       if(traj_time < step_time/2 ){
         // new trajectory based on mpc result
         fzmid << pos_avg(2) + foot_swing_cmd(12),0,0;
@@ -761,7 +789,7 @@ int main(int argc, char* argv[])
       
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
-      if(traj_time - ds_time/2 < 0.005)
+      if(traj_time - ds_time/2 < 0.01)
         foot_start << (right_toe_pos(0) + right_toe_back_pos(0))/2, (right_toe_pos(1) + right_toe_back_pos(1))/2;
       
       double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
@@ -771,6 +799,27 @@ int main(int argc, char* argv[])
       double dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       double ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
       x_goal   = .5 * x_goal * (1 - cos(min(mpc_px * w * n,M_PI))) + .5 * (1 + cos(min(mpc_px * w * n,M_PI))) * foot_start(0);
+
+      // new fitting scheme
+/*       int mpc_index = floor((traj_time - ds_time/2) / 0.1);
+      for(int i = mpc_index;i < 5;i++){
+        foot_cmd_last_x(i) = foot_swing_cmd(i) + pel_pos(0);
+        foot_cmd_last_y(i) = foot_swing_cmd(5+i) + pel_pos(1);
+      }
+      VectorXd ans_x = generate_traj(foot_cmd_last_x, 0.1);
+      VectorXd ans_y = generate_traj(foot_cmd_last_y, 0.1);
+
+      VectorXd tvec(6);
+      double ct = traj_time - ds_time/2 - mpc_index * 0.1;
+      tvec <<  1, ct, ct*ct, ct*ct*ct, ct*ct*ct*ct, ct*ct*ct*ct*ct;
+      x_goal = tvec.dot(ans_x.block(mpc_index*6,0,6,1));
+      y_goal = tvec.dot(ans_y.block(mpc_index*6,0,6,1));
+      tvec <<  0, 1, 2*ct, 3*ct*ct, 4*ct*ct*ct, 5*ct*ct*ct*ct;
+      dx_goal = tvec.dot(ans_x.block(mpc_index*6,0,6,1));
+      dy_goal = tvec.dot(ans_y.block(mpc_index*6,0,6,1));
+      tvec <<  0, 0, 2, 6*ct, 12*ct*ct, 20*ct*ct*ct;
+      ddx_goal = tvec.dot(ans_x.block(mpc_index*6,0,6,1));
+      ddy_goal = tvec.dot(ans_y.block(mpc_index*6,0,6,1)); */
 
       right_toe_pos_ref << x_goal, min(y_goal,(left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.05), 0;
       right_toe_vel_ref << dx_goal, dy_goal, 0;
@@ -1019,10 +1068,10 @@ int main(int argc, char* argv[])
     }
 
     // Foot joint velocity command
-    wb_dq_next(4) = 0;
+/*     wb_dq_next(4) = 0;
     wb_dq_next(5) = 0;
     wb_dq_next(10) = 0;
-    wb_dq_next(11) = 0;
+    wb_dq_next(11) = 0; */
 
 
     // IK arm control
@@ -1121,7 +1170,7 @@ int main(int argc, char* argv[])
     if(vel_des_y == 0)
        pel_ref(2) = pel_vel_avg(1); 
 
-    obs_foot << -12.0, 0, 0;
+    obs_foot << 1.0 - pel_pos(0), 0.1 - pel_pos(1), 0;
     obs_info << obs_pos, obs_tan, obs_foot;           
 
     if(contact(0) == 0){
@@ -1131,13 +1180,14 @@ int main(int argc, char* argv[])
       st_foot_pos << (left_toe_pos(0) + left_toe_back_pos(0))/2  - pel_pos(0), (left_toe_pos(1) + left_toe_back_pos(1))/2 - pel_pos(1);
     }
 
-    pel_pos(0) = 0;
-    pel_pos(1) = 0;
     left_toe_pos(0) -= pel_pos(0);
     left_toe_pos(1) -= pel_pos(1);
     right_toe_pos(0) -= pel_pos(0);
-    right_toe_pos(1) -= pel_pos(1);
-    
+    right_toe_pos(1) -= pel_pos(1); 
+
+    pel_pos(0) = 0;
+    pel_pos(1) = 0;
+
     Digit_Ros::digit_state msg;
     // MPC data
     std::copy(pel_pos.data(),pel_pos.data() + 3,msg.pel_pos.begin());

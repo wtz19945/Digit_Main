@@ -286,3 +286,42 @@ void wrap_theta(double &theta)
         ;
     }
 };
+
+VectorXd generate_traj(const VectorXd &x, double t) {
+    MatrixXd A = MatrixXd::Zero(24, 24);
+    VectorXd b = VectorXd::Zero(24);
+
+    // Set initial conditions
+    A(0, 0) = 1;
+    A(1, 1) = 1;
+    A(2, 2) = 2;
+    b(0) = x(0);
+    b(3) = x(1);
+    b(9) = x(2);
+    b(15) = x(3);
+    b(21) = x(4);
+
+    // Define the temporary matrix
+    MatrixXd temp(6, 12);
+    temp << 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+            1, t, t*t, t*t*t, t*t*t*t, t*t*t*t*t, -1, 0, 0, 0, 0, 0,
+            0, 1, 2*t, 3*t*t, 4*t*t*t, 5*t*t*t*t, 0, -1, 0, 0, 0, 0,
+            0, 0, 2, 6*t, 12*t*t, 20*t*t*t, 0, 0, -2, 0, 0, 0,
+            0, 0, 0, 6, 24*t, 60*t*t, 0, 0, 0, -6, 0, 0,
+            0, 0, 0, 0, 24, 120*t, 0, 0, 0, 0, -24, 0;
+
+    // Fill matrix A with temp
+    for (int i = 0; i < 3; ++i) {
+        A.block<6, 12>(3 + i * 6, i * 6) = temp;
+    }
+    // Set boundary conditions
+    VectorXd tvec(6);
+    tvec <<  1, t, t*t, t*t*t, t*t*t*t, t*t*t*t*t;
+    A.block(21, 18, 1, 6) = tvec.transpose(); // Ensure the vector is in the correct shape (1x6)
+    tvec <<  0, 1, 2*t, 3*t*t, 4*t*t*t, 5*t*t*t*t;
+    A.block(22, 18, 1, 6) = tvec.transpose(); // Ensure the vector is in the correct shape (1x6)
+    tvec <<  0, 0, 2, 6*t, 12*t*t, 20*t*t*t;
+    A.block(23, 18, 1, 6) = tvec.transpose(); // Ensure the vector is in the correct shape (1x6)
+    // Solve the linear system
+    return A.colPivHouseholderQr().solve(b);
+}

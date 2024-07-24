@@ -70,6 +70,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
     ux_off_ = config->get_qualified_as<double>("MPC-Params.ux_off").value_or(0);
     uy_off_ = config->get_qualified_as<double>("MPC-Params.uy_off").value_or(0);
   }
+
   double swf_Qx = config->get_qualified_as<double>("Foot-Params.swf_Qx").value_or(0);
   double swf_Qy = config->get_qualified_as<double>("Foot-Params.swf_Qy").value_or(0);
   double swf_Qz = config->get_qualified_as<double>("Foot-Params.swf_Qz").value_or(0);
@@ -100,7 +101,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {210,208,205,203};
+  Cons_Num_ = {248,246,243,241};
   Vars_Num_ = 147;
   for(int i = 0; i<Vars_Num_;i++){
     sol_.push_back(0);
@@ -308,14 +309,14 @@ int main(int argc, char **argv){
         if(stance_leg_prev != digit_mpc.get_stance_leg()){
           //cout << "stance leg change!" << endl;
           swing_foot_start = digit_mpc.get_swing_foot();
-          swf_x_ref << digit_mpc.linspace(swing_foot_start(0), swing_foot_start(0) + digit_mpc.get_steptime() * dx_des, 5);
+          swing_foot_start(0) -= 0.08;
+          swf_x_ref << digit_mpc.linspace(swing_foot_start(0), swing_foot_start(0) + 2 * digit_mpc.get_steptime() * dx_des, 5);
           swf_y_ref << digit_mpc.linspace(swing_foot_start(1), swing_foot_start(1) + digit_mpc.get_steptime() * dy_des, 5);
           swf_z_ref << 0.0, digit_mpc.get_z_min() * digit_mpc.get_z_frac(), digit_mpc.get_z_min(), digit_mpc.get_z_min() * digit_mpc.get_z_frac(), 0.0;
         }
         else{
           swf_x_ref << digit_mpc.linspace(swing_foot_start(0), mpc_f_init(0) + foot_change(0), 5);
           swf_y_ref << digit_mpc.linspace(swing_foot_start(1), mpc_f_init(1) + foot_change(1), 5);
-          //swf_z_ref << 0.0, 0.1, 0.2, 0.1, 0.0;
           for(int i = 0; i < mpc_index; i++){
               swf_z_ref(i) = swing_foot_cmd(10 + i);
           }
@@ -335,8 +336,9 @@ int main(int argc, char **argv){
           rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
         std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset, digit_mpc.get_uyoff() + foot_y_offset};
         std::vector<double> du_reff = {h};
-        if(traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1 < 0.05){
+        if(traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1 < 0.01){
           mpc_swf_init = mpc_swf_cur;
+          mpc_swf_init(0) -= 0.08;
           mpc_swf_init(2) = max(mpc_swf_cur(2) - swing_foot_start(2),0.0);
         }
 

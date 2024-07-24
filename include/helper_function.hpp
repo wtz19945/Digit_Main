@@ -60,5 +60,8 @@ class ObstacleGenerator {
 };
 
 void wrap_theta(double &theta);
+
+VectorXd generate_traj(const VectorXd &x, double t);
+
 #endif //HELPER_FUNCTION_H
 

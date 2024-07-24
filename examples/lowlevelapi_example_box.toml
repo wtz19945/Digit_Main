@@ -12,5 +12,5 @@ pose = {rpyxyz = [0, 0, 0, 0, 0, 1]}
 
 [[model-list]]
 model = "package"
-pose = {axyd = [0, 1, 0]}
+pose = {axyd = [0, 1, 0.1]}
 fixed = true
