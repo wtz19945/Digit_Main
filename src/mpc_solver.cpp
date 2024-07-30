@@ -14,37 +14,41 @@ MPC_Solver::MPC_Solver(int Cons_Num, int Vars_Num){
     upperBound_ = VectorXd::Zero(Cons_Num_,1);
     sol_ = VectorXd::Zero(Vars_Num_,1);
 
-    GRBEnv env = GRBEnv();
-    GRBModel model = GRBModel(env);
+    // Create gurobi solver
+    env_ = std::make_unique<GRBEnv>();
+    env_ -> start();
+    model_ = std::make_unique<GRBModel>(*env_);
+    
+    // Add Gurobi variable
+    for (int i = 0; i < Vars_Num; ++i) {
+        if(i < Vars_Num_ - 8 || i >= Vars_Num_ - 4) 
+            vars_.push_back(model_->addVar(-GRB_INFINITY, GRB_INFINITY, 0.0, GRB_CONTINUOUS, "cx" + to_string(i)));
+        else
+            vars_.push_back(model_->addVar(0.0, 1.0, 0.0, GRB_BINARY, "bx" + to_string(i)));
+    }
+    model_->update();
 }
 
 VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq, casadi::DM biq,casadi::DM H, casadi::DM f){
-    // copy data
-    //std::memcpy(gradient_.data(), f.ptr(), sizeof(double)*Vars_Num_);
-/*     for(int i = 0; i<Vars_Num_; i++)
-        gradient_(i) = (double)f(i);
-    std::memcpy(lowerBound_.data(), beq.ptr(), sizeof(double)*Aeq.size1());
-    std::memcpy(upperBound_.data(), beq.ptr(), sizeof(double)*Aeq.size1());
-    std::memcpy(upperBound_.data() + Aeq.size1(), biq.ptr(), sizeof(double)*Aiq.size1());
-    for(int i=0;i<Aiq.size1();i++){
-    } */
 
-    for(int i = 0; i<Vars_Num_; i++){
-        gradient_(i) = (double)f(i);
-    }
 
-    for(int i = 0; i < Cons_Num_; i++){
-        if(i < Aeq.size1()){
-            lowerBound_(i) = (double)beq(i);
-            upperBound_(i) = (double)beq(i);
-        }
-        else{
-            lowerBound_(i) = -OsqpEigen::INFTY;
-            upperBound_(i) = (double)biq(i - Aeq.size1());
-        }
-    }
     
     if(QP_initialized_ == 0){
+        for(int i = 0; i<Vars_Num_; i++){
+            gradient_(i) = (double)f(i);
+        }
+
+        for(int i = 0; i < Cons_Num_; i++){
+            if(i < Aeq.size1()){
+                lowerBound_(i) = (double)beq(i);
+                upperBound_(i) = (double)beq(i);
+            }
+            else{
+                lowerBound_(i) = -OsqpEigen::INFTY;
+                upperBound_(i) = (double)biq(i - Aeq.size1());
+            }
+        }
+
         for(int i=0;i<Vars_Num_;i++){
             for(int j=0;j<Vars_Num_;j++){
                 if((double)H(j,i) != 0){
@@ -70,45 +74,105 @@ VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq
                 }
             }
         }
-        solver_.settings()->setWarmStart(true);
-        solver_.data()->setNumberOfVariables(Vars_Num_);
-        solver_.data()->setNumberOfConstraints(Cons_Num_);
-        solver_.data()->setHessianMatrix(hessian_);
-        solver_.data()->setGradient(gradient_);
-        solver_.data()->setLinearConstraintsMatrix(linearMatrix_);
-        solver_.data()->setLowerBound(lowerBound_);
-        solver_.data()->setUpperBound(upperBound_);
-        solver_.settings()->setVerbosity(0);
-        solver_.initSolver();
         QP_initialized_ = 1;
-    }
-    else{
-        int coeff_iter = 0;
-        for (int k=0; k<hessian_.outerSize(); ++k){
-            for (SparseMatrix<double>::InnerIterator it(hessian_,k); it; ++it){
-                it.valueRef() = (double)H(hessian_coeff_[coeff_iter].row(),hessian_coeff_[coeff_iter].col());
-                coeff_iter++;
+
+        // Add Gurobi Costs
+        GRBQuadExpr qexpr;
+        for(int i=0;i<Vars_Num_;i++){
+            for(int j=0;j<Vars_Num_;j++){
+                if((double)H(i,j) != 0){
+                    qexpr.addTerm(0.5*(double)H(i,j), vars_[i], vars_[j]);
+                }
+            }
+            qexpr.addTerm(gradient_(i), vars_[i]);
+        }
+        model_->setObjective(qexpr);
+
+        // Add gurobi constraints
+        for(int i=0;i<Aeq.size1() + Aiq.size1();i++){
+            GRBLinExpr lhs = 0.0;
+            for(int j=0; j<Vars_Num_; j++){
+                if(i<Aeq.size1()){
+                    if((double)Aeq(i,j) != 0)
+                        lhs += (double)Aeq(i,j) * vars_[j];
+                }
+                else
+                {
+                    if((double)Aiq(i-Aeq.size1(),j) != 0)
+                        lhs += (double)Aiq(i-Aeq.size1(),j) * vars_[j];
+                }
+            }
+            if(i<Aeq.size1()){
+                constraints_.push_back(model_->addConstr(lhs == upperBound_(i)));
+            }
+            else{
+                constraints_.push_back(model_->addConstr(lhs <= upperBound_(i)));
             }
         }
 
+        // Set model parameters
+        model_->set(GRB_IntParam_OutputFlag, false);
+        model_->set(GRB_IntParam_MIPFocus, 0); 
+        //model_->set(GRB_DoubleParam_Heuristics, 0.05);
+        //model_->set(GRB_IntParam_SubMIPNodes, 100);
+        //model_->set(GRB_IntParam_PoolSolutions, 10);
+        //model_->set(GRB_IntParam_PoolSearchMode, 1);
+        //model_->set(GRB_DoubleParam_FeasibilityTol, 1e-4);
+        //model_->set(GRB_DoubleParam_MIPGap, 0.001);
+        //model_->set(GRB_IntParam_TuneResults, 15);
+    }
+    else{
+        // update Gurobi 
+        GRBQuadExpr qexpr;
+        for(int i=0;i<Vars_Num_;i++){
+            // warm start solver
+            if(i < Vars_Num_ - 8)
+                vars_[i].set(GRB_DoubleAttr_Start, sol_[i]);
+            // Add linear cost
+            qexpr.addTerm((double)f(i), vars_[i]);
+        }
+        // Add quadratic cost
+        int coeff_iter = 0;
+        for (int k=0; k<hessian_.outerSize(); ++k){
+            for (SparseMatrix<double>::InnerIterator it(hessian_,k); it; ++it){
+                qexpr.addTerm(0.5*(double)H(hessian_coeff_[coeff_iter].row(),hessian_coeff_[coeff_iter].col()), vars_[hessian_coeff_[coeff_iter].row()], vars_[hessian_coeff_[coeff_iter].col()]);
+                coeff_iter++;
+            }
+        }
+        model_->setObjective(qexpr);
+
+        // update constraints
+        for(int i=0;i<Cons_Num_;i++){
+            if(i < Aeq.size1())
+                constraints_[i].set(GRB_DoubleAttr_RHS, (double)beq(i));
+            else
+                constraints_[i].set(GRB_DoubleAttr_RHS, (double)biq(i - Aeq.size1()));
+        }
         coeff_iter = 0;
         for (int k=0; k<linearMatrix_.outerSize(); ++k){
             for (SparseMatrix<double>::InnerIterator it(linearMatrix_,k); it; ++it){
-            if(linearm_coeff_[coeff_iter].row() < Aeq.size1())
-                it.valueRef() = (double)Aeq(linearm_coeff_[coeff_iter].row(), linearm_coeff_[coeff_iter].col());
-            else
-                it.valueRef() = (double)Aiq(linearm_coeff_[coeff_iter].row() - Aeq.size1(),linearm_coeff_[coeff_iter].col()) ;
-            coeff_iter++;
+                int row = linearm_coeff_[coeff_iter].row();
+                int col = linearm_coeff_[coeff_iter].col();
+                if(linearm_coeff_[coeff_iter].row() < Aeq.size1())
+                    model_->chgCoeff(constraints_[row], vars_[col], (double)Aeq(row, col));
+                else
+                    model_->chgCoeff(constraints_[row], vars_[col], (double)Aiq(row - Aeq.size1(), col));
+                coeff_iter++;
             }
         }
-        solver_.updateGradient(gradient_);
-        solver_.updateHessianMatrix(hessian_);
-        solver_.updateLinearConstraintsMatrix(linearMatrix_);
-        solver_.updateBounds(lowerBound_,upperBound_);
     }
-    solver_.solveProblem();
-    if((solver_.getStatus() == OsqpEigen::Status::Solved)){
-        sol_= solver_.getSolution();
+
+    model_->optimize();
+    if (model_->get(GRB_IntAttr_Status) == GRB_OPTIMAL) {
+        if(model_->get(GRB_DoubleAttr_Runtime)  >= 0.02){
+            cout << "need more solve time: " << model_->get(GRB_DoubleAttr_Runtime) << endl;
+        }
+        for(int i = 0; i< Vars_Num_; i++)
+            sol_(i) = vars_[i].get(GRB_DoubleAttr_X);
     }
+    else{
+        cout << model_->get(GRB_IntAttr_Status) << endl;
+    }
+
     return sol_;
 }

@@ -1169,7 +1169,7 @@ int main(int argc, char* argv[])
        pel_ref(0) = pel_vel_avg(0);   
     if(vel_des_y == 0)
        pel_ref(2) = pel_vel_avg(1); 
-
+    
     obs_foot << 1.0 - pel_pos(0), 0.1 - pel_pos(1), 0;
     obs_info << obs_pos, obs_tan, obs_foot;           
 

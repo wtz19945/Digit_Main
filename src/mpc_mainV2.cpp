@@ -24,15 +24,15 @@ Digit_MPC::Digit_MPC(bool run_sim)
 
   // Casadi MPC QP Matrix evaluation function
   std::string prefix_lib = fs::current_path().parent_path().string();
-  left_step0_matrix_ = casadi::external("LeftStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step0_Foot.so");
-  left_step1_matrix_ = casadi::external("LeftStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step1_Foot.so");
-  left_step2_matrix_ = casadi::external("LeftStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step2_Foot.so");
-  left_step3_matrix_ = casadi::external("LeftStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step3_Foot.so");
+  left_step0_matrix_ = casadi::external("LeftStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step0_Foot_MIQP.so");
+  left_step1_matrix_ = casadi::external("LeftStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step1_Foot_MIQP.so");
+  left_step2_matrix_ = casadi::external("LeftStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step2_Foot_MIQP.so");
+  left_step3_matrix_ = casadi::external("LeftStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/LeftStartQP_Step3_Foot_MIQP.so");
 
-  right_step0_matrix_ = casadi::external("RightStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step0_Foot.so");
-  right_step1_matrix_ = casadi::external("RightStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step1_Foot.so");
-  right_step2_matrix_ = casadi::external("RightStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step2_Foot.so");
-  right_step3_matrix_ = casadi::external("RightStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step3_Foot.so");
+  right_step0_matrix_ = casadi::external("RightStart_Step0V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step0_Foot_MIQP.so");
+  right_step1_matrix_ = casadi::external("RightStart_Step1V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step1_Foot_MIQP.so");
+  right_step2_matrix_ = casadi::external("RightStart_Step2V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step2_Foot_MIQP.so");
+  right_step3_matrix_ = casadi::external("RightStart_Step3V3", prefix_lib + "/catkin_ws/src/Digit_Main/mpc_lib_stable/RightStartQP_Step3_Foot_MIQP.so");
 
   // read control parameters
   std::string package_path; 
@@ -83,6 +83,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   swf_z_frac_ = config->get_qualified_as<double>("Foot-Params.swf_z_frac").value_or(0);
   step_height_ = config_osc->get_qualified_as<double>("Walk-Params.step_height").value_or(0);
   step_z_max_ = config->get_qualified_as<double>("Foot-Params.z_max").value_or(0);
+  double M = config->get_qualified_as<double>("Foot-Params.M").value_or(0);
 
   step_time_ = config_osc->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
   ds_time_ = config_osc->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
@@ -90,7 +91,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   Weights_ss_ = {Wx, Wdx, Wy, Wdy, Wux, Wuy, Wdux, Wduy, Wobs};
   Weights_ds_ = {0, 2500, 0, 2500, 10000, 10000, 100, 6000, 15000};
   Weights_swf_Q_ = {swf_Qx, swf_Qy, swf_Qz};
-  Weights_swf_param_ = {swf_xy_r1, swf_xy_r2, swf_z_r1, swf_z_r2, swf_obs_Qxy, swf_obs_Qz, swf_z_frac_,step_height_,step_z_max_};
+  Weights_swf_param_ = {swf_xy_r1, swf_xy_r2, swf_z_r1, swf_z_r2, swf_obs_Qxy, swf_obs_Qz, swf_z_frac_,step_height_,step_z_max_, M};
 
   r_ = {r1, r2};
   f_width_ = config->get_qualified_as<double>("MPC-Params.foot_width").value_or(0);
@@ -101,8 +102,8 @@ Digit_MPC::Digit_MPC(bool run_sim)
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {248,246,243,241};
-  Vars_Num_ = 147;
+  Cons_Num_ = {268,266,263,261};
+  Vars_Num_ = 155;
   for(int i = 0; i<Vars_Num_;i++){
     sol_.push_back(0);
     sol_init_.push_back(0);
@@ -336,10 +337,10 @@ int main(int argc, char **argv){
           rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
         std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset, digit_mpc.get_uyoff() + foot_y_offset};
         std::vector<double> du_reff = {h};
-        if(traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1 < 0.01){
+        if(traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1 < 0.03){
           mpc_swf_init = mpc_swf_cur;
           mpc_swf_init(0) -= 0.08;
-          mpc_swf_init(2) = max(mpc_swf_cur(2) - swing_foot_start(2),0.0);
+          mpc_swf_init(2) = max(mpc_swf_cur(2) - swing_foot_start(2),0.02);
         }
 
         std::vector<double> swf_cq(mpc_swf_init.data(), mpc_swf_init.data() + mpc_swf_init.size()); // starting position        
@@ -364,9 +365,9 @@ int main(int argc, char **argv){
 
         QPSolution = digit_mpc.Update_MPC_(mpc_index,mpc_input);
         auto mpc_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - mpc_time_start);
-/*         cout << "solving time: " << mpc_time.count() << endl;
+        //cout << "solving time: " << mpc_time.count() << endl;
       
-      cout << "current state is " << endl;
+/*       cout << "current state is " << endl;
       cout << q_init << endl;
       cout << "goal state is " << endl;
       cout << dx_des << "    " << dy_des << endl; */

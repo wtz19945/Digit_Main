@@ -22,7 +22,6 @@ class MPC_Solver{
 
     private:
     int QP_initialized_;
-    OsqpEigen::Solver solver_;
     int Vars_Num_;
     int Cons_Num_;
     Eigen::VectorXd gradient_; 
@@ -34,6 +33,10 @@ class MPC_Solver{
     std::vector<Eigen::Triplet<double>> linearm_coeff_;
 
     Eigen::VectorXd sol_;
+    std::unique_ptr<GRBEnv> env_;      // Use unique_ptr for GRBEnv
+    std::unique_ptr<GRBModel> model_;  // Use unique_ptr for GRBModel
+    std::vector<GRBVar> vars_;     // Gurobi variables
+    std::vector<GRBConstr> constraints_;     // Gurobi Constraints
 };
 
 #endif //MPC_SOLVER_H
