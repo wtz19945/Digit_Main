@@ -83,7 +83,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {187,187,187,187};
+  Cons_Num_ = {225,225,225,225};
   Vars_Num_ = 127;
   for(int i = 0; i<Vars_Num_;i++){
     sol_.push_back(0);

@@ -705,7 +705,7 @@ int main(int argc, char* argv[])
       
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
-      if(traj_time - ds_time/2 < 0.005)
+      if(traj_time - ds_time/2 < 0.01)
         foot_start << (left_toe_pos(0) + left_toe_back_pos(0))/2, (left_toe_pos(1) + left_toe_back_pos(1))/2;
       
       double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
@@ -754,7 +754,7 @@ int main(int argc, char* argv[])
       
       double w = M_PI / (step_time - ds_time);
       double n = traj_time - ds_time / 2;
-      if(traj_time - ds_time/2 < 0.005)
+      if(traj_time - ds_time/2 < 0.01)
         foot_start << (right_toe_pos(0) + right_toe_back_pos(0))/2, (right_toe_pos(1) + right_toe_back_pos(1))/2;
       
       double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
@@ -872,7 +872,7 @@ int main(int argc, char* argv[])
     
     elapsed_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - time_program_start);
     //cout << "time used to compute system dyn and kin + acc + QP Form: " << elapsed_time.count() << endl;
-    double damping_ratio = 0.4;
+    double damping_ratio = 0.2;
     if(contact(0) == 0){
         M(6,6) += damping_dt * limits->damping_limit[0] * damping_ratio;
         M(7,7) += damping_dt * limits->damping_limit[1] * damping_ratio;
