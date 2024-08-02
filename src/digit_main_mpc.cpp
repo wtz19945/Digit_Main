@@ -667,9 +667,9 @@ int main(int argc, char* argv[])
       double lam = 0.0 + 1.0 * (traj_time - ds_time/2) / (step_time - ds_time/2);
       //lam = 1.0;
       pel_pos_des(0) = (1 - lam) * mpc_cmd_pel_pos(0) + lam * mpc_cmd_pel_pos(1) + pel_pos(0);
-      pel_pos_des(1) = (1 - lam) * mpc_cmd_pel_pos(2) + lam  * mpc_cmd_pel_pos(3) + pel_pos(1);
-      pel_vel_des(0) = (1 - lam) * mpc_cmd_pel_vel(0) + lam  * mpc_cmd_pel_vel(1);
-      pel_vel_des(1) = (1 - lam) * mpc_cmd_pel_vel(2) + lam  * mpc_cmd_pel_vel(3);
+      pel_pos_des(1) = (1 - lam) * mpc_cmd_pel_pos(2) + lam * mpc_cmd_pel_pos(3) + pel_pos(1);
+      pel_vel_des(0) = (1 - lam) * mpc_cmd_pel_vel(0) + lam * mpc_cmd_pel_vel(1);
+      pel_vel_des(1) = (1 - lam) * mpc_cmd_pel_vel(2) + lam * mpc_cmd_pel_vel(3);
     }
 
     double vel_des_x = -0.0;
@@ -1066,12 +1066,11 @@ int main(int argc, char* argv[])
         torque(11) *= max(n/ramp_time,0.0);
       }
     }
-
     // Foot joint velocity command
-/*     wb_dq_next(4) = 0;
+    wb_dq_next(4) = 0;
     wb_dq_next(5) = 0;
     wb_dq_next(10) = 0;
-    wb_dq_next(11) = 0; */
+    wb_dq_next(11) = 0;
 
 
     // IK arm control

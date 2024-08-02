@@ -21,7 +21,7 @@ MPC_Solver::MPC_Solver(int Cons_Num, int Vars_Num){
     
     // Add Gurobi variable
     for (int i = 0; i < Vars_Num; ++i) {
-        if(i < Vars_Num_ - 8 || i >= Vars_Num_ - 4) 
+        if(i < Vars_Num_ - 12) 
             vars_.push_back(model_->addVar(-GRB_INFINITY, GRB_INFINITY, 0.0, GRB_CONTINUOUS, "cx" + to_string(i)));
         else
             vars_.push_back(model_->addVar(0.0, 1.0, 0.0, GRB_BINARY, "bx" + to_string(i)));
@@ -113,6 +113,7 @@ VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq
         // Set model parameters
         model_->set(GRB_IntParam_OutputFlag, false);
         model_->set(GRB_IntParam_MIPFocus, 0); 
+        //model_->set(GRB_DoubleParam_TimeLimit, 0.03); 
         //model_->set(GRB_DoubleParam_Heuristics, 0.05);
         //model_->set(GRB_IntParam_SubMIPNodes, 100);
         //model_->set(GRB_IntParam_PoolSolutions, 10);
@@ -126,7 +127,7 @@ VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq
         GRBQuadExpr qexpr;
         for(int i=0;i<Vars_Num_;i++){
             // warm start solver
-            if(i < Vars_Num_ - 8)
+            if(i < Vars_Num_ - 12)
                 vars_[i].set(GRB_DoubleAttr_Start, sol_[i]);
             // Add linear cost
             qexpr.addTerm((double)f(i), vars_[i]);
@@ -163,7 +164,7 @@ VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq
     }
 
     model_->optimize();
-    if (model_->get(GRB_IntAttr_Status) == GRB_OPTIMAL) {
+    if (model_->get(GRB_IntAttr_Status) == GRB_OPTIMAL || model_->get(GRB_IntAttr_Status) == GRB_TIME_LIMIT) {
         if(model_->get(GRB_DoubleAttr_Runtime)  >= 0.02){
             cout << "need more solve time: " << model_->get(GRB_DoubleAttr_Runtime) << endl;
         }
