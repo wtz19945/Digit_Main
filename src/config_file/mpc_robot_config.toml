@@ -47,6 +47,4 @@ swf_obs_Qz = 8000.0
 swf_z_frac = 0.5    # Swing foot profile, should be 0.5 for avoidance
 z_max = 0.6         # Maximum step height
 M = 10000           # Big M for mixed integer
-th = 0.0           # Rotation for the avoidance plane
-
 

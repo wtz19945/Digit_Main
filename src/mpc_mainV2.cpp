@@ -84,8 +84,6 @@ Digit_MPC::Digit_MPC(bool run_sim)
   step_height_ = config_osc->get_qualified_as<double>("Walk-Params.step_height").value_or(0);
   step_z_max_ = config->get_qualified_as<double>("Foot-Params.z_max").value_or(0);
   double M = config->get_qualified_as<double>("Foot-Params.M").value_or(0);
-  double th = config->get_qualified_as<double>("Foot-Params.th").value_or(0);
-  assert(th <= 45 && th >= -45);
 
   step_time_ = config_osc->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
   ds_time_ = config_osc->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
@@ -93,7 +91,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   Weights_ss_ = {Wx, Wdx, Wy, Wdy, Wux, Wuy, Wdux, Wduy, Wobs};
   Weights_ds_ = {0, 2500, 0, 2500, 10000, 10000, 100, 6000, 15000};
   Weights_swf_Q_ = {swf_Qx, swf_Qy, swf_Qz};
-  Weights_swf_param_ = {swf_xy_r1, swf_xy_r2, swf_z_r1, swf_z_r2, swf_obs_Qxy, swf_obs_Qz, swf_z_frac_,step_height_,step_z_max_, M, th * M_PI / 180};
+  Weights_swf_param_ = {swf_xy_r1, swf_xy_r2, swf_z_r1, swf_z_r2, swf_obs_Qxy, swf_obs_Qz, swf_z_frac_,step_height_,step_z_max_, M};
 
   r_ = {r1, r2};
   f_width_ = config->get_qualified_as<double>("MPC-Params.foot_width").value_or(0);

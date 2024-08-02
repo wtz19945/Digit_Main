@@ -131,6 +131,7 @@ VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq
                 vars_[i].set(GRB_DoubleAttr_Start, sol_[i]);
             // Add linear cost
             qexpr.addTerm((double)f(i), vars_[i]);
+            qexpr.addTerm(1e-2, vars_[i], vars_[i]);
         }
         // Add quadratic cost
         int coeff_iter = 0;
@@ -172,7 +173,7 @@ VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq
             sol_(i) = vars_[i].get(GRB_DoubleAttr_X);
     }
     else{
-        cout << model_->get(GRB_IntAttr_Status) << endl;
+        cout << "error status: " << model_->get(GRB_IntAttr_Status) << endl;
     }
 
     return sol_;
