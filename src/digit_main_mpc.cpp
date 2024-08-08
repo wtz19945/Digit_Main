@@ -676,7 +676,7 @@ int main(int argc, char* argv[])
       // reset position command when walking direction is changed
       switch(key_mode){
         case 5:
-          vel_des_x = 0.9;
+          vel_des_x = 0.3;
           break;
         case 6:
           vel_des_x = -0.3;
@@ -1167,7 +1167,7 @@ int main(int argc, char* argv[])
     if(vel_des_y == 0)
        pel_ref(2) = pel_vel_avg(1); 
     
-    obs_foot << 0.1 - pel_pos(0) - 0.0 * global_time, 1.1 - pel_pos(1), 0;
+    obs_foot << 1.1 - pel_pos(0) - 0.0 * global_time, 0.1 - pel_pos(1), 0;
     obs_info << obs_pos, obs_tan, obs_foot;           
 
     if(contact(0) == 0){
