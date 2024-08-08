@@ -11,6 +11,7 @@ Output: Digit command (target CoM and Foot Position)
 #include <iostream>
 #include <vector>
 #include <chrono>
+#include <algorithm>
 
 // Eigen pack
 #include "OsqpEigen/OsqpEigen.h"

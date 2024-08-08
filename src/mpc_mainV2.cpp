@@ -3,7 +3,6 @@
 #include "input_listener.hpp"
 
 using namespace Eigen;
-using namespace std;
 namespace fs = std::filesystem;
 using namespace std::chrono;
 
@@ -87,11 +86,14 @@ Digit_MPC::Digit_MPC(bool run_sim)
 
   step_time_ = config_osc->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
   ds_time_ = config_osc->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
+  double th = config_osc->get_qualified_as<double>("Walk-Params.th").value_or(0);
+  assert(th <= 45 && th >= -45);
+
   f_length_ = {flx, fly};
   Weights_ss_ = {Wx, Wdx, Wy, Wdy, Wux, Wuy, Wdux, Wduy, Wobs};
   Weights_ds_ = {0, 2500, 0, 2500, 10000, 10000, 100, 6000, 15000};
   Weights_swf_Q_ = {swf_Qx, swf_Qy, swf_Qz};
-  Weights_swf_param_ = {swf_xy_r1, swf_xy_r2, swf_z_r1, swf_z_r2, swf_obs_Qxy, swf_obs_Qz, swf_z_frac_,step_height_,step_z_max_, M};
+  Weights_swf_param_ = {swf_xy_r1, swf_xy_r2, swf_z_r1, swf_z_r2, swf_obs_Qxy, swf_obs_Qz, swf_z_frac_,step_height_,step_z_max_, M, th * M_PI/180};
 
   r_ = {r1, r2};
   f_width_ = config->get_qualified_as<double>("MPC-Params.foot_width").value_or(0);
@@ -102,8 +104,8 @@ Digit_MPC::Digit_MPC(bool run_sim)
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {239,237,234,232};
-  Vars_Num_ = 159;
+  Cons_Num_ = {260,256,251,247};
+  Vars_Num_ = 172;
   for(int i = 0; i<Vars_Num_;i++){
     sol_.push_back(0);
     sol_init_.push_back(0);
@@ -145,7 +147,7 @@ void Digit_MPC::MPCInputCallback(const Digit_Ros::digit_state& msg) {
 }
 
 // Solve MPC to get new task space command
-VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input){
+VectorXd Digit_MPC::Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input){
   VectorXd QPSolution;
   int mpc_in = traj_time;
   std::vector<double> input;
@@ -279,9 +281,9 @@ int main(int argc, char **argv){
     counter++;
     if(counter == 10){
       if(key_mode >=9 && key_mode <=12){
-        cout << "current offset are" << endl;
-        cout << "x direction   " << foot_x_offset << endl;
-        cout << "y direction   " << foot_y_offset << endl;
+        std::cout << "current offset are" << std::endl;
+        std::cout << "x direction   " << foot_x_offset << std::endl;
+        std::cout << "y direction   " << foot_y_offset << std::endl;
       }
       counter = 0;
     }
@@ -322,6 +324,12 @@ int main(int argc, char **argv){
               swf_z_ref(i) = swing_foot_cmd(10 + i);
           }
         }
+
+        double drift = 0.0;
+        if(swf_z_ref(2) < 0.2)
+            drift = (swf_z_ref(2) - 0.2) * 0.2;
+        else
+            drift = (swf_z_ref(2) - 0.2) * 0.5;
         swf_ref << swf_x_ref, swf_y_ref, swf_z_ref;
         stance_leg_prev = digit_mpc.get_stance_leg();
 
@@ -332,22 +340,22 @@ int main(int argc, char **argv){
         std::vector<double> f_param = {0, 0, fx_offset, 0, 0, foot_width};
         std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
         std::vector<double> qo_tan(mpc_obs_info.data() + 2, mpc_obs_info.data() + 4);
-        std::vector<double> rt = {max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
+        std::vector<double> rt = {std::max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
         if(mpc_index > 2)
-          rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
-        std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset, digit_mpc.get_uyoff() + foot_y_offset};
+          rt[0] = std::max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
+        std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset + drift, digit_mpc.get_uyoff() + foot_y_offset};
         std::vector<double> du_reff = {h};
         if(traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1 < 0.03){
           mpc_swf_init = mpc_swf_cur;
           mpc_swf_init(0) -= 0.08;
-          mpc_swf_init(2) = max(mpc_swf_cur(2) - swing_foot_start(2),0.02);
+          mpc_swf_init(2) = std::max(mpc_swf_cur(2) - swing_foot_start(2),0.02);
         }
 
         std::vector<double> swf_cq(mpc_swf_init.data(), mpc_swf_init.data() + mpc_swf_init.size()); // starting position        
         std::vector<double> swf_rq(swf_ref.data(), swf_ref.data() + swf_ref.size()); // reference traj
         std::vector<double> swf_obs(mpc_obs_info.data() + 4, mpc_obs_info.data() + 7); // foot obs position
 
-        vector<vector<double>> mpc_input;
+        std::vector<std::vector<double>> mpc_input;
         mpc_input.push_back(q_init);
         mpc_input.push_back(x_ref);
         mpc_input.push_back(y_ref);
@@ -383,7 +391,11 @@ int main(int argc, char **argv){
         cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
         cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
-
+      
+      std::cout << "aaa" << std::endl;
+      for(int i =0;i<10;i++){
+        std::cout << QPSolution(2*i) << std::endl;
+      }
       int off = 0;
       cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(55), QPSolution(57 + off);
       cmd_pel_vel << QPSolution(1), QPSolution(3 + off), QPSolution(56), QPSolution(58 + off);

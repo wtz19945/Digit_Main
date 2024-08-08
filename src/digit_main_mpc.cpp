@@ -138,11 +138,9 @@ VectorXd get_quintic_params(VectorXd x0, VectorXd xT, double T);
 #define NUM_PEL_STATE 6
 #define NUM_ARM_STATE 8
 
-using namespace std;
+//using namespace std;
 using namespace std::chrono;
 using namespace Eigen;
-
-typedef Eigen::Spline<double, 1> Spline1D;
 
 int main(int argc, char* argv[])
 {
@@ -524,16 +522,16 @@ int main(int argc, char* argv[])
     wrap_theta(theta(2));
     // get state vector
     wb_q  << pel_pos, theta(2), theta(1), theta(0), q(joint::left_hip_roll),q(joint::left_hip_yaw),q(joint::left_hip_pitch),q(joint::left_knee)
-      ,qj(joint::left_tarsus),q(joint::left_toe_A),q(joint::left_toe_B),
+      ,qj(joint::left_tarsus),qj(joint::left_toe_pitch),qj(joint::left_toe_roll),
       q(joint::right_hip_roll),q(joint::right_hip_yaw),q(joint::right_hip_pitch),q(joint::right_knee),
-      qj(joint::right_tarsus),q(joint::right_toe_A),q(joint::right_toe_B),q(joint::left_shoulder_roll),q(joint::left_shoulder_pitch)
+      qj(joint::right_tarsus),qj(joint::right_toe_pitch),qj(joint::right_toe_roll),q(joint::left_shoulder_roll),q(joint::left_shoulder_pitch)
       ,q(joint::left_shoulder_yaw),q(joint::left_elbow),q(joint::right_shoulder_roll),q(joint::right_shoulder_pitch)
       ,q(joint::right_shoulder_yaw),q(joint::right_elbow);
 
     wb_dq  << pel_vel, dtheta(2), dtheta(1), dtheta(0), dq(joint::left_hip_roll),dq(joint::left_hip_yaw),dq(joint::left_hip_pitch),dq(joint::left_knee)
-      ,dqj(joint::left_tarsus),dq(joint::left_toe_A),dq(joint::left_toe_B),
+      ,dqj(joint::left_tarsus),dqj(joint::left_toe_pitch),dqj(joint::left_toe_roll),
       dq(joint::right_hip_roll),dq(joint::right_hip_yaw),dq(joint::right_hip_pitch),dq(joint::right_knee),
-      dqj(joint::right_tarsus),dq(joint::right_toe_A),dq(joint::right_toe_B),dq(joint::left_shoulder_roll),dq(joint::left_shoulder_pitch)
+      dqj(joint::right_tarsus),dqj(joint::right_toe_pitch),dqj(joint::right_toe_roll),dq(joint::left_shoulder_roll),dq(joint::left_shoulder_pitch)
       ,dq(joint::left_shoulder_yaw),dq(joint::left_elbow),dq(joint::right_shoulder_roll),dq(joint::right_shoulder_pitch)
       ,dq(joint::right_shoulder_yaw),dq(joint::right_elbow);
     
@@ -637,10 +635,10 @@ int main(int argc, char* argv[])
     int use_cap = 0;
     // Compute Desired CoM Traj// Testing use
     if(key_mode == 0){
-      z_off = min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.3);
+      z_off = std::min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.3);
     }
     else if(key_mode == 1){
-      z_off = max(z_off_track - 0.1 * (observation.time - key_time_tracker),-0.3);
+      z_off = std::max(z_off_track - 0.1 * (observation.time - key_time_tracker),-0.3);
     }
     else{
       key_time_tracker = observation.time;
@@ -678,7 +676,7 @@ int main(int argc, char* argv[])
       // reset position command when walking direction is changed
       switch(key_mode){
         case 5:
-          vel_des_x = 0.3;
+          vel_des_x = 0.9;
           break;
         case 6:
           vel_des_x = -0.3;
@@ -719,13 +717,13 @@ int main(int argc, char* argv[])
     
       double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       double ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      y_goal   = .5 * y_goal * (1 - cos(min(mpc_py * w * n,M_PI))) + .5 * (1 + cos(min(mpc_py * w * n,M_PI))) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(std::min(mpc_py * w * n,M_PI))) + .5 * (1 + cos(std::min(mpc_py * w * n,M_PI))) * foot_start(1);
 
       double dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       double ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(min(mpc_px * w * n,M_PI))) + .5 * (1 + cos(min(mpc_px * w * n,M_PI))) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(std::min(mpc_px * w * n,M_PI))) + .5 * (1 + cos(std::min(mpc_px * w * n,M_PI))) * foot_start(0);
 
-      left_toe_pos_ref << x_goal,max(y_goal,(right_toe_pos(1) + right_toe_back_pos(1))/2 + 0.05),0;
+      left_toe_pos_ref << x_goal,std::max(y_goal,(right_toe_pos(1) + right_toe_back_pos(1))/2 + 0.05),0;
       left_toe_vel_ref << dx_goal, dy_goal, 0;
       left_toe_acc_ref << ddx_goal,ddy_goal,0;
       
@@ -794,11 +792,11 @@ int main(int argc, char* argv[])
       
       double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       double ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      y_goal   = .5 * y_goal * (1 - cos(min(mpc_py * w * n,M_PI))) + .5 * (1 + cos(min(mpc_py * w * n,M_PI))) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(std::min(mpc_py * w * n,M_PI))) + .5 * (1 + cos(std::min(mpc_py * w * n,M_PI))) * foot_start(1);
 
       double dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       double ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(min(mpc_px * w * n,M_PI))) + .5 * (1 + cos(min(mpc_px * w * n,M_PI))) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(std::min(mpc_px * w * n,M_PI))) + .5 * (1 + cos(std::min(mpc_px * w * n,M_PI))) * foot_start(0);
 
       // new fitting scheme
 /*       int mpc_index = floor((traj_time - ds_time/2) / 0.1);
@@ -821,7 +819,7 @@ int main(int argc, char* argv[])
       ddx_goal = tvec.dot(ans_x.block(mpc_index*6,0,6,1));
       ddy_goal = tvec.dot(ans_y.block(mpc_index*6,0,6,1)); */
 
-      right_toe_pos_ref << x_goal, min(y_goal,(left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.05), 0;
+      right_toe_pos_ref << x_goal, std::min(y_goal,(left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.05), 0;
       right_toe_vel_ref << dx_goal, dy_goal, 0;
       right_toe_acc_ref << ddx_goal,ddy_goal,0;
 
@@ -1040,30 +1038,30 @@ int main(int argc, char* argv[])
     if(contact(0) != 0){
       wb_dq_next.block(0,0,6,1) = VectorXd::Zero(6,1);
       if(stepping == 2 && traj_time <= ramp_time){
-        torque(4) *= min(traj_time/ramp_time,1.0);
-        torque(5) *= min(traj_time/ramp_time,1.0);
+        torque(4) *= std::min(traj_time/ramp_time,1.0);
+        torque(5) *= std::min(traj_time/ramp_time,1.0);
       }
     }
     else{
       if(stepping == 2 && traj_time >= (step_time - ramp_time)){
         double n = step_time - traj_time;
-        torque(4) *= max(n/ramp_time,0.0);
-        torque(5) *= max(n/ramp_time,0.0);
+        torque(4) *= std::max(n/ramp_time,0.0);
+        torque(5) *= std::max(n/ramp_time,0.0);
       }
     }
 
     if(contact(1) != 0){
       wb_dq_next.block(6,0,6,1) = VectorXd::Zero(6,1);
       if(stepping == 2  && traj_time <= ramp_time){
-        torque(10) *= min(traj_time/ramp_time,1.0);
-        torque(11) *= min(traj_time/ramp_time,1.0);
+        torque(10) *= std::min(traj_time/ramp_time,1.0);
+        torque(11) *= std::min(traj_time/ramp_time,1.0);
       }
     }
     else{
       if(stepping == 2 && traj_time >= (step_time - ramp_time)){
         double n = step_time - traj_time;
-        torque(10) *= max(n/ramp_time,0.0);
-        torque(11) *= max(n/ramp_time,0.0);
+        torque(10) *= std::max(n/ramp_time,0.0);
+        torque(11) *= std::max(n/ramp_time,0.0);
       }
     }
     // Foot joint velocity command
@@ -1095,18 +1093,18 @@ int main(int argc, char* argv[])
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];
           command.motors[i].velocity = 0;
           command.motors[i].damping = 1 * limits->damping_limit[i];
-          cout << "safety triggered" << endl;
+          std::cout << "safety triggered" << std::endl;
       }
       else{
         // wrap up torque
         if(i>=12){
           command.motors[i].torque =
-            min((observation.time - digit_time_start)/soft_count,1.0) * arm_P * (target_position[i] - observation.motor.position[i]);
+            std::min((observation.time - digit_time_start)/soft_count,1.0) * arm_P * (target_position[i] - observation.motor.position[i]);
             command.motors[i].velocity = 0;
             command.motors[i].damping = 0.75 * limits->damping_limit[i];
         }
         else{
-          torque *= min((observation.time - digit_time_start)/soft_count,1.0);
+          torque *= std::min((observation.time - digit_time_start)/soft_count,1.0);
           command.motors[i].torque = 1 * torque(i) ;
           command.motors[i].velocity = 1 * wb_dq_next(i);
           // Use different damping or velocity for stance and swing leg (Potentially better)
@@ -1169,7 +1167,7 @@ int main(int argc, char* argv[])
     if(vel_des_y == 0)
        pel_ref(2) = pel_vel_avg(1); 
     
-    obs_foot << 1.0 - pel_pos(0), 0.1 - pel_pos(1), 0;
+    obs_foot << 0.1 - pel_pos(0) - 0.0 * global_time, 1.1 - pel_pos(1), 0;
     obs_info << obs_pos, obs_tan, obs_foot;           
 
     if(contact(0) == 0){
