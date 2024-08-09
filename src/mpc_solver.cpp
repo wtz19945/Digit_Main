@@ -21,7 +21,7 @@ MPC_Solver::MPC_Solver(int Cons_Num, int Vars_Num){
     
     // Add Gurobi variable
     for (int i = 0; i < Vars_Num; ++i) {
-        if(i < Vars_Num_ - 17) 
+        if(i < Vars_Num_ - 16) 
             vars_.push_back(model_->addVar(-GRB_INFINITY, GRB_INFINITY, 0.0, GRB_CONTINUOUS, "cx" + to_string(i)));
         else
             vars_.push_back(model_->addVar(0.0, 1.0, 0.0, GRB_BINARY, "bx" + to_string(i)));
@@ -127,7 +127,7 @@ VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq
         GRBQuadExpr qexpr;
         for(int i=0;i<Vars_Num_;i++){
             // warm start solver
-            if(i < Vars_Num_ - 17)
+            if(i < Vars_Num_ - 16)
                 vars_[i].set(GRB_DoubleAttr_Start, sol_[i]);
             // Add linear cost
             qexpr.addTerm((double)f(i), vars_[i]);

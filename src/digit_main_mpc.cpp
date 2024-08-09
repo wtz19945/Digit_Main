@@ -674,6 +674,7 @@ int main(int argc, char* argv[])
 
     double vel_des_x = -0.0;
     double vel_des_y = -0.0;
+    
     if(stepping == 2){
       // reset position command when walking direction is changed
       switch(key_mode){
@@ -693,6 +694,12 @@ int main(int argc, char* argv[])
           break;
       }
     }
+
+    // Modify velocity cmd based on robot avoidance status
+    VectorXd dis(2);
+    dis << 1.0 - pel_pos(0), 0.1 - pel_pos(1);
+    vel_des_x += .3 * sign(vel_des_x) * std::exp(-dis.norm());
+
     key_mode_prev = key_mode;
 
     // Compute Desired Foot Traj
