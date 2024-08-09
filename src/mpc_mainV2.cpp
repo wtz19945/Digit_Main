@@ -102,8 +102,8 @@ Digit_MPC::Digit_MPC(bool run_sim)
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {239,237,234,232};
-  Vars_Num_ = 159;
+  Cons_Num_ = {279,277,274,272};
+  Vars_Num_ = 165;
   for(int i = 0; i<Vars_Num_;i++){
     sol_.push_back(0);
     sol_init_.push_back(0);

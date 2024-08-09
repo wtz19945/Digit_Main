@@ -524,16 +524,16 @@ int main(int argc, char* argv[])
     wrap_theta(theta(2));
     // get state vector
     wb_q  << pel_pos, theta(2), theta(1), theta(0), q(joint::left_hip_roll),q(joint::left_hip_yaw),q(joint::left_hip_pitch),q(joint::left_knee)
-      ,qj(joint::left_tarsus),q(joint::left_toe_A),q(joint::left_toe_B),
+      ,qj(joint::left_tarsus),qj(joint::left_toe_pitch),qj(joint::left_toe_roll),
       q(joint::right_hip_roll),q(joint::right_hip_yaw),q(joint::right_hip_pitch),q(joint::right_knee),
-      qj(joint::right_tarsus),q(joint::right_toe_A),q(joint::right_toe_B),q(joint::left_shoulder_roll),q(joint::left_shoulder_pitch)
+      qj(joint::right_tarsus),qj(joint::right_toe_pitch),qj(joint::right_toe_roll),q(joint::left_shoulder_roll),q(joint::left_shoulder_pitch)
       ,q(joint::left_shoulder_yaw),q(joint::left_elbow),q(joint::right_shoulder_roll),q(joint::right_shoulder_pitch)
       ,q(joint::right_shoulder_yaw),q(joint::right_elbow);
 
     wb_dq  << pel_vel, dtheta(2), dtheta(1), dtheta(0), dq(joint::left_hip_roll),dq(joint::left_hip_yaw),dq(joint::left_hip_pitch),dq(joint::left_knee)
-      ,dqj(joint::left_tarsus),dq(joint::left_toe_A),dq(joint::left_toe_B),
+      ,dqj(joint::left_tarsus),dqj(joint::left_toe_pitch),dqj(joint::left_toe_roll),
       dq(joint::right_hip_roll),dq(joint::right_hip_yaw),dq(joint::right_hip_pitch),dq(joint::right_knee),
-      dqj(joint::right_tarsus),dq(joint::right_toe_A),dq(joint::right_toe_B),dq(joint::left_shoulder_roll),dq(joint::left_shoulder_pitch)
+      dqj(joint::right_tarsus),dqj(joint::right_toe_pitch),dqj(joint::right_toe_roll),dq(joint::left_shoulder_roll),dq(joint::left_shoulder_pitch)
       ,dq(joint::left_shoulder_yaw),dq(joint::left_elbow),dq(joint::right_shoulder_roll),dq(joint::right_shoulder_pitch)
       ,dq(joint::right_shoulder_yaw),dq(joint::right_elbow);
     

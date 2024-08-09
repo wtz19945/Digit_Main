@@ -20,7 +20,7 @@ W_com_y_d = 5000.0
 W_foot_ux = 10000000.0 # worth checking
 W_foot_uy = 10000000.0 # worth checking
 W_foot_dux = 500.0
-W_foot_duy = 50000.0
+W_foot_duy = 500.0
 W_obs = 5000.0
 W_du = 0.0
 obs_rad1 = 0.1
@@ -31,20 +31,19 @@ height = 0.9
 mpc_rate = 50.0      # mpc update rate
 ux_off = 0.02         # mpc input x offset
 uy_off = -0.02        # mpc input y offset
-ux_off_sim = 0.01     # mpc input x offset used in sim
+ux_off_sim = 0.02     # mpc input x offset used in sim
 uy_off_sim = 0.00     # mpc input y offset used in sim
 
 [Foot-Params]
-swf_Qx = 1000.0        # Swing foot tracking
-swf_Qy = 1000.0
-swf_Qz = 100.0
-swf_xy_r1 = 0.2     # XY avoidance radius
-swf_xy_r2 = 0.25
-swf_z_r1 = 0.1      # Z avoidance radius
+swf_Qx = 100.0        # Swing foot tracking
+swf_Qy = 100.0
+swf_Qz = 1000.0
+swf_xy_r1 = 0.25     # XY avoidance radius
+swf_xy_r2 = 0.3
+swf_z_r1 = 0.0      # Z avoidance radius
 swf_z_r2 = 0.3
 swf_obs_Qxy = 8000.0   # Swing avoidance slack cost
 swf_obs_Qz = 8000.0
 swf_z_frac = 0.5    # Swing foot profile, should be 0.5 for avoidance
 z_max = 0.6         # Maximum step height
-M = 10000           # Big M for mixed integer
-
+M = 1000           # Big M for mixed integer
