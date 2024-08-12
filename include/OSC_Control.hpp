@@ -24,12 +24,12 @@ class OSC_Control{
                        MatrixXd left_toe_back_jaco_fa, MatrixXd right_toe_jaco_fa, MatrixXd right_toe_back_jaco_fa,
                        MatrixXd left_toe_rot_jaco_fa, MatrixXd right_toe_rot_jaco_fa);
 
-    void updateQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd des_acc_toe, VectorXd G, VectorXd contact);
+    void updateQPVector(const VectorXd& des_acc_pel, const VectorXd& des_acc, const VectorXd& des_acc_toe, const VectorXd& G, const VectorXd& contact);
 
-    void updateQPMatrix(MatrixXd Weight_pel, MatrixXd M,
-                        MatrixXd B, MatrixXd Spring_Jaco, MatrixXd left_toe_jaco_fa, 
-                        MatrixXd left_toe_back_jaco_fa, MatrixXd right_toe_jaco_fa, MatrixXd right_toe_back_jaco_fa,
-                        MatrixXd left_toe_rot_jaco_fa, MatrixXd right_toe_rot_jaco_fa, VectorXd contact);
+    void updateQPMatrix(const MatrixXd& Weight_pel, const MatrixXd& M,
+                        const MatrixXd& B, const MatrixXd& Spring_Jaco, const MatrixXd& left_toe_jaco_fa, 
+                        const MatrixXd& left_toe_back_jaco_fa, const MatrixXd& right_toe_jaco_fa, const MatrixXd& right_toe_back_jaco_fa,
+                        const MatrixXd& left_toe_rot_jaco_fa, const MatrixXd& right_toe_rot_jaco_fa, const VectorXd& contact);
 
     void setupQPMatrixCoM(MatrixXd Weight_pel, MatrixXd M, 
                        MatrixXd B, MatrixXd Spring_Jaco, MatrixXd left_toe_jaco_fa, 

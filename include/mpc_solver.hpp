@@ -18,7 +18,7 @@ class MPC_Solver{
     public:
     MPC_Solver(){};
     MPC_Solver(int Cons_Num, int Vars_Num);
-    Eigen::VectorXd Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq, casadi::DM biq,casadi::DM H, casadi::DM f);
+    Eigen::VectorXd Update_Solver(const casadi::DM& Aeq, const casadi::DM& beq,const casadi::DM& Aiq, const casadi::DM& biq,const casadi::DM& H, const casadi::DM& f);
 
     private:
     int QP_initialized_;

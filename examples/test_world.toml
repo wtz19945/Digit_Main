@@ -1,0 +1,88 @@
+# Each body in a model is a seperate table under the world table.
+[world.example-model.body-a]
+
+# Parent
+parent = ""
+
+# Type of the body-a. Can be one of "box", "sphere", "cylinder", "capsule" or "none"
+type = "box"
+
+# Demension of the body-a
+#   box:      size = [x, y, z]
+#   sphere:   size = radius
+#   cylinder: size = [radius, length]
+#   capsule:  size = [radius, length]
+size = [1, 0.9, 0.2]
+
+# The pose of the body relative to the parent body's origin.
+pose = {xyz = [0, 0, 0.1]}
+
+# mass
+mass = 3
+
+# Defines the friction parameters of non-fixed bodies. The first element is
+# sliding friction, the second is torsional friction, and the third is
+# rolling friction.
+friction = [0.5, 0.005, 0.0001]
+
+# The color this body will be rendered as.
+color = "MediumAquaMarine"
+
+# Define the contype and conaffinity for the model.
+contact.group = [0, 1]
+
+# This defines a second body in the model rigidly attached to the first.
+[world.example-model.body-b]
+parent = "body-a"
+type = "box"
+size = [1, 0.3, 0.2]
+pose = {xyz = [-0.5, 0, 0.2]}
+mass = 1
+
+# Creates a 1 degree-of-freedom revolute joint between this joint and its parent
+joint.type = "revolute"
+
+# The position where this joint is attached, relative to the parent body's
+# origin.
+joint.offset = [0.5, 0, 0]
+
+# The joint limits (in degrees for revolute joints). By default joints
+# have no limits.
+joint.limits.lower = 0.0
+joint.limits.upper = 180.0
+
+# Specifies the axis of rotation for revolute joints. Defaults to
+# [0, 0, 1] if not provided.
+joint.axis = [0, 0, 1]
+
+# Coulomb friction
+joint.dynamics.damping = 0.1
+
+# Dry friction
+joint.dynamics.friction = 0.2
+
+########################################################################
+# Complete model-list reference
+########################################################################
+[[model-list]]
+model = "example-model"
+
+# If specified, defines the unique ID for this model instance, which can be
+# used to do things like assign disturbance forces to it
+id = 555
+
+# The pose of the root of the model relative to the world origin.
+pose = {axyd = [-45, 1, 0.5]}
+
+# If fixed is set to true, this model will be rigidly held in place at its
+# starting position when running the simulator in dynamic mode.
+fixed = true
+
+# The color all bodies in this model will be rendered as
+color = "#F08080"
+
+
+# Add robot to world
+[[model-list]]
+model = "robot"
+pose = {rpyxyz = [0, 0, 0, 0, 0, 1]}
