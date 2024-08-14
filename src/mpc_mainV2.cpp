@@ -77,6 +77,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   r_ = {r1, r2};
   f_width_ = config->get_qualified_as<double>("MPC-Params.foot_width").value_or(0);
   height_ = config->get_qualified_as<double>("MPC-Params.height").value_or(0);
+  step_h_ = config_osc->get_qualified_as<double>("Walk-Params.step_height").value_or(0);
   // QP variable
   Nodes_ = 17;
   NPred_ = 4;
@@ -255,6 +256,12 @@ int main(int argc, char **argv){
           dy_offset = -w * foot_width* tanh(w * T / 2);
         double fx_offset = dx_des / w * ((2 - exp(w*T) - exp(-w*T)) / (exp(w * T) - exp(-w * T)));
 
+        double drift = 0.0;
+        if(digit_mpc.get_step_h() < 0.2)
+            drift = (digit_mpc.get_step_h() - 0.2) * 0.2;
+        else
+            drift = (digit_mpc.get_step_h() - 0.2) * 0.5;
+
         std::vector<double> q_init = {mpc_pel_pos(0), mpc_pel_vel(0), mpc_pel_pos(1), mpc_pel_vel(1)};
         std::vector<double> x_ref = {0, dx_des, dx_des, dx_des, dx_des};
         std::vector<double> y_ref = {0, dy_offset + dy_des, -dy_offset + dy_des, dy_offset + dy_des, -dy_offset + dy_des};
@@ -265,7 +272,7 @@ int main(int argc, char **argv){
         std::vector<double> rt = {max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
         if(mpc_index > 2)
           rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
-        std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset, digit_mpc.get_uyoff() + foot_y_offset};
+        std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset + drift, digit_mpc.get_uyoff() + foot_y_offset};
         std::vector<double> du_reff = {foot_change(0), foot_change(1), digit_mpc.get_Wdu(), h};
 
         vector<vector<double>> mpc_input;

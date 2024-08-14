@@ -173,7 +173,7 @@ void OSC_Control::setupQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd
                 VectorXd::Zero(16,1),VectorXd::Zero(17,1);
 }
 
-void OSC_Control::updateQPVector(VectorXd des_acc_pel, VectorXd des_acc, VectorXd des_acc_toe, VectorXd G, VectorXd contact){
+void OSC_Control::updateQPVector(const VectorXd& des_acc_pel, const VectorXd& des_acc, const VectorXd& des_acc_toe, const VectorXd& G, const VectorXd& contact){
     // currently, QP vector is basically changing with every iteration. no difference between setup and update
     setupQPVector(des_acc_pel, des_acc, des_acc_toe, G,contact);
 }
@@ -225,9 +225,9 @@ void OSC_Control::setupQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, Mat
     }
 }
 
-void OSC_Control::updateQPMatrix(MatrixXd Weight_pel, MatrixXd M, MatrixXd B, MatrixXd Spring_Jaco,
-        MatrixXd left_toe_jaco_fa, MatrixXd left_toe_back_jaco_fa, MatrixXd right_toe_jaco_fa, MatrixXd right_toe_back_jaco_fa,
-        MatrixXd left_toe_rot_jaco_fa, MatrixXd right_toe_rot_jaco_fa, VectorXd contact){
+void OSC_Control::updateQPMatrix(const MatrixXd& Weight_pel, const MatrixXd& M, const MatrixXd& B, const MatrixXd& Spring_Jaco,
+        const MatrixXd& left_toe_jaco_fa, const MatrixXd& left_toe_back_jaco_fa, const MatrixXd& right_toe_jaco_fa, const MatrixXd& right_toe_back_jaco_fa,
+        const MatrixXd& left_toe_rot_jaco_fa, const MatrixXd& right_toe_rot_jaco_fa, const VectorXd& contact){
     
     double contact1 = contact(0);
     double contact2 = contact(1);

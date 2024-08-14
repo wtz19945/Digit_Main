@@ -15,7 +15,8 @@ MPC_Solver::MPC_Solver(int Cons_Num, int Vars_Num){
     sol_ = VectorXd::Zero(Vars_Num_,1);
 }
 
-VectorXd MPC_Solver::Update_Solver(casadi::DM Aeq, casadi::DM beq,casadi::DM Aiq, casadi::DM biq,casadi::DM H, casadi::DM f){
+VectorXd MPC_Solver::Update_Solver(const casadi::DM& Aeq, const casadi::DM& beq,const casadi::DM& Aiq, 
+                                    const casadi::DM& biq,const casadi::DM& H, const casadi::DM& f){
     // copy data
     //std::memcpy(gradient_.data(), f.ptr(), sizeof(double)*Vars_Num_);
 /*     for(int i = 0; i<Vars_Num_; i++)

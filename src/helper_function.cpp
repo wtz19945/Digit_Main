@@ -222,17 +222,19 @@ void StateMachine::update(int cmd, double dt)
     }
 }
 
-ObstacleGenerator::ObstacleGenerator()
-{
-    avd_mode_ = 0;
-    cmd_active_ = 0;
-    obs_pos_ = VectorXd::Zero(2,1);
-}
-
 int ObstacleGenerator::get_avoidance_mode(double key_cmd, int stepping, VectorXd &obs_pos)
 {
     if (key_cmd == 13 && stepping == 2)
     {
+        // Random obstacle generator
+/*         if (cmd_active_ == 0)
+        {
+            cmd_active_ = 1;
+            double angle = dis_(gen_);
+            obs_pos_ << 0.2 * cos(angle), 0.2 * sin(angle);
+        } */
+
+        // Fixed pattern obstacle generator
         if (cmd_active_ == 0)
         {
             avd_mode_ = (avd_mode_ + 1) % 4;
@@ -259,6 +261,7 @@ int ObstacleGenerator::get_avoidance_mode(double key_cmd, int stepping, VectorXd
             }
             cmd_active_++;
         }
+
         obs_pos = obs_pos_;
         return avd_mode_;
     }
