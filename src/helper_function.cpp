@@ -245,12 +245,12 @@ int ObstacleGenerator::get_avoidance_mode(double key_cmd, int stepping, VectorXd
                 obs_pos_ << 0.2, 0.0;
                 break;
             case 1:
-                std::cout << "avoiding right" << std::endl;
-                obs_pos_ << 0.0, 0.2;
-                break;
-            case 2:
                 std::cout << "avoiding forward" << std::endl;
                 obs_pos_ << -0.2, 0.0;
+                break;
+            case 2:
+                std::cout << "avoiding right" << std::endl;
+                obs_pos_ << 0.0, 0.2;
                 break;
             case 3:
                 std::cout << "avoiding left" << std::endl;
