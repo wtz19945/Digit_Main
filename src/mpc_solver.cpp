@@ -1,6 +1,5 @@
 #include "mpc_solver.hpp"
 using namespace Eigen;
-using namespace std;
 
 MPC_Solver::MPC_Solver(int Cons_Num, int Vars_Num){
     Cons_Num_ = Cons_Num;

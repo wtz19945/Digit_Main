@@ -137,7 +137,6 @@ VectorXd get_quintic_params(VectorXd x0, VectorXd xT, double T);
 #define NUM_PEL_STATE 6
 #define NUM_ARM_STATE 8
 
-using namespace std;
 using namespace std::chrono;
 using namespace Eigen;
 
@@ -361,6 +360,9 @@ int main(int argc, char* argv[])
   // Obstacle generator
   ObstacleGenerator Obs_Gen = ObstacleGenerator();
   
+  // Ellipse Solver
+  EllipseSolver Elip_Sol = EllipseSolver();
+
   // OSC and Walking Variables
   OSC_Control osc(config);
   OSC_ControlV2 oscV2(config);
@@ -630,10 +632,10 @@ int main(int argc, char* argv[])
     int use_cap = 0;
     // Compute Desired CoM Traj// Testing use
     if(key_mode == 0){
-      z_off = min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.3);
+      z_off = std::min(z_off_track + 0.1 * (observation.time - key_time_tracker),0.3);
     }
     else if(key_mode == 1){
-      z_off = max(z_off_track - 0.1 * (observation.time - key_time_tracker),-0.3);
+      z_off = std::max(z_off_track - 0.1 * (observation.time - key_time_tracker),-0.3);
     }
     else{
       key_time_tracker = observation.time;
@@ -710,13 +712,13 @@ int main(int argc, char* argv[])
       
       double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       double ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      y_goal   = .5 * y_goal * (1 - cos(min(mpc_py * w * n,M_PI))) + .5 * (1 + cos(min(mpc_py * w * n,M_PI))) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(std::min(mpc_py * w * n,M_PI))) + .5 * (1 + cos(std::min(mpc_py * w * n,M_PI))) * foot_start(1);
 
       double dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       double ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(min(mpc_px * w * n,M_PI))) + .5 * (1 + cos(min(mpc_px * w * n,M_PI))) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(std::min(mpc_px * w * n,M_PI))) + .5 * (1 + cos(std::min(mpc_px * w * n,M_PI))) * foot_start(0);
 
-      left_toe_pos_ref << x_goal,max(y_goal,(right_toe_pos(1) + right_toe_back_pos(1))/2 + 0.05),0;
+      left_toe_pos_ref << x_goal,std::max(y_goal,(right_toe_pos(1) + right_toe_back_pos(1))/2 + 0.05),0;
       left_toe_vel_ref << dx_goal, dy_goal, 0;
       left_toe_acc_ref << ddx_goal,ddy_goal,0;
 
@@ -759,13 +761,13 @@ int main(int argc, char* argv[])
       
       double dy_goal  = .5 * y_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(1);
       double ddy_goal = .5 * y_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(1);
-      y_goal   = .5 * y_goal * (1 - cos(min(mpc_py * w * n,M_PI))) + .5 * (1 + cos(min(mpc_py * w * n,M_PI))) * foot_start(1);
+      y_goal   = .5 * y_goal * (1 - cos(std::min(mpc_py * w * n,M_PI))) + .5 * (1 + cos(std::min(mpc_py * w * n,M_PI))) * foot_start(1);
 
       double dx_goal  = .5 * x_goal * w * (sin(w * n)) + .5 * w * (-sin(w * n)) * foot_start(0);
       double ddx_goal = .5 * x_goal * w * w * (cos(w * n)) + .5 * w * w * (-cos(w * n)) * foot_start(0);
-      x_goal   = .5 * x_goal * (1 - cos(min(mpc_px * w * n,M_PI))) + .5 * (1 + cos(min(mpc_px * w * n,M_PI))) * foot_start(0);
+      x_goal   = .5 * x_goal * (1 - cos(std::min(mpc_px * w * n,M_PI))) + .5 * (1 + cos(std::min(mpc_px * w * n,M_PI))) * foot_start(0);
 
-      right_toe_pos_ref << x_goal, min(y_goal,(left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.05), 0;
+      right_toe_pos_ref << x_goal, std::min(y_goal,(left_toe_pos(1) + left_toe_back_pos(1))/2 - 0.05), 0;
       right_toe_vel_ref << dx_goal, dy_goal, 0;
       right_toe_acc_ref << ddx_goal,ddy_goal,0;
 
@@ -979,30 +981,30 @@ int main(int argc, char* argv[])
     if(contact(0) != 0){
       wb_dq_next.block(0,0,6,1) = VectorXd::Zero(6,1);
       if(stepping == 2 && traj_time <= ramp_time){
-        torque(4) *= min(traj_time/ramp_time,1.0);
-        torque(5) *= min(traj_time/ramp_time,1.0);
+        torque(4) *= std::min(traj_time/ramp_time,1.0);
+        torque(5) *= std::min(traj_time/ramp_time,1.0);
       }
     }
     else{
       if(stepping == 2 && traj_time >= (step_time - ramp_time)){
         double n = step_time - traj_time;
-        torque(4) *= max(n/ramp_time,0.0);
-        torque(5) *= max(n/ramp_time,0.0);
+        torque(4) *= std::max(n/ramp_time,0.0);
+        torque(5) *= std::max(n/ramp_time,0.0);
       }
     }
 
     if(contact(1) != 0){
       wb_dq_next.block(6,0,6,1) = VectorXd::Zero(6,1);
       if(stepping == 2  && traj_time <= ramp_time){
-        torque(10) *= min(traj_time/ramp_time,1.0);
-        torque(11) *= min(traj_time/ramp_time,1.0);
+        torque(10) *= std::min(traj_time/ramp_time,1.0);
+        torque(11) *= std::min(traj_time/ramp_time,1.0);
       }
     }
     else{
       if(stepping == 2 && traj_time >= (step_time - ramp_time)){
         double n = step_time - traj_time;
-        torque(10) *= max(n/ramp_time,0.0);
-        torque(11) *= max(n/ramp_time,0.0);
+        torque(10) *= std::max(n/ramp_time,0.0);
+        torque(11) *= std::max(n/ramp_time,0.0);
       }
     }
 
@@ -1035,18 +1037,18 @@ int main(int argc, char* argv[])
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];
           command.motors[i].velocity = 0;
           command.motors[i].damping = 1 * limits->damping_limit[i];
-          cout << "safety triggered" << endl;
+          std::cout << "safety triggered" << std::endl;
       }
       else{
         // wrap up torque
         if(i>=12){
           command.motors[i].torque =
-            min((observation.time - digit_time_start)/soft_count,1.0) * arm_P * (target_position[i] - observation.motor.position[i]);
+            std::min((observation.time - digit_time_start)/soft_count,1.0) * arm_P * (target_position[i] - observation.motor.position[i]);
             command.motors[i].velocity = 0;
             command.motors[i].damping = 0.75 * limits->damping_limit[i];
         }
         else{
-          torque *= min((observation.time - digit_time_start)/soft_count,1.0);
+          torque *= std::min((observation.time - digit_time_start)/soft_count,1.0);
           command.motors[i].torque = 1 * torque(i) ;
           command.motors[i].velocity = 1 * wb_dq_next(i);
           // Use different damping or velocity for stance and swing leg (Potentially better)

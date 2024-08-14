@@ -64,6 +64,34 @@ class ObstacleGenerator {
         std::uniform_real_distribution<> dis_; // Uniform distribution
 };
 
+// Ellipse Solver: This class finds the closet point on the obstacle represented as an ellipse to the robot 
+class EllipseSolver {
+
+    public:
+        EllipseSolver() : xn_(0), yn_(0), lambda_(0), tor_(1e-6), initialized_(0), R_(MatrixXd::Zero(2,2)),
+                          f_(VectorXd::Zero(3,1)), J_(MatrixXd::Zero(3,3)), sol_(VectorXd::Zero(3,1)) {};
+        EllipseSolver(double tor) : xn_(0), yn_(0), lambda_(0), tor_(tor), initialized_(0), R_(MatrixXd::Zero(2,2)),
+                          f_(VectorXd::Zero(3,1)), J_(MatrixXd::Zero(3,3)), sol_(VectorXd::Zero(3,1)) {};
+                          
+        void ComputeEllipseInfo(double xe, double xr, double xc, double ye, double yr,
+                                double yc, double t, double lambda, double a, double b,
+                                VectorXd& f_Eigen, MatrixXd& Jf_Eigen);
+
+        void update_solver(const double a_x, const double a_y, const VectorXd& pos_obs, const VectorXd& pos_robot, const double phi);
+        double get_x() {return xn_;};
+        double get_y() {return yn_;};
+    private:
+        double xn_;        // x coordinate
+        double yn_;        // y coordinate
+        double lambda_;    // Lagragian in ellipse optim solver
+        double tor_;       // Tolerance used in solver
+        bool initialized_; // Solver is initialized
+        MatrixXd R_;
+        VectorXd f_;
+        MatrixXd J_;
+        VectorXd sol_;
+};
+
 void wrap_theta(double &theta);
 #endif //HELPER_FUNCTION_H
 

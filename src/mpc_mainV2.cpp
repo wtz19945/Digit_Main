@@ -3,7 +3,6 @@
 #include "input_listener.hpp"
 
 using namespace Eigen;
-using namespace std;
 namespace fs = std::filesystem;
 using namespace std::chrono;
 
@@ -112,7 +111,7 @@ void Digit_MPC::MPCInputCallback(const Digit_Ros::digit_state& msg) {
 }
 
 // Solve MPC to get new task space command
-VectorXd Digit_MPC::Update_MPC_(int traj_time, vector<vector<double>> mpc_input){
+VectorXd Digit_MPC::Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input){
   VectorXd QPSolution;
   int mpc_in = traj_time;
   std::vector<double> input;
@@ -229,9 +228,9 @@ int main(int argc, char **argv){
     counter++;
     if(counter == 10){
       if(key_mode >=9 && key_mode <=12){
-        cout << "current offset are" << endl;
-        cout << "x direction   " << foot_x_offset << endl;
-        cout << "y direction   " << foot_y_offset << endl;
+        std::cout << "current offset are" << std::endl;
+        std::cout << "x direction   " << foot_x_offset << std::endl;
+        std::cout << "y direction   " << foot_y_offset << std::endl;
       }
       counter = 0;
     }
@@ -269,13 +268,13 @@ int main(int argc, char **argv){
         std::vector<double> f_param = {0, 0, fx_offset, 0, 0, foot_width};
         std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
         std::vector<double> qo_tan(mpc_obs_info.data() + 2, mpc_obs_info.data() + mpc_obs_info.size());
-        std::vector<double> rt = {max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
+        std::vector<double> rt = {std::max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
         if(mpc_index > 2)
-          rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
+          rt[0] = std::max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
         std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset + drift, digit_mpc.get_uyoff() + foot_y_offset};
         std::vector<double> du_reff = {foot_change(0), foot_change(1), digit_mpc.get_Wdu(), h};
 
-        vector<vector<double>> mpc_input;
+        std::vector<std::vector<double>> mpc_input;
         mpc_input.push_back(q_init);
         mpc_input.push_back(x_ref);
         mpc_input.push_back(y_ref);
