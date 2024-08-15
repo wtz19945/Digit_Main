@@ -24,6 +24,7 @@ public:
     IKArmControl(double step_time, double arm_z_int);
     VectorXd update_right_arm(int stepping, int stance_leg, double traj_time, VectorXd wb_q);
     VectorXd update_left_arm(int stepping, int stance_leg, double traj_time, VectorXd wb_q);
+    void update_steptime(const double step_time_new) {step_time_new;};
 
 private:
     double step_time_;
@@ -41,11 +42,15 @@ class StateMachine {
         int get_stepping_phase() {return stepping_phase_;};
         int get_stance_leg() {return stance_leg_;};
         void update(int cmd, double dt);
+        void update_time_next(const double step_time_next) {step_time_next_ = step_time_next;};
+        double get_current_steptime() {return step_time_;};
+        
     private:
         int stepping_phase_;
         int stance_leg_;
         double traj_time_;
         double step_time_;
+        double step_time_next_;
         double ds_time_;
         VectorXd contact_;
 };

@@ -57,7 +57,8 @@ public:
   
   int get_stance_leg() {return stance_leg_;};
   int get_Var_Num() {return Vars_Num_;};
-  Eigen::VectorXd Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input);
+  Eigen::VectorXd Update_MPC_(int mpc_index, std::vector<std::vector<double>> mpc_input);
+  void update_steptime(const double step_time_new) {step_time_ = step_time_new;};
 
 private:
   void MPCInputCallback(const Digit_Ros::digit_state& msg);

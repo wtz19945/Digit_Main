@@ -162,10 +162,9 @@ int main(int argc, char* argv[])
   VectorXd pb_dq = VectorXd::Zero(NUM_Dyn_STATE,1);
 
   // Position estimator reading from LLAPI
-  VectorXd pel_pos(3),pel_vel(3),pel_vel_avg(3),pel_quaternion(4),theta(3),dtheta(3);
+  VectorXd pel_pos(3),pel_vel(3),pel_quaternion(4),theta(3),dtheta(3);
   pel_pos = VectorXd::Zero(3,1);
   pel_vel = VectorXd::Zero(3,1);
-  pel_vel_avg = VectorXd::Zero(3,1);
   pel_quaternion = VectorXd::Zero(4,1);
   theta = VectorXd::Zero(3,1);
   dtheta = VectorXd::Zero(3,1);
@@ -325,10 +324,6 @@ int main(int argc, char* argv[])
   // initialize safety checker
   Digit_safety safe_check(wd_sz,NUM_LEG_STATE);
 
-  // initialize Filter
-  MovingAverageFilter pel_vel_x(int (step_time * qp_rate)); 
-  MovingAverageFilter pel_vel_y(int (step_time * qp_rate));
-
   // Set ROS params
   ros::Rate control_loop_rate(qp_rate);
   ros::Publisher state_pub = n.advertise<Digit_Ros::digit_state>("digit_state", 10);
@@ -414,6 +409,16 @@ int main(int argc, char* argv[])
     }
 
     circle_time = (observation.time - digit_time_last);
+
+    // Check if need to update step time based on MPC solution
+    double step_time_new = 0.3;
+    if(false){
+      FSM.update_time_next(step_time_new);
+      IK_Arm.update_steptime(FSM.get_current_steptime());
+      step_time = FSM.get_current_steptime();
+      a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
+      b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
+    }
 
     // Update state machine to get current contact traj cmd
     FSM.update(key_mode, circle_time);
@@ -511,9 +516,6 @@ int main(int argc, char* argv[])
     // pelvis states in the base frame
     pel_pos = rotZ.transpose() * pel_pos; 
     pel_vel = rotZ.transpose() * pel_vel; // hardware: use body or world frame??? Both seems working
-
-    pel_vel_avg(0) = pel_vel_x.getData(pel_vel(0));
-    pel_vel_avg(1) = pel_vel_y.getData(pel_vel(1));
 
     wrap_theta(theta(2));
     // get state vector
@@ -1106,10 +1108,6 @@ int main(int argc, char* argv[])
     VectorXd st_foot_pos = VectorXd::Zero(2,1);  // stance foot position
     VectorXd obs_info = VectorXd::Zero(4,1);     // obstacle info
     pel_ref << 0.0, vel_des_x, 0.0, vel_des_y;           
-    if(vel_des_x == 0)
-       pel_ref(0) = pel_vel_avg(0);   
-    if(vel_des_y == 0)
-       pel_ref(2) = pel_vel_avg(1); 
 
     obs_info << obs_pos, obs_tan;           
 
@@ -1131,6 +1129,7 @@ int main(int argc, char* argv[])
     std::copy(pel_ref.data(),pel_ref.data() + 4, msg.pel_ref.begin());
     std::copy(st_foot_pos.data(),st_foot_pos.data() + 2,msg.foot_pos.begin());
     std::copy(obs_info.data(),obs_info.data() + 4,msg.obs_info.begin());
+    msg.step_time = step_time;
 
     // OSC data for visualization
     std::copy(pel_pos_des.data(), pel_pos_des.data() + pel_pos_des.size(), msg.pel_pos_des.begin());

@@ -108,12 +108,13 @@ void Digit_MPC::MPCInputCallback(const Digit_Ros::digit_state& msg) {
 
   traj_time_ = msg.traj_time;
   stance_leg_ = msg.stance_leg;
+  step_time_ = msg.step_time;
 }
 
 // Solve MPC to get new task space command
-VectorXd Digit_MPC::Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input){
+VectorXd Digit_MPC::Update_MPC_(int mpc_index, std::vector<std::vector<double>> mpc_input){
   VectorXd QPSolution;
-  int mpc_in = traj_time;
+  int mpc_in = mpc_index;
   std::vector<double> input;
   input.insert(input.end(), mpc_input[0].begin(), mpc_input[0].end());
   input.insert(input.end(), mpc_input[1].begin(), mpc_input[1].end());
@@ -131,6 +132,8 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, std::vector<std::vector<double>> 
   std::vector<casadi::DM> MPC_arg = {input,sol_init_};
   std::vector<casadi::DM> res;
 
+  
+  // Modify based on 
   if(stance_leg_ == -1){
       switch(mpc_in){
         case 0: res = left_step0_matrix_(MPC_arg); break;
@@ -244,7 +247,9 @@ int main(int argc, char **argv){
         VectorXd mpc_f_init = digit_mpc.get_foot_pos();
         VectorXd mpc_obs_info = digit_mpc.get_obs_info();
 
+        double time_offset = digit_mpc.get_steptime() - floor(digit_mpc.get_steptime() / 0.1) * 0.1;
         double foot_width = digit_mpc.get_foot_width();
+
         double dx_des = mpc_pel_ref(1);
         double dy_des = mpc_pel_ref(3);
         double dy_offset = 0;
@@ -269,8 +274,31 @@ int main(int argc, char **argv){
         std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
         std::vector<double> qo_tan(mpc_obs_info.data() + 2, mpc_obs_info.data() + mpc_obs_info.size());
         std::vector<double> rt = {std::max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
+
+        int mpc_index_offset = 0;
+        if((.35 < digit_mpc.get_steptime()) && (digit_mpc.get_steptime() <= .45))
+            mpc_index_offset = 0;
+        else if((.25 < digit_mpc.get_steptime()) && (digit_mpc.get_steptime() <= .35))
+            mpc_index_offset = 1;
+        else if((.15 < digit_mpc.get_steptime()) && (digit_mpc.get_steptime() <= .25))
+            mpc_index_offset = 2;
+        else if((.05 < digit_mpc.get_steptime()) && (digit_mpc.get_steptime() <= .15))
+            mpc_index_offset = 3;
+        else
+            mpc_index_offset = 0;
+
         if(mpc_index > 2)
-          rt[0] = std::max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
+        {
+          if(mpc_index_offset + mpc_index == 3)
+            if(time_offset > 0.05)
+              rt[0] = std::max(time_offset - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
+            else
+              rt[0] = std::max(0.1 + time_offset - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
+          else
+            rt[0] = std::max(time_offset - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
+        }
+
+        mpc_index += mpc_index_offset;
         std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset + drift, digit_mpc.get_uyoff() + foot_y_offset};
         std::vector<double> du_reff = {foot_change(0), foot_change(1), digit_mpc.get_Wdu(), h};
 
@@ -306,7 +334,6 @@ int main(int argc, char **argv){
         cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
         cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
-
 
       int off = 0;
       cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(55), QPSolution(57 + off);

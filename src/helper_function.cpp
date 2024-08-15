@@ -144,6 +144,7 @@ StateMachine::StateMachine(double step_time, double ds_time)
     stepping_phase_ = 0;
     traj_time_ = 0.0;
     step_time_ = step_time;
+    step_time_next_ = step_time;
     stance_leg_ = 1;
     ds_time_ = ds_time;
     contact_ = VectorXd::Zero(2, 1);
@@ -161,6 +162,7 @@ void StateMachine::update(int cmd, double dt)
         {
             traj_time_ = 0;
             change_state = 1;
+            step_time_ = step_time_next_;
         }
         else
         {

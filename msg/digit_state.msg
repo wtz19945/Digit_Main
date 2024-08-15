@@ -11,6 +11,7 @@ float32[4] pel_ref
 float32[2] foot_pos
 float32[4] obs_info 
 float32 traj_time
+float32 step_time
 int32 stance_leg
 float32[3] left_toe_pos
 float32[3] left_toe_pos_ref

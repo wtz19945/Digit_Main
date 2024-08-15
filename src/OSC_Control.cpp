@@ -270,7 +270,7 @@ void OSC_Control::updateQPMatrix(const MatrixXd& Weight_pel, const MatrixXd& M, 
         hessian.coeffRef(i,i) = hessian_full(i,i);
       }
       else{
-        hessian.coeffRef(i,i) = 1e-2;
+        hessian.coeffRef(i,i) = 1e-3;
       }
     }
 
