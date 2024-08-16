@@ -209,6 +209,7 @@ int main(int argc, char **argv){
   int counter = 0;
   while (ros::ok()){
     double traj_time = 0;
+    double ds_time = 0;
     int stance_leg = 1;
     auto mpc_time_start = std::chrono::system_clock::now();
 
@@ -239,8 +240,9 @@ int main(int argc, char **argv){
     }
     // solve for results
     traj_time = digit_mpc.get_traj_time();
-    if(traj_time >= digit_mpc.get_dstime()/2 && traj_time < digit_mpc.get_steptime() - digit_mpc.get_dstime()/2){
-        int mpc_index = floor((traj_time - digit_mpc.get_dstime()/2) / 0.1);
+    ds_time = digit_mpc.get_dstime() + std::max(digit_mpc.get_steptime()  - 0.4 , 0.0);
+    if(traj_time >= ds_time/2 && traj_time < digit_mpc.get_steptime() - ds_time/2){
+        int mpc_index = floor((traj_time - ds_time/2) / 0.1);
         VectorXd mpc_pel_pos = digit_mpc.get_pel_pos();
         VectorXd mpc_pel_vel = digit_mpc.get_pel_vel();
         VectorXd mpc_pel_ref = digit_mpc.get_pel_ref();
@@ -248,23 +250,23 @@ int main(int argc, char **argv){
         VectorXd mpc_obs_info = digit_mpc.get_obs_info();
 
         double time_offset = digit_mpc.get_steptime() - floor(digit_mpc.get_steptime() / 0.1) * 0.1;
-        double foot_width = digit_mpc.get_foot_width();
+        double foot_width = digit_mpc.get_foot_width() + std::max((0.4 - digit_mpc.get_steptime()),0.0);
 
         double dx_des = mpc_pel_ref(1);
         double dy_des = mpc_pel_ref(3);
         double dy_offset = 0;
-        double T = digit_mpc.get_steptime() - digit_mpc.get_dstime();
+        double T = digit_mpc.get_steptime() - ds_time;
         if(digit_mpc.get_stance_leg() == 1)
           dy_offset = w * foot_width * tanh(w * T / 2);
         else
           dy_offset = -w * foot_width* tanh(w * T / 2);
         double fx_offset = dx_des / w * ((2 - exp(w*T) - exp(-w*T)) / (exp(w * T) - exp(-w * T)));
 
-        double drift = 0.0;
+        double drift = (0.4 - digit_mpc.get_steptime()) * 0.3;
         if(digit_mpc.get_step_h() < 0.2)
-            drift = (digit_mpc.get_step_h() - 0.2) * 0.2;
+            drift += (digit_mpc.get_step_h() - 0.2) * 0.2;
         else
-            drift = (digit_mpc.get_step_h() - 0.2) * 0.5;
+            drift += (digit_mpc.get_step_h() - 0.2) * 0.5;
 
         std::vector<double> q_init = {mpc_pel_pos(0), mpc_pel_vel(0), mpc_pel_pos(1), mpc_pel_vel(1)};
         std::vector<double> x_ref = {0, dx_des, dx_des, dx_des, dx_des};
@@ -273,7 +275,7 @@ int main(int argc, char **argv){
         std::vector<double> f_param = {0, 0, fx_offset, 0, 0, foot_width};
         std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
         std::vector<double> qo_tan(mpc_obs_info.data() + 2, mpc_obs_info.data() + mpc_obs_info.size());
-        std::vector<double> rt = {std::max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
+        std::vector<double> rt = {std::max(0.1 - (traj_time - ds_time/2 - mpc_index * 0.1),0.0)};
 
         int mpc_index_offset = 0;
         if((.35 < digit_mpc.get_steptime()) && (digit_mpc.get_steptime() <= .45))
@@ -291,11 +293,11 @@ int main(int argc, char **argv){
         {
           if(mpc_index_offset + mpc_index == 3)
             if(time_offset > 0.05)
-              rt[0] = std::max(time_offset - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
+              rt[0] = std::max(time_offset - ds_time/2  - (traj_time - ds_time/2 - mpc_index * 0.1), 0.0);
             else
-              rt[0] = std::max(0.1 + time_offset - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
+              rt[0] = std::max(0.1 + time_offset - ds_time/2  - (traj_time - ds_time/2 - mpc_index * 0.1), 0.0);
           else
-            rt[0] = std::max(time_offset - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
+            rt[0] = std::max(time_offset - ds_time/2  - (traj_time - ds_time/2 - mpc_index * 0.1), 0.0);
         }
 
         mpc_index += mpc_index_offset;

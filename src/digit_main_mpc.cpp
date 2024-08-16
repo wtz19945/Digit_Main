@@ -416,6 +416,7 @@ int main(int argc, char* argv[])
       FSM.update_time_next(step_time_new);
       IK_Arm.update_steptime(FSM.get_current_steptime());
       step_time = FSM.get_current_steptime();
+      ds_time += std::max(ds_time - 0.4 , 0.0);
       a = get_quintic_params(fzint,fzmid,step_time/2 - ds_time/2);
       b = get_quintic_params(fzmid,fzend,step_time/2 - ds_time/2);
     }
