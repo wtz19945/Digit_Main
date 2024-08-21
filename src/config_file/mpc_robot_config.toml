@@ -38,7 +38,7 @@ uy_off_sim = 0.00     # mpc input y offset used in sim
 swf_Qx = 100.0        # Swing foot tracking
 swf_Qy = 100.0
 swf_Qz = 1000.0
-swf_xy_r1 = 0.225     # XY avoidance radius
+swf_xy_r1 = 0.25     # XY avoidance radius
 swf_xy_r2 = 0.3
 swf_z_r1 = 0.0      # Z avoidance radius
 swf_z_r2 = 0.3
@@ -47,5 +47,5 @@ swf_obs_Qz = 8000.0
 swf_z_frac = 0.5    # Swing foot profile, should be 0.5 for avoidance
 z_max = 0.6         # Maximum step height
 M = 10000           # Big M for mixed integer
-th = 25.0
+th = 0.0
 

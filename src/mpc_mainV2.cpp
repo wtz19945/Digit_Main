@@ -86,7 +86,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
 
   step_time_ = config_osc->get_qualified_as<double>("Walk-Params.step_time").value_or(0);
   ds_time_ = config_osc->get_qualified_as<double>("Walk-Params.ds_time").value_or(0);
-  double th = config_osc->get_qualified_as<double>("Walk-Params.th").value_or(0);
+  double th = config->get_qualified_as<double>("Foot-Params.th").value_or(0);
   assert(th <= 45 && th >= -45);
 
   f_length_ = {flx, fly};
@@ -104,8 +104,8 @@ Digit_MPC::Digit_MPC(bool run_sim)
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {260,256,251,247};
-  Vars_Num_ = 172;
+  Cons_Num_ = {295,291,286,282};
+  Vars_Num_ = 174;
   for(int i = 0; i<Vars_Num_;i++){
     sol_.push_back(0);
     sol_init_.push_back(0);
@@ -256,6 +256,7 @@ int main(int argc, char **argv){
 
   double foot_x_offset = 0;
   double foot_y_offset = 0;
+  double dx_offset = 0;
   int counter = 0;
   int stance_leg_prev = 1;
   
@@ -299,7 +300,7 @@ int main(int argc, char **argv){
         VectorXd mpc_swf_cur = digit_mpc.get_swing_foot();
 
         double foot_width = digit_mpc.get_foot_width();
-        double dx_des = mpc_pel_ref(1);
+        double dx_des = mpc_pel_ref(1) + dx_offset;
         double dy_des = mpc_pel_ref(3);
         double dy_offset = 0;
         double T = digit_mpc.get_steptime() - digit_mpc.get_dstime();
@@ -392,10 +393,15 @@ int main(int argc, char **argv){
         cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
       
-      std::cout << "aaa" << std::endl;
-      for(int i =0;i<10;i++){
-        std::cout << QPSolution(2*i) << std::endl;
+/*       if(QPSolution(157) == 1){
+        std::cout << "accelerating" << std::endl;
+        if(dx_offset < 0.8)
+          dx_offset += 0.1;
       }
+      else{
+        dx_offset = std::max(dx_offset - 0.1, 0.0);
+      } */
+
       int off = 0;
       cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(55), QPSolution(57 + off);
       cmd_pel_vel << QPSolution(1), QPSolution(3 + off), QPSolution(56), QPSolution(58 + off);

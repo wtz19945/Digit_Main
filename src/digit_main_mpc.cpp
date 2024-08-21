@@ -694,7 +694,7 @@ int main(int argc, char* argv[])
     // Modify velocity cmd based on robot avoidance status
     VectorXd dis(2);
     dis << 1.0 - pel_pos(0), 0.1 - pel_pos(1);
-    vel_des_x += .6 * sign(vel_des_x) * std::exp(-dis.norm());
+    vel_des_x += .6 * is_positive(vel_des_x) * std::exp(-dis.norm());
     
 
     key_mode_prev = key_mode;
