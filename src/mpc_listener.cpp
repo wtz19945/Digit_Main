@@ -22,4 +22,5 @@ void MPC_CMD_Listener::MPCInputCallback(const Digit_Ros::mpc_info& msg) {
   std::copy(msg.pel_pos_cmd.begin(), msg.pel_pos_cmd.begin() + 4, pel_pos_cmd.data());
   std::copy(msg.pel_vel_cmd.begin(), msg.pel_vel_cmd.begin() + 4, pel_vel_cmd.data());
   std::copy(msg.swing_foot_cmd.begin(), msg.swing_foot_cmd.begin() + 15, swing_foot_cmd.data());
+  dx_offset = msg.dx_offset;
 }

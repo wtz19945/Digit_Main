@@ -26,6 +26,7 @@ public:
   Eigen::VectorXd get_left_foot_cmd()   {return left_foot_cmd;};
   Eigen::VectorXd get_right_foot_cmd()  {return right_foot_cmd;};
   Eigen::VectorXd get_swing_foot_cmd()  {return swing_foot_cmd;};
+  double get_dx_offset() {return dx_offset;};
 
 private:
   void MPCInputCallback(const Digit_Ros::mpc_info& msg);
@@ -38,4 +39,5 @@ private:
   Eigen::VectorXd left_foot_cmd;
   Eigen::VectorXd right_foot_cmd;
   Eigen::VectorXd swing_foot_cmd;
+  double dx_offset;
 };

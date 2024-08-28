@@ -99,22 +99,33 @@ Digit_MPC::Digit_MPC(bool run_sim)
   f_width_ = config->get_qualified_as<double>("MPC-Params.foot_width").value_or(0);
   height_ = config->get_qualified_as<double>("MPC-Params.height").value_or(0);
   // QP variable
-  Nodes_ = 17;
   NPred_ = 4;
+  Nodes_ = NPred_ * 4 + 1;
   nx_ = 2;
   
   // initialize solvers
-  Cons_Num_ = {295,291,286,282};
-  Vars_Num_ = 174;
+  if(NPred_ == 4){
+    Cons_Num_ = {263,261,258,256};
+    Vars_Num_ = 166;
+  }
+  else if(NPred_ == 5){
+    Cons_Num_ = {318,316,313,311};
+    Vars_Num_ = 201;
+  }
+  else{
+    Cons_Num_ = {373,371,368,366};
+    Vars_Num_ = 236;
+  }
+
   for(int i = 0; i<Vars_Num_;i++){
     sol_.push_back(0);
     sol_init_.push_back(0);
   }
   //
-  mpc_solver0_ = MPC_Solver(Cons_Num_[0],Vars_Num_);
-  mpc_solver1_ = MPC_Solver(Cons_Num_[1],Vars_Num_);
-  mpc_solver2_ = MPC_Solver(Cons_Num_[2],Vars_Num_);
-  mpc_solver3_ = MPC_Solver(Cons_Num_[3],Vars_Num_);
+  mpc_solver0_ = MPC_Solver(Cons_Num_[0],Vars_Num_, NPred_);
+  mpc_solver1_ = MPC_Solver(Cons_Num_[1],Vars_Num_, NPred_);
+  mpc_solver2_ = MPC_Solver(Cons_Num_[2],Vars_Num_, NPred_);
+  mpc_solver3_ = MPC_Solver(Cons_Num_[3],Vars_Num_, NPred_);
 }
 
 VectorXd Digit_MPC::linspace(double start, double end, int num){
@@ -257,6 +268,8 @@ int main(int argc, char **argv){
   double foot_x_offset = 0;
   double foot_y_offset = 0;
   double dx_offset = 0;
+  int Npred = digit_mpc.get_Npred();
+  int Nodes = digit_mpc.get_Nodes();
   int counter = 0;
   int stance_leg_prev = 1;
   
@@ -300,7 +313,7 @@ int main(int argc, char **argv){
         VectorXd mpc_swf_cur = digit_mpc.get_swing_foot();
 
         double foot_width = digit_mpc.get_foot_width();
-        double dx_des = mpc_pel_ref(1) + dx_offset;
+        double dx_des = mpc_pel_ref(1);
         double dy_des = mpc_pel_ref(3);
         double dy_offset = 0;
         double T = digit_mpc.get_steptime() - digit_mpc.get_dstime();
@@ -337,6 +350,10 @@ int main(int argc, char **argv){
         std::vector<double> q_init = {mpc_pel_pos(0), mpc_pel_vel(0), mpc_pel_pos(1), mpc_pel_vel(1)};
         std::vector<double> x_ref = {0, dx_des, dx_des, dx_des, dx_des};
         std::vector<double> y_ref = {0, dy_offset + dy_des, -dy_offset + dy_des, dy_offset + dy_des, -dy_offset + dy_des};
+        for(int i = 0; i < Npred - 4; i++){
+          x_ref.push_back(dx_des);
+          y_ref.push_back(std::pow(-1, i) * dy_offset + dy_des);
+        }
         std::vector<double> f_init(mpc_f_init.data(), mpc_f_init.data() + mpc_f_init.size());
         std::vector<double> f_param = {0, 0, fx_offset, 0, 0, foot_width};
         std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
@@ -345,7 +362,7 @@ int main(int argc, char **argv){
         if(mpc_index > 2)
           rt[0] = std::max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
         std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset + drift, digit_mpc.get_uyoff() + foot_y_offset};
-        std::vector<double> du_reff = {h};
+        std::vector<double> du_reff = {h, -0.1};
         if(traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1 < 0.03){
           mpc_swf_init = mpc_swf_cur;
           mpc_swf_init(0) -= 0.08;
@@ -381,33 +398,31 @@ int main(int argc, char **argv){
       cout << "goal state is " << endl;
       cout << dx_des << "    " << dy_des << endl; */
       if(digit_mpc.get_stance_leg() == 1){
-        foot_change << QPSolution(51), QPSolution(106);
+        foot_change << QPSolution(3 * Nodes), QPSolution(6*Nodes + Npred);
 /*         cout << "this is a left step, right foot on ground" << endl;
         cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
         cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
       else{
-        foot_change << QPSolution(51), QPSolution(106);
+        foot_change << QPSolution(3 * Nodes), QPSolution(6*Nodes + Npred);
 /*         cout << "this is a right step, left foot on ground" << endl;
         cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
         cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
-      
-/*       if(QPSolution(157) == 1){
-        std::cout << "accelerating" << std::endl;
-        if(dx_offset < 0.8)
-          dx_offset += 0.1;
+
+      if(QPSolution.block(digit_mpc.get_VarNum() - Npred * 4 - Npred,0,Npred,1).norm() > 0.1 && mpc_pel_ref(1) > 0){
+        std::cout << "acc" << std::endl;
+        dx_offset = std::min(dx_offset + 0.1, 0.4);
       }
       else{
-        dx_offset = std::max(dx_offset - 0.1, 0.0);
-      } */
-
+        dx_offset = std::max(dx_offset - 0.01, 0.0);
+      }
       int off = 0;
-      cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(55), QPSolution(57 + off);
-      cmd_pel_vel << QPSolution(1), QPSolution(3 + off), QPSolution(56), QPSolution(58 + off);
+      cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(3*Nodes + Npred), QPSolution(3*Nodes + Npred + 2 + off);
+      cmd_pel_vel << QPSolution(1), QPSolution(3 + off), QPSolution(3*Nodes + Npred + 1), QPSolution(3*Nodes + Npred + 3 + off);
       cmd_left_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
       cmd_right_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
-      swing_foot_cmd = QPSolution.block(127,0,15,1);
+      swing_foot_cmd = QPSolution.block(7*Nodes + 2 * Npred,0,15,1);
     }
     // interpolates result
     Digit_Ros::mpc_info msg;
@@ -417,6 +432,7 @@ int main(int argc, char **argv){
     std::copy(cmd_right_foot.data(),cmd_right_foot.data() + 3,msg.foot_right_cmd.begin());
     std::copy(swing_foot_cmd.data(),swing_foot_cmd.data() + swing_foot_cmd.size(),msg.swing_foot_cmd.begin());
     std::copy(mpc_swf_init.data(), mpc_swf_init.data() + mpc_swf_init.size(), msg.mpc_swf_cur.begin());
+    msg.dx_offset = dx_offset;
     mpc_res_pub.publish(msg);
     ros::spinOnce();
     loop_rate.sleep();

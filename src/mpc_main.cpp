@@ -86,10 +86,10 @@ Digit_MPC::Digit_MPC(bool run_sim)
     sol_init_.push_back(0);
   }
   //
-  mpc_solver0_ = MPC_Solver(Cons_Num_[0],Vars_Num_);
-  mpc_solver1_ = MPC_Solver(Cons_Num_[1],Vars_Num_);
-  mpc_solver2_ = MPC_Solver(Cons_Num_[2],Vars_Num_);
-  mpc_solver3_ = MPC_Solver(Cons_Num_[3],Vars_Num_);
+  mpc_solver0_ = MPC_Solver(Cons_Num_[0],Vars_Num_, NPred_);
+  mpc_solver1_ = MPC_Solver(Cons_Num_[1],Vars_Num_, NPred_);
+  mpc_solver2_ = MPC_Solver(Cons_Num_[2],Vars_Num_, NPred_);
+  mpc_solver3_ = MPC_Solver(Cons_Num_[3],Vars_Num_, NPred_);
 }
 
 // get mpc inputs (robot foot&base states)

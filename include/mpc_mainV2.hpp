@@ -57,7 +57,9 @@ public:
   double get_z_max() {return step_z_max_;};
   double get_z_min() {return step_height_;};
   double get_z_frac() {return swf_z_frac_;};
-  
+  double get_Nodes() {return Nodes_;};
+  double get_Npred() {return NPred_;};
+  double get_VarNum() {return Vars_Num_;};
   Eigen::VectorXd get_swing_foot() {return (stance_leg_ == 1) ? left_swing_ : right_swing_;};
   Eigen::VectorXd linspace(double start, double end, int num);
   int get_stance_leg() {return stance_leg_;};

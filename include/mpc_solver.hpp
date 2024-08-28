@@ -17,13 +17,15 @@ using namespace Eigen;
 class MPC_Solver{
     public:
     MPC_Solver(){};
-    MPC_Solver(int Cons_Num, int Vars_Num);
+    MPC_Solver(int Cons_Num, int Vars_Num, int Pred_Num);
     Eigen::VectorXd Update_Solver(const casadi::DM& Aeq, const casadi::DM& beq,const casadi::DM& Aiq, const casadi::DM& biq,const casadi::DM& H, const casadi::DM& f);
-
+    double get_PredNum() {return Pred_Num_;};
+    
     private:
     int QP_initialized_;
     int Vars_Num_;
     int Cons_Num_;
+    int Pred_Num_;
     Eigen::VectorXd gradient_; 
     Eigen::SparseMatrix<double> hessian_;
     Eigen::SparseMatrix<double> linearMatrix_;

@@ -1,9 +1,10 @@
 #include "mpc_solver.hpp"
 using namespace Eigen;
 
-MPC_Solver::MPC_Solver(int Cons_Num, int Vars_Num){
+MPC_Solver::MPC_Solver(int Cons_Num, int Vars_Num, int Pred_Num){
     Cons_Num_ = Cons_Num;
     Vars_Num_ = Vars_Num;
+    Pred_Num_ = Pred_Num;
     QP_initialized_ = 0;
 
     hessian_.resize(Vars_Num_,Vars_Num_);
@@ -20,7 +21,7 @@ MPC_Solver::MPC_Solver(int Cons_Num, int Vars_Num){
     
     // Add Gurobi variable
     for (int i = 0; i < Vars_Num; ++i) {
-        if(i < Vars_Num_ - 17) 
+        if(i < Vars_Num_ - Pred_Num_ * 4) 
             vars_.push_back(model_->addVar(-GRB_INFINITY, GRB_INFINITY, 0.0, GRB_CONTINUOUS, "cx" + std::to_string(i)));
         else
             vars_.push_back(model_->addVar(0.0, 1.0, 0.0, GRB_BINARY, "bx" + std::to_string(i)));
@@ -127,11 +128,11 @@ VectorXd MPC_Solver::Update_Solver(const casadi::DM& Aeq, const casadi::DM& beq,
         GRBQuadExpr qexpr;
         for(int i=0;i<Vars_Num_;i++){
             // warm start solver
-            if(i < Vars_Num_ - 17)
+            if(i < Vars_Num_ - Pred_Num_ * 4)
                 vars_[i].set(GRB_DoubleAttr_Start, sol_[i]);
             // Add linear cost
             qexpr.addTerm((double)f(i), vars_[i]);
-            qexpr.addTerm(1e-2, vars_[i], vars_[i]);
+            //qexpr.addTerm(1e-4, vars_[i], vars_[i]);
         }
         // Add quadratic cost
         int coeff_iter = 0;
