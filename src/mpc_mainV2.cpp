@@ -105,8 +105,8 @@ Digit_MPC::Digit_MPC(bool run_sim)
   
   // initialize solvers
   if(NPred_ == 4){
-    Cons_Num_ = {263,261,258,256};
-    Vars_Num_ = 166;
+    Cons_Num_ = {283,279,274,270};
+    Vars_Num_ = 181;
   }
   else if(NPred_ == 5){
     Cons_Num_ = {318,316,313,311};
@@ -180,7 +180,7 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, std::vector<std::vector<double>> 
   input.insert(input.end(), Weights_swf_Q_.begin(), Weights_swf_Q_.end());
   input.insert(input.end(), mpc_input[12].begin(), mpc_input[12].end());
   input.insert(input.end(), Weights_swf_param_.begin(), Weights_swf_param_.end());
-  
+  input.insert(input.end(), mpc_input[13].begin(), mpc_input[13].end());
   std::vector<casadi::DM> MPC_arg = {input,sol_init_};  
   std::vector<casadi::DM> res;
 
@@ -362,7 +362,7 @@ int main(int argc, char **argv){
         if(mpc_index > 2)
           rt[0] = std::max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
         std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset + drift, digit_mpc.get_uyoff() + foot_y_offset};
-        std::vector<double> du_reff = {h, -0.1};
+        std::vector<double> du_reff = {h, 0.0};
         if(traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1 < 0.03){
           mpc_swf_init = mpc_swf_cur;
           mpc_swf_init(0) -= 0.08;
@@ -372,6 +372,7 @@ int main(int argc, char **argv){
         std::vector<double> swf_cq(mpc_swf_init.data(), mpc_swf_init.data() + mpc_swf_init.size()); // starting position        
         std::vector<double> swf_rq(swf_ref.data(), swf_ref.data() + swf_ref.size()); // reference traj
         std::vector<double> swf_obs(mpc_obs_info.data() + 4, mpc_obs_info.data() + 7); // foot obs position
+        std::vector<double> avd_param = {mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 8000, 1};
 
         std::vector<std::vector<double>> mpc_input;
         mpc_input.push_back(q_init);
@@ -387,36 +388,29 @@ int main(int argc, char **argv){
         mpc_input.push_back(swf_cq);
         mpc_input.push_back(swf_rq);
         mpc_input.push_back(swf_obs);
+        mpc_input.push_back(avd_param);
 
 
         QPSolution = digit_mpc.Update_MPC_(mpc_index,mpc_input);
         auto mpc_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - mpc_time_start);
         //cout << "solving time: " << mpc_time.count() << endl;
       
-/*       cout << "current state is " << endl;
-      cout << q_init << endl;
-      cout << "goal state is " << endl;
-      cout << dx_des << "    " << dy_des << endl; */
       if(digit_mpc.get_stance_leg() == 1){
         foot_change << QPSolution(3 * Nodes), QPSolution(6*Nodes + Npred);
-/*         cout << "this is a left step, right foot on ground" << endl;
-        cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
-        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
       else{
         foot_change << QPSolution(3 * Nodes), QPSolution(6*Nodes + Npred);
-/*         cout << "this is a right step, left foot on ground" << endl;
-        cout << "initial step:" << endl << digit_mpc.get_foot_pos() << endl;
-        cout << "goal step:" << endl << digit_mpc.get_foot_pos() + foot_change << endl;  */
       }
 
-      if(QPSolution.block(digit_mpc.get_VarNum() - Npred * 4 - Npred,0,Npred,1).norm() > 0.1 && mpc_pel_ref(1) > 0){
-        std::cout << "acc" << std::endl;
-        dx_offset = std::min(dx_offset + 0.1, 0.4);
+      double error = (QPSolution(8) - QPSolution(0)) - mpc_pel_ref(1) * digit_mpc.get_steptime() + 0.005;
+      if(error < 0){
+          std::cout << "hhhh acc: " << dx_offset << std::endl;
+          dx_offset = std::min(dx_offset + abs(error), 0.6);
       }
       else{
-        dx_offset = std::max(dx_offset - 0.01, 0.0);
+          dx_offset = std::max(dx_offset - 0.01, 0.0);
       }
+
       int off = 0;
       cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(3*Nodes + Npred), QPSolution(3*Nodes + Npred + 2 + off);
       cmd_pel_vel << QPSolution(1), QPSolution(3 + off), QPSolution(3*Nodes + Npred + 1), QPSolution(3*Nodes + Npred + 3 + off);
