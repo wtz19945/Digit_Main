@@ -105,7 +105,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   
   // initialize solvers
   if(NPred_ == 4){
-    Cons_Num_ = {283,279,274,270};
+    Cons_Num_ = {285,281,276,272};
     Vars_Num_ = 181;
   }
   else if(NPred_ == 5){
@@ -268,6 +268,7 @@ int main(int argc, char **argv){
   double foot_x_offset = 0;
   double foot_y_offset = 0;
   double dx_offset = 0;
+  double dy_offset = 0;
   int Npred = digit_mpc.get_Npred();
   int Nodes = digit_mpc.get_Nodes();
   int counter = 0;
@@ -372,7 +373,8 @@ int main(int argc, char **argv){
         std::vector<double> swf_cq(mpc_swf_init.data(), mpc_swf_init.data() + mpc_swf_init.size()); // starting position        
         std::vector<double> swf_rq(swf_ref.data(), swf_ref.data() + swf_ref.size()); // reference traj
         std::vector<double> swf_obs(mpc_obs_info.data() + 4, mpc_obs_info.data() + 7); // foot obs position
-        std::vector<double> avd_param = {mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 8000, 1};
+        std::vector<double> avd_param = {mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset,
+                                         mpc_pel_ref(3) * digit_mpc.get_steptime() * 4 + dy_offset, 1000, 1000, 1, 0};
 
         std::vector<std::vector<double>> mpc_input;
         mpc_input.push_back(q_init);
