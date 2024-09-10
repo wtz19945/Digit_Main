@@ -25,5 +25,5 @@ float32[3] right_toe_vel_ref
 float32[12] torque
 float32[12] torq
 float32[2] contact
-
+float32[3] pel_pos_actual
 

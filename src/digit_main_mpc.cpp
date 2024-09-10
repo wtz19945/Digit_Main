@@ -676,7 +676,7 @@ int main(int argc, char* argv[])
       // reset position command when walking direction is changed
       switch(key_mode){
         case 5:
-          vel_des_x = 0.3;
+          vel_des_x = 0.6;
           break;
         case 6:
           vel_des_x = -0.3;
@@ -1188,6 +1188,7 @@ int main(int argc, char* argv[])
     right_toe_pos(0) -= pel_pos(0);
     right_toe_pos(1) -= pel_pos(1); 
 
+    VectorXd pel_pos_offset = pel_pos;
     pel_pos(0) = 0;
     pel_pos(1) = 0;
 
@@ -1215,6 +1216,7 @@ int main(int argc, char* argv[])
     std::copy(torque.data(), torque.data() + torque.size(), msg.torque.begin());
     std::copy(torq.data(), torq.data() + torq.size(), msg.torq.begin());
     std::copy(contact.data(), contact.data() + contact.size(), msg.contact.begin());
+    std::copy(pel_pos_offset.data(), pel_pos_offset.data() + pel_pos_offset.size(), msg.pel_pos_actual.begin());
     msg.traj_time = traj_time;
     msg.stance_leg = stance_leg;
 

@@ -1,6 +1,7 @@
 #include "mpc_mainV2.hpp"
 #include "utilities.hpp"
 #include "input_listener.hpp"
+#include "rosbag/bag.h"
 
 using namespace Eigen;
 namespace fs = std::filesystem;
@@ -235,6 +236,34 @@ int main(int argc, char **argv){
   Digit_MPC digit_mpc(run_sim);
   ros::Rate loop_rate(digit_mpc.get_mpcrate());
   ros::Publisher mpc_res_pub = n.advertise<Digit_Ros::mpc_info>("mpc_res", 10);
+
+  // Use rosbad logging
+  rosbag::Bag bag;
+  std::time_t now = std::time(nullptr);
+  std::stringstream date;
+  date << std::put_time(std::localtime(&now), "%Y_%m_%d_%H_%M_%S");
+
+  // Load Controller Gains from TOML file
+  std::string package_path; 
+  try {
+    package_path = ros::package::getPath("Digit_Ros");
+    if (package_path.empty()) {
+      throw 1;
+    }
+  } catch(...) {
+    std::cerr << "package not found\n";
+    return 0;
+  }
+  std::shared_ptr<cpptoml::table> config_osc = cpptoml::parse_file(package_path + "/src/config_file/oscmpc_robot_config.toml");
+  int recording = config_osc->get_qualified_as<double>("Other.recording").value_or(0);
+
+  if(recording){
+    if(run_sim)
+      bag.open(package_path + "/data/Sim_Data/mpc_sim_test_" + date.str() + ".bag", rosbag::bagmode::Write);
+    else
+      bag.open(package_path + "/data/Hard_Data/mpc_test_" + date.str() + ".bag", rosbag::bagmode::Write);
+  }
+
   int count = 0;
 
   // MPC ros output
@@ -372,7 +401,9 @@ int main(int argc, char **argv){
         std::vector<double> swf_cq(mpc_swf_init.data(), mpc_swf_init.data() + mpc_swf_init.size()); // starting position        
         std::vector<double> swf_rq(swf_ref.data(), swf_ref.data() + swf_ref.size()); // reference traj
         std::vector<double> swf_obs(mpc_obs_info.data() + 4, mpc_obs_info.data() + 7); // foot obs position
-        std::vector<double> avd_param = {mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 8000, 1};
+        std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 8000, 1, 1};
+        if(mpc_pel_ref(1) < 0)
+          avd_param[2] = -1;
 
         std::vector<std::vector<double>> mpc_input;
         mpc_input.push_back(q_init);
@@ -402,8 +433,8 @@ int main(int argc, char **argv){
         foot_change << QPSolution(3 * Nodes), QPSolution(6*Nodes + Npred);
       }
 
-      double error = (QPSolution(8) - QPSolution(0)) - mpc_pel_ref(1) * digit_mpc.get_steptime() + 0.005;
-      if(error < 0){
+      double error = abs(QPSolution(8) - QPSolution(0)) - mpc_pel_ref(1) * digit_mpc.get_steptime() + 0.005;
+      if(error < 0 && mpc_pel_ref(1) != 0){
           std::cout << "hhhh acc: " << dx_offset << std::endl;
           dx_offset = std::min(dx_offset + abs(error), 0.6);
       }
@@ -418,6 +449,7 @@ int main(int argc, char **argv){
       cmd_right_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
       swing_foot_cmd = QPSolution.block(7*Nodes + 2 * Npred,0,15,1);
     }
+
     // interpolates result
     Digit_Ros::mpc_info msg;
     std::copy(cmd_pel_pos.data(),cmd_pel_pos.data() + 4,msg.pel_pos_cmd.begin());
@@ -426,8 +458,22 @@ int main(int argc, char **argv){
     std::copy(cmd_right_foot.data(),cmd_right_foot.data() + 3,msg.foot_right_cmd.begin());
     std::copy(swing_foot_cmd.data(),swing_foot_cmd.data() + swing_foot_cmd.size(),msg.swing_foot_cmd.begin());
     std::copy(mpc_swf_init.data(), mpc_swf_init.data() + mpc_swf_init.size(), msg.mpc_swf_cur.begin());
+    std::copy(QPSolution.data(), QPSolution.data() + QPSolution.size(), msg.mpc_solution.begin());
+    VectorXd f_init = digit_mpc.get_foot_pos();
+    std::copy(f_init.data(), f_init.data() + f_init.size(), msg.f_init.begin());
     msg.dx_offset = dx_offset;
     mpc_res_pub.publish(msg);
+
+    if(recording)
+      bag.write("mpc_info", ros::Time::now(), msg);
+    //cout << "Desired yaw angle is: " << msg.yaw << endl;
+    // Check if llapi has become disconnected
+    if(ros::isShuttingDown()){
+      if(recording)
+        bag.close();
+      break;
+    }
+
     ros::spinOnce();
     loop_rate.sleep();
   }
