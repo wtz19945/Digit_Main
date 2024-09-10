@@ -55,6 +55,8 @@ source devel/setup.bash
 To run the Agility simulator, run the following command
 ``` bash
 cd ~/catkin_ws/src/Digit_Main
+mkdir -p /data/Sim_Data   # Create folder for data logging
+mkdir -p /data/Hard_Data
 chmod +x ar-control # you only need this command for the first time
 ./ar-control ./examples/lowlevelapi_example.toml
 ```
@@ -107,4 +109,5 @@ Check Agility's documentation for details about Agility provided data.
 ``` bash 
 export LD_LIBRARY_PATH=LD_LIBRARY_PATH:/usr/local/lib
 export PATH="/home/username/miniconda/bin:$PATH". # Remember to chagne the path to your actual conbda path.
+- [] When you encountered linking error with gurobi, the issue might be due to the GUROBI_CXX_LIBRARY is not found, try include the following in CMakeList.txt file. 'set(GUROBI_CXX_LIBRARY "$ENV{GUROBI_HOME}/lib/libgurobi_c++.a")'
 ```

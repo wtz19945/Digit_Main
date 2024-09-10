@@ -59,6 +59,7 @@ catkin_install_python(PROGRAMS scripts/keyinput.py
 
 # include all the directories used for compile
 set(Home_Dir ${CMAKE_CURRENT_SOURCE_DIR}) 
+set(GUROBI_CXX_LIBRARY "$ENV{GUROBI_HOME}/lib/libgurobi_c++.a")
 
 include_directories(/libartl
   include/GeometricKinematics
