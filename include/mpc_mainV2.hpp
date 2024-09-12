@@ -44,6 +44,7 @@ public:
   Eigen::VectorXd get_pel_ref()  {return pel_ref_;};
   Eigen::VectorXd get_foot_pos()  {return foot_pos_;};
   Eigen::VectorXd get_obs_info()  {return obs_info_;};
+  Eigen::VectorXd get_actual_pel_pos() {return pel_pos_actual_;};
   double get_traj_time()  {return traj_time_;};
   double get_foot_width() {return f_width_;};
   double get_steptime() {return step_time_;};
@@ -73,6 +74,7 @@ private:
   Eigen::VectorXd pel_ref_;
   Eigen::VectorXd foot_pos_;
   Eigen::VectorXd obs_info_;
+  Eigen::VectorXd pel_pos_actual_;
   double traj_time_;
   int stance_leg_;
 

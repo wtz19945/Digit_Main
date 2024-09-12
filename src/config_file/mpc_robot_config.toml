@@ -28,7 +28,7 @@ obs_rad2 = 0.4
 foot_width = 0.16 # worth checking
 height = 0.9
 
-mpc_rate = 250.0      # mpc update rate
+mpc_rate = 150.0      # mpc update rate
 ux_off = 0.02         # mpc input x offset
 uy_off = -0.02        # mpc input y offset
 ux_off_sim = 0.01     # mpc input x offset used in sim

@@ -552,6 +552,12 @@ int main(int argc, char* argv[])
         //left_toe_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
         //left_toe_back_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
     }
+
+    if(ros::isShuttingDown()){
+      if(recording)
+        bag.close();
+      break;
+    }
     
     // Compute Dynamics and kinematics, partial update???
     if(update_mat == -1){
@@ -937,6 +943,12 @@ int main(int argc, char* argv[])
       }
     }
 
+    if(ros::isShuttingDown()){
+      if(recording)
+        bag.close();
+      break;
+    }
+
     //solver.solveProblem();
     //QPSolution = solver.getSolution();
     if(update_mat == -1){
@@ -1117,6 +1129,7 @@ int main(int argc, char* argv[])
     if(contact(1) == 0){
       st_foot_pos << (left_toe_pos(0) + left_toe_back_pos(0))/2  - pel_pos(0), (left_toe_pos(1) + left_toe_back_pos(1))/2 - pel_pos(1);
     }
+    VectorXd pos_actual = pel_pos;
     pel_pos(0) = 0;
     pel_pos(1) = 0;
 
@@ -1144,6 +1157,7 @@ int main(int argc, char* argv[])
     std::copy(torque.data(), torque.data() + torque.size(), msg.torque.begin());
     std::copy(torq.data(), torq.data() + torq.size(), msg.torq.begin());
     std::copy(contact.data(), contact.data() + contact.size(), msg.contact.begin());
+    std::copy(pos_actual.data(), pos_actual.data() + pos_actual.size(), msg.pel_pos_actual.begin());
     msg.traj_time = traj_time;
     msg.stance_leg = stance_leg;
 

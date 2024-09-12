@@ -1,6 +1,7 @@
 #include "mpc_mainV2.hpp"
 #include "utilities.hpp"
 #include "input_listener.hpp"
+#include "rosbag/bag.h"
 
 using namespace Eigen;
 using namespace std;
@@ -17,6 +18,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   pel_ref_ = VectorXd::Zero(4,1);
   foot_pos_ = VectorXd::Zero(2,1);
   obs_info_ = VectorXd::Zero(4,1);
+  pel_pos_actual_ = VectorXd::Zero(3,1);
   traj_time_ = 0;
   stance_leg_ = 1;
 
@@ -106,6 +108,7 @@ void Digit_MPC::MPCInputCallback(const Digit_Ros::digit_state& msg) {
   std::copy(msg.pel_ref.begin(), msg.pel_ref.begin() + 4, pel_ref_.data());
   std::copy(msg.foot_pos.begin(), msg.foot_pos.begin() + 2, foot_pos_.data());
   std::copy(msg.obs_info.begin(), msg.obs_info.begin() + 4, obs_info_.data());
+  std::copy(msg.pel_pos_actual.begin(), msg.pel_pos_actual.begin() + 3, pel_pos_actual_.data());
 
   traj_time_ = msg.traj_time;
   stance_leg_ = msg.stance_leg;
@@ -183,8 +186,35 @@ int main(int argc, char **argv){
   Digit_MPC digit_mpc(run_sim);
   ros::Rate loop_rate(digit_mpc.get_mpcrate());
   ros::Publisher mpc_res_pub = n.advertise<Digit_Ros::mpc_info>("mpc_res", 10);
-  int count = 0;
 
+  // Use rosbad logging
+  rosbag::Bag bag;
+  std::time_t now = std::time(nullptr);
+  std::stringstream date;
+  date << std::put_time(std::localtime(&now), "%Y_%m_%d_%H_%M_%S");
+
+  // Load Controller Gains from TOML file
+  std::string package_path; 
+  try {
+    package_path = ros::package::getPath("Digit_Ros");
+    if (package_path.empty()) {
+      throw 1;
+    }
+  } catch(...) {
+    std::cerr << "package not found\n";
+    return 0;
+  }
+  std::shared_ptr<cpptoml::table> config_osc = cpptoml::parse_file(package_path + "/src/config_file/oscmpc_robot_config.toml");
+  int recording = config_osc->get_qualified_as<double>("Other.recording").value_or(0);
+
+  if(recording){
+    if(run_sim)
+      bag.open(package_path + "/data/Sim_Data/mpc_sim_test_" + date.str() + ".bag", rosbag::bagmode::Write);
+    else
+      bag.open(package_path + "/data/Hard_Data/mpc_test_" + date.str() + ".bag", rosbag::bagmode::Write);
+  }
+
+  int count = 0;
   VectorXd QPSolution = VectorXd::Zero(digit_mpc.get_Var_Num(),1);
   VectorXd cmd_pel_pos = VectorXd::Zero(4,1);
   VectorXd cmd_pel_vel = VectorXd::Zero(4,1); 
@@ -272,7 +302,7 @@ int main(int argc, char **argv){
         std::vector<double> rt = {max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
         if(mpc_index > 2)
           rt[0] = max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
-        std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset + drift, digit_mpc.get_uyoff() + foot_y_offset};
+        std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset, digit_mpc.get_uyoff() + foot_y_offset};
         std::vector<double> du_reff = {foot_change(0), foot_change(1), digit_mpc.get_Wdu(), h};
 
         vector<vector<double>> mpc_input;
@@ -317,12 +347,29 @@ int main(int argc, char **argv){
     }
     
     // interpolates result
+    VectorXd f_init = digit_mpc.get_foot_pos();
+    VectorXd actual_pos = digit_mpc.get_actual_pel_pos();
+    VectorXd mpc_obs_info = digit_mpc.get_obs_info();
     Digit_Ros::mpc_info msg;
     std::copy(cmd_pel_pos.data(),cmd_pel_pos.data() + 4,msg.pel_pos_cmd.begin());
     std::copy(cmd_pel_vel.data(),cmd_pel_vel.data() + 4,msg.pel_vel_cmd.begin());
     std::copy(cmd_left_foot.data(),cmd_left_foot.data() + 3,msg.foot_left_cmd.begin());
     std::copy(cmd_right_foot.data(),cmd_right_foot.data() + 3,msg.foot_right_cmd.begin());
+    std::copy(QPSolution.data(), QPSolution.data() + QPSolution.size(), msg.mpc_solution.begin());
+    std::copy(f_init.data(), f_init.data() + f_init.size(), msg.f_init.begin());
+    std::copy(actual_pos.data(), actual_pos.data() + actual_pos.size(), msg.mpc_pel_pos.begin());
+    std::copy(mpc_obs_info.data(), mpc_obs_info.data() + mpc_obs_info.size(), msg.obs_info.begin());
     mpc_res_pub.publish(msg);
+
+    if(recording)
+      bag.write("mpc_info", ros::Time::now(), msg);
+    // Check if llapi has become disconnected
+    if(ros::isShuttingDown()){
+      if(recording)
+        bag.close();
+      break;
+    }
+
     ros::spinOnce();
     loop_rate.sleep();
   }
