@@ -107,7 +107,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   
   // initialize solvers
   if(NPred_ == 4){
-    Cons_Num_ = {283,279,274,270};
+    Cons_Num_ = {296,292,287,283};
     Vars_Num_ = 181;
   }
   else if(NPred_ == 5){
