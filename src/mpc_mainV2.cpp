@@ -17,6 +17,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   pel_ref_ = VectorXd::Zero(4,1);
   foot_pos_ = VectorXd::Zero(2,1);
   obs_info_ = VectorXd::Zero(7,1);
+  pel_pos_actual_ = VectorXd::Zero(3,1);
   right_swing_ = VectorXd::Zero(3,1);
   left_swing_ = VectorXd::Zero(3,1);
   traj_time_ = 0;
@@ -153,6 +154,7 @@ void Digit_MPC::MPCInputCallback(const Digit_Ros::digit_state& msg) {
   std::copy(msg.obs_info.begin(), msg.obs_info.begin() + 7, obs_info_.data());
   std::copy(msg.left_toe_pos.begin(), msg.left_toe_pos.begin() + 3, left_swing_.data());
   std::copy(msg.right_toe_pos.begin(), msg.right_toe_pos.begin() + 3, right_swing_.data());
+  std::copy(msg.pel_pos_actual.begin(), msg.pel_pos_actual.begin() + 3, pel_pos_actual_.data());
 
   traj_time_ = msg.traj_time;
   stance_leg_ = msg.stance_leg;
@@ -390,7 +392,7 @@ int main(int argc, char **argv){
         std::vector<double> rt = {std::max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
         if(mpc_index > 2)
           rt[0] = std::max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
-        std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset + drift, digit_mpc.get_uyoff() + foot_y_offset};
+        std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset, digit_mpc.get_uyoff() + foot_y_offset};
         std::vector<double> du_reff = {h, 0.0};
         if(traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1 < 0.03){
           mpc_swf_init = mpc_swf_cur;
@@ -460,7 +462,12 @@ int main(int argc, char **argv){
     std::copy(mpc_swf_init.data(), mpc_swf_init.data() + mpc_swf_init.size(), msg.mpc_swf_cur.begin());
     std::copy(QPSolution.data(), QPSolution.data() + QPSolution.size(), msg.mpc_solution.begin());
     VectorXd f_init = digit_mpc.get_foot_pos();
+    VectorXd actual_pos = digit_mpc.get_actual_pel_pos();
+    VectorXd mpc_obs_info = digit_mpc.get_obs_info();
+
     std::copy(f_init.data(), f_init.data() + f_init.size(), msg.f_init.begin());
+    std::copy(actual_pos.data(), actual_pos.data() + actual_pos.size(), msg.mpc_pel_pos.begin());
+    std::copy(mpc_obs_info.data(), mpc_obs_info.data() + mpc_obs_info.size(), msg.obs_info.begin());
     msg.dx_offset = dx_offset;
     mpc_res_pub.publish(msg);
 

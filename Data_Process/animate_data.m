@@ -11,8 +11,8 @@ Nodes = Npred * round(Tstep / dt) + 1;
 addpath('/home/orl/catkin_ws/devel/share');
 
 % Specify the path to your custom ROS bag file
-filename_mpc = "../data/Sim_Data/mpc_sim_test_2024_09_09_19_10_50.bag";
-filename_main = "../data/Sim_Data/sim_test_2024_09_09_19_10_50.bag";
+filename_mpc = "../data/Sim_Data/mpc_sim_test_2024_09_12_15_00_26.bag";
+filename_main = "../data/Sim_Data/sim_test_2024_09_12_15_00_26.bag";
 
 % Create a rosbag object
 bag_mpc = rosbag(filename_mpc);
@@ -50,9 +50,9 @@ figure(1);
 for k = 1:numel(mpc_msgs) - 20
     % Get the mpc data
     MPC_sol = mpc_msgs{k}.MpcSolution;
-    pel_pos = main_msgs{20 * k}.PelPosActual;
+    pel_pos = mpc_msgs{k}.MpcPelPos;
     f_init = mpc_msgs{k}.FInit;
-    obs_pos = main_msgs{20 * k}.ObsInfo;
+    obs_pos = mpc_msgs{k}.ObsInfo;
 
     x_offset = pel_pos(1);
     y_offset = pel_pos(2);

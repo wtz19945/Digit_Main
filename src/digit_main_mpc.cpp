@@ -557,7 +557,13 @@ int main(int argc, char* argv[])
         //left_toe_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
         //left_toe_back_pos(2) += pos_avg(2) - (right_toe_pos(2) + right_toe_back_pos(2)) / 2;
     }
-    
+
+    if(ros::isShuttingDown()){
+      if(recording)
+        bag.close();
+      break;
+    }
+
     // Compute Dynamics and kinematics, partial update???
     if(update_mat == -1){
       M = analytical_expressions.InertiaMatrix(pb_q);
@@ -1001,6 +1007,11 @@ int main(int argc, char* argv[])
         }
       }
     }
+    if(ros::isShuttingDown()){
+      if(recording)
+        bag.close();
+      break;
+    }
 
     //solver.solveProblem();
     //QPSolution = solver.getSolution();
@@ -1173,7 +1184,7 @@ int main(int argc, char* argv[])
     if(vel_des_y == 0)
        pel_ref(2) = pel_vel_avg(1); 
     
-    obs_foot << 1.1 - pel_pos(0) - 0.0 * global_time, 0.1 - pel_pos(1), 0;
+    obs_foot << 0.7 - pel_pos(0) - 0.0 * global_time, 0.1 - pel_pos(1), 0;
     obs_info << obs_pos, obs_tan, obs_foot;           
 
     if(contact(0) == 0){

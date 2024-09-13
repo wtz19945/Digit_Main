@@ -10,3 +10,5 @@ float32[3] mpc_swf_cur
 float32 dx_offset
 float64[181] mpc_solution
 float32[2] f_init
+float32[3] mpc_pel_pos
+float32[7] obs_info 
