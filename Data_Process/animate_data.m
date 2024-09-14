@@ -11,8 +11,8 @@ Nodes = Npred * round(Tstep / dt) + 1;
 addpath('/home/orl/catkin_ws/devel/share');
 
 % Specify the path to your custom ROS bag file
-filename_mpc = "../data/Sim_Data/mpc_sim_test_2024_09_12_15_00_26.bag";
-filename_main = "../data/Sim_Data/sim_test_2024_09_12_15_00_26.bag";
+filename_mpc = "../data/Hard_Data/Forward/mpc_hardware2.bag";
+filename_main = "../data/Hard_Data/Forward/hardware2.bag";
 
 % Create a rosbag object
 bag_mpc = rosbag(filename_mpc);
@@ -39,7 +39,7 @@ mpc_msgs{2}
 
 % Animate the MPC data
 fig_name = 'mpc_animation.gif'; % Name of the output GIF file
-delayTime = 0.0001;                      % Delay time between frames in seconds
+delayTime = 0.1;                      % Delay time between frames in seconds
 loopCount = Inf;                      % Number of times the GIF should loop (Inf for infinite)
 
 theta = 0:0.1:2*pi;
@@ -47,7 +47,8 @@ x_cir = cos(theta);
 y_cir = sin(theta);
 
 figure(1);
-for k = 1:numel(mpc_msgs) - 20
+start_index = 2000;
+for k = start_index:5:numel(mpc_msgs) - 20
     % Get the mpc data
     MPC_sol = mpc_msgs{k}.MpcSolution;
     pel_pos = mpc_msgs{k}.MpcPelPos;
@@ -87,7 +88,7 @@ for k = 1:numel(mpc_msgs) - 20
     [imind,cm] = rgb2ind(im,256);
     
     % Write to the GIF file
-    if k == 1
+    if k == start_index
         % For the first frame, create the GIF file
         imwrite(imind, cm, fig_name, 'gif', 'Loopcount', loopCount, 'DelayTime', delayTime);
     else

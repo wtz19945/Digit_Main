@@ -73,13 +73,13 @@ step_height = 0.2
 end_pos = -0.08
 end_vel = -0.5     # velocity when foot hit ground 
 end_acc = -5       # Acceleration when foot hig ground
-ds_time = 0.0    # Time duration for double support phase
+ds_time = 0.02    # Time duration for double support phase
 
 [Filter]
 wd_sz = 25000      # number of the consecutive safety violation to trigger safe controller. Control frequency is 1kHz, so 0.5s safe window
 
 [Start]
-init_count = 0.3 # Time to record robot's initial configuration
+init_count = 0.9 # Time to record robot's initial configuration
 soft_count = 0.2  # Time to soft start motor torques
 
 [Arm-IK]
@@ -88,4 +88,4 @@ z_mag = 0.3  # range of arm motion height
 z_prd = 1    # period of arm motion
 
 [Other]
-recording = 0.0   # change to 1 if want to record controller data
+recording = 1.0   # change to 1 if want to record controller data

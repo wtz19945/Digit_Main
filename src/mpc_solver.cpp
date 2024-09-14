@@ -33,7 +33,7 @@ VectorXd MPC_Solver::Update_Solver(const casadi::DM& Aeq, const casadi::DM& beq,
                                     const casadi::DM& biq,const casadi::DM& H, const casadi::DM& f){
 
 
-    
+
     if(QP_initialized_ == 0){
         for(int i = 0; i<Vars_Num_; i++){
             gradient_(i) = (double)f(i);
@@ -113,7 +113,9 @@ VectorXd MPC_Solver::Update_Solver(const casadi::DM& Aeq, const casadi::DM& beq,
 
         // Set model parameters
         model_->set(GRB_IntParam_OutputFlag, false);
-        model_->set(GRB_IntParam_MIPFocus, 0); 
+        model_->set(GRB_IntParam_MIPFocus, 1); 
+        model_->set(GRB_IntParam_DualReductions, 1); 
+        
         //model_->set(GRB_DoubleParam_TimeLimit, 0.03); 
         //model_->set(GRB_DoubleParam_Heuristics, 0.05);
         //model_->set(GRB_IntParam_SubMIPNodes, 100);

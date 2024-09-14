@@ -7,7 +7,7 @@ mass = 1.0
 
 [world.obstacle.body]
 type = "box"
-size = [0.1, 0.1, 0.1]
+size = [0.2, 0.2, 0.1]
 pose = {xyz = [0, 0, 0.05]}
 mass = 1.0
 
@@ -18,10 +18,10 @@ pose = {rpyxyz = [0, 0, 0, 0, 0, 1]}
 
 [[model-list]]
 model = "package"
-pose = {axyd = [0, 0.7, 0.1]}
+pose = {axyd = [0, -1.1, 0.1]}
 fixed = true
 
 [[model-list]]
 model = "obstacle"
-pose = {axyd = [0, 0.1, 1.1]}
+pose = {axyd = [0, 1.1, 0.1]}
 fixed = true

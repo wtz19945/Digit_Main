@@ -107,7 +107,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   
   // initialize solvers
   if(NPred_ == 4){
-    Cons_Num_ = {296,292,287,283};
+    Cons_Num_ = {300,296,291,287};
     Vars_Num_ = 181;
   }
   else if(NPred_ == 5){
@@ -370,21 +370,17 @@ int main(int argc, char **argv){
           }
         }
 
-        double drift = 0.0;
+/*         double drift = 0.0;
         if(swf_z_ref(2) < 0.2)
             drift = (swf_z_ref(2) - 0.2) * 0.2;
         else
-            drift = (swf_z_ref(2) - 0.2) * 0.5;
+            drift = (swf_z_ref(2) - 0.2) * 0.5; */
         swf_ref << swf_x_ref, swf_y_ref, swf_z_ref;
         stance_leg_prev = digit_mpc.get_stance_leg();
 
         std::vector<double> q_init = {mpc_pel_pos(0), mpc_pel_vel(0), mpc_pel_pos(1), mpc_pel_vel(1)};
         std::vector<double> x_ref = {0, dx_des, dx_des, dx_des, dx_des};
         std::vector<double> y_ref = {0, dy_offset + dy_des, -dy_offset + dy_des, dy_offset + dy_des, -dy_offset + dy_des};
-        for(int i = 0; i < Npred - 4; i++){
-          x_ref.push_back(dx_des);
-          y_ref.push_back(std::pow(-1, i) * dy_offset + dy_des);
-        }
         std::vector<double> f_init(mpc_f_init.data(), mpc_f_init.data() + mpc_f_init.size());
         std::vector<double> f_param = {0, 0, fx_offset, 0, 0, foot_width};
         std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
@@ -403,7 +399,7 @@ int main(int argc, char **argv){
         std::vector<double> swf_cq(mpc_swf_init.data(), mpc_swf_init.data() + mpc_swf_init.size()); // starting position        
         std::vector<double> swf_rq(swf_ref.data(), swf_ref.data() + swf_ref.size()); // reference traj
         std::vector<double> swf_obs(mpc_obs_info.data() + 4, mpc_obs_info.data() + 7); // foot obs position
-        std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 8000, 1, 1};
+        std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 18000, 1, 2.0};
         if(mpc_pel_ref(1) < 0)
           avd_param[2] = -1;
 
@@ -435,13 +431,19 @@ int main(int argc, char **argv){
         foot_change << QPSolution(3 * Nodes), QPSolution(6*Nodes + Npred);
       }
 
-      double error = abs(QPSolution(8) - QPSolution(0)) - mpc_pel_ref(1) * digit_mpc.get_steptime() + 0.005;
+      double error = abs(QPSolution(8) - QPSolution(0)) - abs(mpc_pel_ref(1) * digit_mpc.get_steptime()) + 0.005;
       if(error < 0 && mpc_pel_ref(1) != 0){
           std::cout << "hhhh acc: " << dx_offset << std::endl;
-          dx_offset = std::min(dx_offset + abs(error), 0.6);
-      }
+          if(mpc_pel_ref(1) > 0)
+            dx_offset = std::min(dx_offset + abs(error), 0.6);
+          else
+            dx_offset = std::max(dx_offset - abs(error), -0.6);
+      } 
       else{
-          dx_offset = std::max(dx_offset - 0.01, 0.0);
+          if(mpc_pel_ref(1) > 0)
+            dx_offset = std::max(dx_offset - 0.01, 0.0);
+          else
+            dx_offset = std::min(dx_offset + 0.01, 0.0);
       }
 
       int off = 0;

@@ -391,6 +391,7 @@ int main(int argc, char* argv[])
   VectorXd contact = VectorXd::Zero(2,1);
   int stance_leg = 1;
   int stepping = 0;
+  int generate_obs = 0;
   double traj_time = 0;
   int last_mpc_index = 0;
 
@@ -659,8 +660,8 @@ int main(int argc, char* argv[])
 
     // transit to stepping
     if(stepping == 1){
-       pel_pos_des(1) = 0 + .06 * traj_time;
-       pel_vel_des(1) = .06 * traj_time;
+       pel_pos_des(1) = 0 + .16 * traj_time;
+       pel_vel_des(1) = .16 * traj_time;
     }
 
     // Stepping direction command
@@ -682,7 +683,7 @@ int main(int argc, char* argv[])
       // reset position command when walking direction is changed
       switch(key_mode){
         case 5:
-          vel_des_x = 0.6;
+          vel_des_x = 0.3;
           break;
         case 6:
           vel_des_x = -0.3;
@@ -1169,10 +1170,11 @@ int main(int argc, char* argv[])
     VectorXd obs_tan = VectorXd(2,1);
     VectorXd obs_foot = VectorXd(3,1);
     
-    if(stepping == 2){
+    if(0){
       // reset position command when walking direction is changed
       int avd_mode = Obs_Gen.get_avoidance_mode(key_mode, stepping, obs_pos);
     }
+    
     obs_tan = -obs_pos / obs_pos.norm();
     // send mpc state info
     VectorXd pel_ref = VectorXd::Zero(4,1);      // x,y reference
@@ -1184,9 +1186,23 @@ int main(int argc, char* argv[])
     if(vel_des_y == 0)
        pel_ref(2) = pel_vel_avg(1); 
     
-    obs_foot << 0.7 - pel_pos(0) - 0.0 * global_time, 0.1 - pel_pos(1), 0;
-    obs_info << obs_pos, obs_tan, obs_foot;           
+    if(stepping == 2 && (key_mode == 13 || generate_obs == 1)){
+        obs_foot << 0.0 - pel_pos(0) - 0.0 * global_time, 0.1 - pel_pos(1), -0.02;
+        generate_obs = 1;
+    }
+    else{
+        obs_foot << 3.7 - pel_pos(0) - 0.0 * global_time, 3.7 - pel_pos(1), -0.02;
+    }
+    
+    if(run_sim){
+        if(pel_ref(1) > 0)
+          obs_foot << 1.1 - pel_pos(0) - 0.0 * global_time, 0.1 - pel_pos(1), -0.02;
+        else
+          obs_foot << -1.1 - pel_pos(0) - 0.0 * global_time, 0.1 - pel_pos(1), -0.02;
+    }
 
+    obs_foot << 3.7 - pel_pos(0) - 0.0 * global_time, 3.7 - pel_pos(1), -0.02;
+    obs_info << obs_pos, obs_tan, obs_foot;           
     if(contact(0) == 0){
       st_foot_pos << (right_toe_pos(0) + right_toe_back_pos(0))/2 - pel_pos(0), (right_toe_pos(1) + right_toe_back_pos(1))/2 - pel_pos(1);
     }
