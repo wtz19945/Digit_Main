@@ -4,3 +4,8 @@
 ./ar-control
 /ar-control
 /data/
+Data_Process/animate_data.asv
+Data_Process/foot_avoidance.fig
+Data_Process/mpc_prediction.fig
+Data_Process/slack_variable.fig
+Data_Process/mpc_animation.gif

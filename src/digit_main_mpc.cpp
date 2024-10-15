@@ -683,7 +683,7 @@ int main(int argc, char* argv[])
       // reset position command when walking direction is changed
       switch(key_mode){
         case 5:
-          vel_des_x = 0.3;
+          vel_des_x = 0.6;
           break;
         case 6:
           vel_des_x = -0.3;
@@ -1107,10 +1107,10 @@ int main(int argc, char* argv[])
     //cout << "time used to compute system dyn and kin + QP formulation + Solving + Arm IK: " << elapsed_time.count() << endl;
 
     for (int i = 0; i < NUM_MOTORS; ++i) {
-      if(safe_check.checkSafety()){ // safety check
+      if(safe_check.checkSafety() || key_mode == 18){ // safety check
           command.motors[i].torque = -arm_P/10 * observation.motor.velocity[i];
           command.motors[i].velocity = 0;
-          command.motors[i].damping = 1 * limits->damping_limit[i];
+          command.motors[i].damping = limits->damping_limit[i];
           std::cout << "safety triggered" << std::endl;
       }
       else{
@@ -1201,7 +1201,6 @@ int main(int argc, char* argv[])
           obs_foot << -1.1 - pel_pos(0) - 0.0 * global_time, 0.1 - pel_pos(1), -0.02;
     }
 
-    obs_foot << 3.7 - pel_pos(0) - 0.0 * global_time, 3.7 - pel_pos(1), -0.02;
     obs_info << obs_pos, obs_tan, obs_foot;           
     if(contact(0) == 0){
       st_foot_pos << (right_toe_pos(0) + right_toe_back_pos(0))/2 - pel_pos(0), (right_toe_pos(1) + right_toe_back_pos(1))/2 - pel_pos(1);

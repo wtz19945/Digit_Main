@@ -17,7 +17,7 @@ com_P_gain_z = 40.0
 com_D_gain_x = 5.0
 com_D_gain_y = 5.0
 com_D_gain_z = 5.0
-crt_com_D_gain_x = 3.0 # worth checking
+crt_com_D_gain_x = 0.0 # worth checking
 crt_com_D_gain_y = 0.0 # worth checking
 
 com_P_gain_rz = 250.0     # base rotation gain
@@ -88,4 +88,4 @@ z_mag = 0.3  # range of arm motion height
 z_prd = 1    # period of arm motion
 
 [Other]
-recording = 1.0   # change to 1 if want to record controller data
+recording = 0.0   # change to 1 if want to record controller data

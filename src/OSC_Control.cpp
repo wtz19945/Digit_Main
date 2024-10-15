@@ -440,6 +440,7 @@ void OSC_Control::setUpQP(bool mute_solver){
     solver.settings()->setRelativeTolerance(1e-4);
     solver.settings()->setPrimalInfeasibilityTolerance(1e-5);
     solver.settings()->setDualInfeasibilityTolerance(1e-5);
+    //solver.settings()->setAdaptiveRho(0);
     //solver.settings()->setMaxIteration(20);
     solver.data()->setHessianMatrix(hessian);
     solver.data()->setGradient(gradient);
