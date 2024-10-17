@@ -114,7 +114,7 @@ VectorXd MPC_Solver::Update_Solver(const casadi::DM& Aeq, const casadi::DM& beq,
         // Set model parameters
         model_->set(GRB_IntParam_OutputFlag, false);
         model_->set(GRB_IntParam_MIPFocus, 1); 
-        model_->set(GRB_IntParam_DualReductions, 1); 
+        model_->set(GRB_IntParam_DualReductions, 1);
         
         //model_->set(GRB_DoubleParam_TimeLimit, 0.03); 
         //model_->set(GRB_DoubleParam_MIPGap, 0.1);
@@ -122,7 +122,7 @@ VectorXd MPC_Solver::Update_Solver(const casadi::DM& Aeq, const casadi::DM& beq,
         //model_->set(GRB_IntParam_SubMIPNodes, 100);
         //model_->set(GRB_IntParam_PoolSolutions, 10);
         //model_->set(GRB_IntParam_PoolSearchMode, 1);
-        //model_->set(GRB_DoubleParam_FeasibilityTol, 1e-2);
+        model_->set(GRB_DoubleParam_FeasibilityTol, 1e-2);
         
         //model_->set(GRB_IntParam_TuneResults, 15);
     }

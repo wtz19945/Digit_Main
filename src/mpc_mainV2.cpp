@@ -400,7 +400,7 @@ int main(int argc, char **argv){
         std::vector<double> swf_rq(swf_ref.data(), swf_ref.data() + swf_ref.size()); // reference traj
         std::vector<double> swf_obs(mpc_obs_info.data() + 4, mpc_obs_info.data() + 7); // foot obs position
         //std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 80000, 1, 8.0};
-        std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 80000, 1, 2.0};
+        std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 80000, 1, 0.0};
         if(mpc_pel_ref(1) < 0)
           avd_param[2] = -1;
 
@@ -420,7 +420,14 @@ int main(int argc, char **argv){
         mpc_input.push_back(swf_obs);
         mpc_input.push_back(avd_param);
 
+        double angle = atan2(-swf_obs[1],-swf_obs[0]) * 180 / M_PI;
+        if(swf_obs[1] < 0.0)
+          angle += 180;
+        if(swf_obs[1] > 0.0)
+          angle -= 180;
 
+        
+        digit_mpc.modify_theta(angle);
         QPSolution = digit_mpc.Update_MPC_(mpc_index,mpc_input);
         auto mpc_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - mpc_time_start);
         //cout << "solving time: " << mpc_time.count() << endl;

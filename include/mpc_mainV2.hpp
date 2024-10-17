@@ -63,6 +63,7 @@ public:
   double get_VarNum() {return Vars_Num_;};
   Eigen::VectorXd get_swing_foot() {return (stance_leg_ == 1) ? left_swing_ : right_swing_;};
   Eigen::VectorXd linspace(double start, double end, int num);
+  void modify_theta(const double& new_theta) {Weights_swf_param_.back() = new_theta;};
   int get_stance_leg() {return stance_leg_;};
   int get_Var_Num() {return Vars_Num_;};
   Eigen::VectorXd Update_MPC_(int traj_time, std::vector<std::vector<double>> mpc_input);

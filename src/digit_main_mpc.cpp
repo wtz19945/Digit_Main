@@ -683,7 +683,7 @@ int main(int argc, char* argv[])
       // reset position command when walking direction is changed
       switch(key_mode){
         case 5:
-          vel_des_x = 0.6;
+          vel_des_x = 0.3;
           break;
         case 6:
           vel_des_x = -0.3;
