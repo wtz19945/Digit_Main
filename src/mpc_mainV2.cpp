@@ -107,7 +107,7 @@ Digit_MPC::Digit_MPC(bool run_sim)
   
   // initialize solvers
   if(NPred_ == 4){
-    Cons_Num_ = {300,296,291,287};
+    Cons_Num_ = {304,300,295,291};
     Vars_Num_ = 181;
   }
   else if(NPred_ == 5){
@@ -400,7 +400,8 @@ int main(int argc, char **argv){
         std::vector<double> swf_rq(swf_ref.data(), swf_ref.data() + swf_ref.size()); // reference traj
         std::vector<double> swf_obs(mpc_obs_info.data() + 4, mpc_obs_info.data() + 7); // foot obs position
         //std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 80000, 1, 8.0};
-        std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 80000, 1, 2.0};
+        double acc_allowed = 5;
+        std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 80000, 1, 8.0, acc_allowed, QPSolution(3 * Nodes)};
         if(mpc_pel_ref(1) < 0)
           avd_param[2] = -1;
 
@@ -438,7 +439,7 @@ int main(int argc, char **argv){
           if(mpc_pel_ref(1) > 0)
             dx_offset = std::min(dx_offset + abs(error), 0.6);
           else
-            dx_offset = std::max(dx_offset - abs(error), -0.6);
+            dx_offset = std::max(dx_offset - abs(error), -0.0);
       } 
       else{
           if(mpc_pel_ref(1) > 0)
