@@ -184,6 +184,8 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, std::vector<std::vector<double>> 
   input.insert(input.end(), mpc_input[12].begin(), mpc_input[12].end());
   input.insert(input.end(), Weights_swf_param_.begin(), Weights_swf_param_.end());
   input.insert(input.end(), mpc_input[13].begin(), mpc_input[13].end());
+  input.insert(input.end(), mpc_input[14].begin(), mpc_input[14].end());
+
   std::vector<casadi::DM> MPC_arg = {input,sol_init_};  
   std::vector<casadi::DM> res;
 
@@ -400,10 +402,35 @@ int main(int argc, char **argv){
         std::vector<double> swf_rq(swf_ref.data(), swf_ref.data() + swf_ref.size()); // reference traj
         std::vector<double> swf_obs(mpc_obs_info.data() + 4, mpc_obs_info.data() + 7); // foot obs position
         //std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 80000, 1, 8.0};
-        double acc_allowed = 5;
-        std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 80000, 1, 8.0, acc_allowed, QPSolution(3 * Nodes)};
+        double acc_allowed = 0;
+        std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 8000, 1, 2.0, acc_allowed, QPSolution(3 * Nodes)};
         if(mpc_pel_ref(1) < 0)
           avd_param[2] = -1;
+        
+        // height profile
+        VectorXd h_profile = VectorXd::Zero(10, 1);
+        //std::cout << mpc_index << std::endl;
+
+        for(int ik = mpc_index + 1; ik < 4; ik++){
+          double x_e = swf_x_ref(ik) - mpc_obs_info(4);
+          double y_e = swf_y_ref(ik) - mpc_obs_info(5);
+          double rz = digit_mpc.get_rz1();
+          double rz2 = digit_mpc.get_rz2();
+          if(x_e * x_e + y_e * y_e >= rz * rz){
+            h_profile(ik) = 0;
+          }
+          else{
+            VectorXd ref_o(3,1);
+            ref_o << swf_x_ref(ik), swf_y_ref(ik), swf_z_ref(ik);
+            VectorXd vec = (ref_o - mpc_obs_info.block(4,0,3,1));
+            VectorXd inter = mpc_obs_info.block(4,0,3,1) + rz * vec / vec.norm();
+            VectorXd inter2 = mpc_obs_info.block(4,0,3,1) + rz2 * vec / vec.norm();
+            h_profile(ik) = inter(2);
+            h_profile(5+ik) = inter2(2);
+            //h_profile(ik) = sqrt(rz * rz - x_e * x_e -  y_e * y_e);
+          }
+        }
+        std::vector<double> height_profile(h_profile.data(), h_profile.data() + h_profile.size());
 
         std::vector<std::vector<double>> mpc_input;
         mpc_input.push_back(q_init);
@@ -420,7 +447,7 @@ int main(int argc, char **argv){
         mpc_input.push_back(swf_rq);
         mpc_input.push_back(swf_obs);
         mpc_input.push_back(avd_param);
-
+        mpc_input.push_back(height_profile);
 
         QPSolution = digit_mpc.Update_MPC_(mpc_index,mpc_input);
         auto mpc_time = duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - mpc_time_start);

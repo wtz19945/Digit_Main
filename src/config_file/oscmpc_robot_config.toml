@@ -32,7 +32,7 @@ foot_P_y = 155
 foot_P_z = 252.5
 foot_D_x = 10
 foot_D_y = 10
-foot_D_z = 16
+foot_D_z = 10
 
 hip_yaw_P = 250
 hip_yaw_D = 15
