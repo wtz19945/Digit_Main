@@ -8,6 +8,10 @@
   <include file="$(find Digit_Ros)/launch/control_main_mpc_launch.launch">
 	<arg name="run_sim" value="$(arg run_sim_global)" /> 
   </include>
+
+  <include file="$(find Digit_Ros)/launch/path_finder_launch.launch">
+	<arg name="run_sim" value="$(arg run_sim_global)" /> 
+  </include>
   
   <node name="keyboard_control" pkg="Digit_Ros" type="keyinput.py"  output="screen"></node>
 
