@@ -43,8 +43,9 @@ class Astar_Planner {
 public:
   Astar_Planner();
   void Plan_Path();
-  void Update_Map(const std::vector<std::vector<int>>& new_grid) {
+  void Update_Map(const std::vector<std::vector<int>>& new_grid, const std::vector<std::vector<int>>& new_foot_grid) {
     grid_ = new_grid; 
+    foot_grid_ = new_foot_grid;
     rows_ = grid_.size();
     cols_ = grid_[0].size();};
 
@@ -66,6 +67,7 @@ public:
 
 private:
   std::vector<std::vector<int>> grid_;
+  std::vector<std::vector<int>> foot_grid_;
   std::pair<int, int> start_;
   std::pair<int, int> goal_;
   std::vector<std::pair<int, int>> path_;
@@ -73,8 +75,10 @@ private:
   int cols_;
   const std::vector<std::pair<int, int>> DIRECTIONS_4_ = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
   const std::vector<std::pair<int, int>> DIRECTIONS_8_ = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}, {1, 1}, {1, -1}, {-1, -1}, {-1, 1}};
-  std::string path_file_name_;
-  std::string grid_file_name_;
+  std::string path_file_name_;  // Text file to save the planned path
+  std::string grid_file_name_;  // Text file to store non-foot level obstacle info
+  Eigen::VectorXd weight_;
+
 };
 
 // Node structure for A*

@@ -17,6 +17,14 @@ Astar_Planner::Astar_Planner() {
         {0, 0, 0, 0, 0}
     };
     
+    foot_grid_ = {
+        {0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0}
+    };
+
     start_ = {0, 0};
     goal_ = {4, 4};
     rows_ = grid_.size();
@@ -35,6 +43,8 @@ Astar_Planner::Astar_Planner() {
 
     path_file_name_ = package_path + "/Data_Process/path.txt";
     grid_file_name_ = package_path + "/Data_Process/grid.txt";
+    weight_ = VectorXd(4,1);
+    weight_ << 2, 0, 1, 2;
 };
 
 void Astar_Planner::savePathToFile(){
@@ -118,13 +128,13 @@ void Astar_Planner::Plan_Path(){
         if (closedSet.find(next_Node) != closedSet.end()) continue;
 
         // Transition cost
-        double temp_g =  gCost[current] + 1;
+        double temp_g =  gCost[current] + sqrt(pow(dir.first,2) + pow(dir.second,2)) + foot_grid_[nx][ny];
         // Checking Nodes
         if (gCost.find(next_Node) == gCost.end()){
           // For new nodes, add it to the list
           next_Node.g = temp_g;
           next_Node.h = heuristic(nx, ny, goal_.first, goal_.second);
-          next_Node.f = next_Node.g + next_Node.h;
+          next_Node.f = next_Node.g + weight_(0) * next_Node.h + weight_(1) * foot_grid_[nx][ny];
 
           gCost[next_Node] = next_Node.g;
           cameFrom[next_Node] = current;
@@ -135,7 +145,7 @@ void Astar_Planner::Plan_Path(){
             // For existing nodes with higher cost, 
             next_Node.g = temp_g;
             next_Node.h = heuristic(nx, ny, goal_.first, goal_.second);
-            next_Node.f = next_Node.g + next_Node.h;
+            next_Node.f = next_Node.g + weight_(2) * next_Node.h + weight_(3) * foot_grid_[nx][ny];
 
             gCost[next_Node] = next_Node.g;
             cameFrom[next_Node] = current;
@@ -175,8 +185,11 @@ int main(int argc, char **argv){
   }
   string map_file_name_ = package_path + "/Data_Process/map.txt";
   std::vector<std::vector<int>> grid = readGridFromFile(map_file_name_);
-  path_finder.Update_Map(grid);
-  path_finder.Update_Goal({40,60});
+  map_file_name_ = package_path + "/Data_Process/foot_obs.txt";
+  std::vector<std::vector<int>> foot_grid = readGridFromFile(map_file_name_);
+
+  path_finder.Update_Map(grid, foot_grid);
+  path_finder.Update_Goal({15,73});
 
   auto pathfinder_time_start = std::chrono::system_clock::now();
   path_finder.Plan_Path();

@@ -27,6 +27,18 @@ for y in range(rows):
                 ax.add_patch(plt.Rectangle((x, y), 1, 1, color='black'))  # Obstacle
 
 
+with open("./src/Digit_Main/Data_Process/foot_obs.txt", "r") as f:
+    # Read grid data
+    grid_foot = []
+    for _ in range(rows):
+        grid_foot.append(list(map(int, f.readline().split())))
+
+grid_foot = np.array(grid_foot)
+for y in range(rows):
+        for x in range(cols):
+            if grid_foot[y, x] > 0:
+                ax.add_patch(plt.Rectangle((x, y), 1, 1, color='yellow'))  # Obstacle
+
 # Extract x, y coordinates
 x_coords, y_coords = zip(*path)
 
