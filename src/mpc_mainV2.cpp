@@ -56,8 +56,8 @@ Digit_MPC::Digit_MPC(bool run_sim)
   double Wdy = config->get_qualified_as<double>("MPC-Params.W_com_y_d").value_or(0);
   double Wux = config->get_qualified_as<double>("MPC-Params.W_foot_ux").value_or(0);
   double Wuy = config->get_qualified_as<double>("MPC-Params.W_foot_uy").value_or(0);
-  double Wdux = config->get_qualified_as<double>("MPC-Params.W_foot_dux").value_or(0);
-  double Wduy = config->get_qualified_as<double>("MPC-Params.W_foot_duy").value_or(0);
+  double utorx = config->get_qualified_as<double>("MPC-Params.utorlimx").value_or(0);
+  double utory = config->get_qualified_as<double>("MPC-Params.utorlimy").value_or(0);
   double Wobs = config->get_qualified_as<double>("MPC-Params.W_obs").value_or(0);
   du_cost_ = config->get_qualified_as<double>("MPC-Params.W_du").value_or(0);
   double r1 = config->get_qualified_as<double>("MPC-Params.obs_rad1").value_or(0);
@@ -92,7 +92,8 @@ Digit_MPC::Digit_MPC(bool run_sim)
   assert(th <= 45 && th >= -45);
 
   f_length_ = {flx, fly};
-  Weights_ss_ = {Wx, Wdx, Wy, Wdy, Wux, Wuy, Wdux, Wduy, Wobs};
+  utorlim_ = {utorx, utory};
+  Weights_ss_ = {Wx, Wdx, Wy, Wdy, Wux, Wuy};
   Weights_ds_ = {0, 2500, 0, 2500, 10000, 10000, 100, 6000, 15000};
   Weights_swf_Q_ = {swf_Qx, swf_Qy, swf_Qz};
   Weights_swf_param_ = {swf_xy_r1, swf_xy_r2, swf_z_r1, swf_z_r2, swf_obs_Qxy, swf_obs_Qz, swf_z_frac_,step_height_,step_z_max_, M, th * M_PI/180};
@@ -107,8 +108,8 @@ Digit_MPC::Digit_MPC(bool run_sim)
   
   // initialize solvers
   if(NPred_ == 4){
-    Cons_Num_ = {304,300,295,291};
-    Vars_Num_ = 181;
+    Cons_Num_ = {121,119,116,114};
+    Vars_Num_ = 84;
   }
   else if(NPred_ == 5){
     Cons_Num_ = {318,316,313,311};
@@ -172,12 +173,11 @@ VectorXd Digit_MPC::Update_MPC_(int traj_time, std::vector<std::vector<double>> 
   input.insert(input.end(), mpc_input[3].begin(), mpc_input[3].end());
   input.insert(input.end(), mpc_input[4].begin(), mpc_input[4].end());
   input.insert(input.end(), Weights_ss_.begin(), Weights_ss_.end());
-  input.insert(input.end(), r_.begin(), r_.end());
   input.insert(input.end(), mpc_input[5].begin(), mpc_input[5].end());
   input.insert(input.end(), mpc_input[6].begin(), mpc_input[6].end());
   input.insert(input.end(), mpc_input[7].begin(), mpc_input[7].end());
   input.insert(input.end(), mpc_input[8].begin(), mpc_input[8].end());
-  input.insert(input.end(), mpc_input[9].begin(), mpc_input[9].end());
+  input.insert(input.end(), utorlim_.begin(), utorlim_.end());
   input.insert(input.end(), mpc_input[10].begin(), mpc_input[10].end());
   input.insert(input.end(), mpc_input[11].begin(), mpc_input[11].end());
   input.insert(input.end(), Weights_swf_Q_.begin(), Weights_swf_Q_.end());
@@ -294,6 +294,12 @@ int main(int argc, char **argv){
   double h = digit_mpc.get_height();
   double w = sqrt(g/h);
 
+  MatrixXd A = MatrixXd::Zero(2,2);
+  MatrixXd B = MatrixXd::Zero(2,1);
+  A << 0,1, g/h, 0;
+  B << 0,g/h;
+  MatrixXd Anorm = (A * digit_mpc.get_steptime()).exp();
+
   // Keyboard Listener
   int key_mode = -1;
   InputListener input_listener(&key_mode);
@@ -354,7 +360,7 @@ int main(int argc, char **argv){
           dy_offset = w * foot_width * tanh(w * T / 2);
         else
           dy_offset = -w * foot_width* tanh(w * T / 2);
-        double fx_offset = dx_des / w * ((2 - exp(w*T) - exp(-w*T)) / (exp(w * T) - exp(-w * T)));
+        double fx_offset = -dx_des / w * ((2 - exp(w*T) - exp(-w*T)) / (exp(w * T) - exp(-w * T)));
 
         if(stance_leg_prev != digit_mpc.get_stance_leg()){
           //cout << "stance leg change!" << endl;
@@ -371,12 +377,6 @@ int main(int argc, char **argv){
               swf_z_ref(i) = swing_foot_cmd(10 + i);
           }
         }
-
-/*         double drift = 0.0;
-        if(swf_z_ref(2) < 0.2)
-            drift = (swf_z_ref(2) - 0.2) * 0.2;
-        else
-            drift = (swf_z_ref(2) - 0.2) * 0.5; */
         swf_ref << swf_x_ref, swf_y_ref, swf_z_ref;
         stance_leg_prev = digit_mpc.get_stance_leg();
 
@@ -385,13 +385,19 @@ int main(int argc, char **argv){
         std::vector<double> y_ref = {0, dy_offset + dy_des, -dy_offset + dy_des, dy_offset + dy_des, -dy_offset + dy_des};
         std::vector<double> f_init(mpc_f_init.data(), mpc_f_init.data() + mpc_f_init.size());
         std::vector<double> f_param = {0, 0, fx_offset, 0, 0, foot_width};
-        std::vector<double> qo_ic(mpc_obs_info.data(), mpc_obs_info.data() + 2);
-        std::vector<double> qo_tan(mpc_obs_info.data() + 2, mpc_obs_info.data() + 4);
-        std::vector<double> rt = {std::max(0.1 - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1),0.0)};
+        double rt = std::max(0.4 - (traj_time - digit_mpc.get_dstime()/2),0.0);
         if(mpc_index > 2)
-          rt[0] = std::max(0.1 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1), 0.0);
+          rt = std::max(0.4 - digit_mpc.get_dstime()/2  - (traj_time - digit_mpc.get_dstime()/2), 0.0);
+
+        MatrixXd Am = (A * rt).exp();
+        MatrixXd Bm = A.inverse() * (Am - MatrixXd::Identity(2,2)) * B;
+
+        std::vector<double> Am_vec(Am.data(), Am.data() + Am.size());
+        std::vector<double> Anorm_vec(Anorm.data(), Anorm.data() + Anorm.size());
+        std::vector<double> Bm_vec(Bm.data(), Bm.data() + Bm.size());
+
         std::vector<double> foff = {digit_mpc.get_uxoff() + foot_x_offset, digit_mpc.get_uyoff() + foot_y_offset};
-        std::vector<double> du_reff = {h, 0.0};
+        std::vector<double> utorlim = {0.0, 0.0};
         if(traj_time - digit_mpc.get_dstime()/2 - mpc_index * 0.1 < 0.03){
           mpc_swf_init = mpc_swf_cur;
           mpc_swf_init(0) -= 0.08;
@@ -403,13 +409,12 @@ int main(int argc, char **argv){
         std::vector<double> swf_obs(mpc_obs_info.data() + 4, mpc_obs_info.data() + 7); // foot obs position
         //std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 80000, 1, 8.0};
         double acc_allowed = 0;
-        std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 8000, 1, 2.0, acc_allowed, QPSolution(3 * Nodes)};
+        std::vector<double> avd_param{mpc_pel_ref(1) * digit_mpc.get_steptime() * 4 + dx_offset, 80000, 1, 0.0};
         if(mpc_pel_ref(1) < 0)
           avd_param[2] = -1;
         
         // height profile
         VectorXd h_profile = VectorXd::Zero(10, 1);
-        //std::cout << mpc_index << std::endl;
 
         for(int ik = mpc_index + 1; ik < 4; ik++){
           double x_e = swf_x_ref(ik) - mpc_obs_info(4);
@@ -417,7 +422,7 @@ int main(int argc, char **argv){
           double rz = digit_mpc.get_rz1();
           double rz2 = digit_mpc.get_rz2();
           if(x_e * x_e + y_e * y_e >= rz * rz){
-            h_profile(ik) = 0;
+            h_profile(ik) = 0 - 0.02;
           }
           else{
             VectorXd ref_o(3,1);
@@ -425,8 +430,8 @@ int main(int argc, char **argv){
             VectorXd vec = (ref_o - mpc_obs_info.block(4,0,3,1));
             VectorXd inter = mpc_obs_info.block(4,0,3,1) + rz * vec / vec.norm();
             VectorXd inter2 = mpc_obs_info.block(4,0,3,1) + rz2 * vec / vec.norm();
-            h_profile(ik) = inter(2);
-            h_profile(5+ik) = inter2(2);
+            h_profile(ik) = inter(2) - 0.02;
+            h_profile(5+ik) = inter2(2) - 0.02;
             //h_profile(ik) = sqrt(rz * rz - x_e * x_e -  y_e * y_e);
           }
         }
@@ -438,11 +443,11 @@ int main(int argc, char **argv){
         mpc_input.push_back(y_ref);
         mpc_input.push_back(f_init);
         mpc_input.push_back(f_param);
-        mpc_input.push_back(qo_ic);
-        mpc_input.push_back(qo_tan);
-        mpc_input.push_back(rt);
         mpc_input.push_back(foff);
-        mpc_input.push_back(du_reff);
+        mpc_input.push_back(Am_vec);
+        mpc_input.push_back(Anorm_vec);
+        mpc_input.push_back(Bm_vec);
+        mpc_input.push_back(utorlim);
         mpc_input.push_back(swf_cq);
         mpc_input.push_back(swf_rq);
         mpc_input.push_back(swf_obs);
@@ -454,17 +459,17 @@ int main(int argc, char **argv){
         //cout << "solving time: " << mpc_time.count() << endl;
       
       if(digit_mpc.get_stance_leg() == 1){
-        foot_change << QPSolution(3 * Nodes), QPSolution(6*Nodes + Npred);
+        foot_change << QPSolution(2 * (Npred + 1) + 1), QPSolution(2 * 2 * (Npred + 1) + Npred + 1);
       }
       else{
-        foot_change << QPSolution(3 * Nodes), QPSolution(6*Nodes + Npred);
+        foot_change << QPSolution(2 * (Npred + 1) + 1), QPSolution(2 * 2 * (Npred + 1) + Npred + 1);
       }
 
-      double error = abs(QPSolution(8) - QPSolution(0)) - abs(mpc_pel_ref(1) * digit_mpc.get_steptime()) + 0.005;
+      double error = abs(QPSolution(2) - QPSolution(0)) - abs(mpc_pel_ref(1) * digit_mpc.get_steptime()) + 0.005;
       if(error < 0 && mpc_pel_ref(1) != 0){
           std::cout << "hhhh acc: " << dx_offset << std::endl;
           if(mpc_pel_ref(1) > 0)
-            dx_offset = std::min(dx_offset + abs(error), 0.6);
+            dx_offset = std::min(dx_offset + abs(error), 0.0);
           else
             dx_offset = std::max(dx_offset - abs(error), -0.0);
       } 
@@ -474,13 +479,19 @@ int main(int argc, char **argv){
           else
             dx_offset = std::min(dx_offset + 0.01, 0.0);
       }
+      
+      double lam = 1.0 / (4 - mpc_index);
+      double next_x = QPSolution(0) + lam * (QPSolution(2) - QPSolution(0));
+      double next_dx = QPSolution(1) + lam * (QPSolution(3) - QPSolution(1));
+      double next_y = QPSolution(2 * (Npred + 1) + Npred) + lam * (QPSolution(2 * (Npred + 1) + Npred+ 2) - QPSolution(2 * (Npred + 1) + Npred));
+      double next_dy = QPSolution(2 * (Npred + 1) + Npred + 1) + lam * (QPSolution(2 * (Npred + 1) + Npred+ 3) - QPSolution(2 * (Npred + 1) + Npred + 1));
 
-      int off = 0;
-      cmd_pel_pos << QPSolution(0), QPSolution(2 + off), QPSolution(3*Nodes + Npred), QPSolution(3*Nodes + Npred + 2 + off);
-      cmd_pel_vel << QPSolution(1), QPSolution(3 + off), QPSolution(3*Nodes + Npred + 1), QPSolution(3*Nodes + Npred + 3 + off);
-      cmd_left_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
-      cmd_right_foot.block(0,0,2,1) = digit_mpc.get_foot_pos() + foot_change;
-      swing_foot_cmd = QPSolution.block(7*Nodes + 2 * Npred,0,15,1);
+      // x_cur, x_next, y_cur, y_next
+      cmd_pel_pos << QPSolution(0), next_x, QPSolution(2 * (Npred + 1) + Npred), next_y;
+      cmd_pel_vel << QPSolution(1), next_dx, QPSolution(2 * (Npred + 1) + Npred + 1), next_dy;
+      cmd_left_foot.block(0,0,2,1) = foot_change;
+      cmd_right_foot.block(0,0,2,1) = foot_change;
+      swing_foot_cmd = QPSolution.block(2 * 2 * (Npred + 1) + Npred + Npred + 2,0,15,1);
     }
 
     // interpolates result

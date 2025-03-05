@@ -18,6 +18,7 @@ Output: Digit command (target CoM and Foot Position)
 #include <Eigen/Dense>
 #include <Eigen/Core>
 #include <filesystem>
+#include <unsupported/Eigen/MatrixFunctions>
 
 // ROS pack
 #include "ros/ros.h"
@@ -107,6 +108,7 @@ private:
   // Conversion between casadi DM and Eigen is not available. Use cpp vector instead
   // QP Parameters
   std::vector<double> f_length_;   // stride max length
+  std::vector<double> utorlim_; // swing foot MPC params
   std::vector<double> Weights_ss_; // single support 
   std::vector<double> Weights_ds_; // double support
   std::vector<double> r_;          // obstacle radius

@@ -167,7 +167,7 @@ VectorXd MPC_Solver::Update_Solver(const casadi::DM& Aeq, const casadi::DM& beq,
             }
         }
     }
-
+    //std::cout << "miqp solving time " << model_->get(GRB_DoubleAttr_Runtime) << std::endl;
     model_->optimize();
     if (model_->get(GRB_IntAttr_Status) == GRB_OPTIMAL || model_->get(GRB_IntAttr_Status) == GRB_TIME_LIMIT) {
         if(model_->get(GRB_DoubleAttr_Runtime)  >= 0.02){

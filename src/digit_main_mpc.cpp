@@ -670,7 +670,7 @@ int main(int argc, char* argv[])
       VectorXd mpc_cmd_pel_vel = mpc_cmd_listener.get_pel_vel_cmd();
 
       double lam = 0.0 + 1.0 * (traj_time - ds_time/2) / (step_time - ds_time/2);
-      lam = 1.0;
+      //lam = 1.0;
       pel_pos_des(0) = (1 - lam) * mpc_cmd_pel_pos(0) + lam * mpc_cmd_pel_pos(1) + pel_pos(0);
       pel_pos_des(1) = (1 - lam) * mpc_cmd_pel_pos(2) + lam * mpc_cmd_pel_pos(3) + pel_pos(1);
       pel_vel_des(0) = (1 - lam) * mpc_cmd_pel_vel(0) + lam * mpc_cmd_pel_vel(1);
